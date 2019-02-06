@@ -9,6 +9,8 @@ def src_rate(diag=False, **kwargs):
     efficiency = Optics efficiency (87%)
     det_qe = Detector quantum efficiency (80%)
     
+    Returns NumPh, NumElectrons, each of which are ph / cm2 / sec and e- / cm2 / sec
+    
     
     """
     
@@ -19,17 +21,20 @@ def src_rate(diag=False, **kwargs):
     
     fλ_unit = ur.erg/ur.cm**2/ur.s / ur.Angstrom # Spectral radiances per Hz or per angstrom
     ABmag = kwargs.pop('ABmag', 22*ur.ABmag)
-    diameter = kwargs.pop('diameter', 30*ur.cm)
     λ_band = kwargs.pop('band', [260,300]*ur.nm)
-        
+    
+    
+    diameter = kwargs.pop('diameter', 21.*ur.cm)
+    Area_Tel = np.pi * (diameter.to(ur.cm)*0.5)**2
+
+    
     elec_per_eV = 1 / (3.6*ur.eV) # per electron for Si
-    Area_Tel = np.pi*(diameter.to(ur.cm)*0.5)**2
         
     λ_bandpass = np.abs(λ_band[1] - λ_band[0])
     λ_mid = np.mean(λ_band)
     
     F_λ = ABmag.to(fλ_unit, equivalencies=ur.spectral_density(λ_mid)) # Already converts to flux at this midpoint
-    ReceivedPower = (λ_bandpass * F_λ * Area_Tel).to(ur.eV/ ur.s)
+    ReceivedPower = (Area_Tel*λ_bandpass * F_λ).to(ur.eV/ ur.s)
     
     ph_energy = (cr.h.cgs * cr.c.cgs / λ_mid.cgs)
     
@@ -37,8 +42,12 @@ def src_rate(diag=False, **kwargs):
     NumElectrons = ReceivedPower * elec_per_eV
     
     if diag:
+        print()
         print('Source Computation Integrating over PSF')
+        print('Telescope Diameter: {}'.format(diameter))
         print('Fλ {}'.format(F_λ))
+        
+        print('Fλ ABmag {}'.format((F_λ).to(ur.ABmag, equivalencies=ur.spectral_density(λ_mid))))
         print('Eff λ {}'.format(λ_mid))
         print('Bandpass: {}'.format(λ_bandpass))
         print('Collecting Area: {}'.format(Area_Tel))
@@ -67,6 +76,10 @@ def bgd_rate(**kwargs):
     medium_zodi = (False)
     high_zodi = (False)
     
+    
+    Returns NumPh, NumElectrons, each of which are ph / cm2 / pixel and e- / cm2 / pxiel
+ 
+    
     """
     
     
@@ -83,17 +96,12 @@ def bgd_rate(**kwargs):
 
     diag = kwargs.pop('diag', False)
     
-    diameter = kwargs.pop('diameter', 21*ur.cm)
-
     pixel_size = kwargs.pop('pixel_size', 6*ur.arcsec)
     pixel_area = pixel_size**2
 
-    efficiency = kwargs.pop('efficiecny', 0.5)
-    
-    
+    diameter = kwargs.pop('diameter', 21.*ur.cm)
+    Area_Tel = np.pi*(diameter.to(ur.cm)*0.5)**2
 
-    # Effective Collecting Area of the telescope.
-    Area_Tel = efficiency*(diameter.to(ur.cm)*0.5)**2
     
     low_zodi = kwargs.pop('low_zodi', True)
     med_zodi = kwargs.pop('med_zodi', False)
@@ -140,9 +148,11 @@ def bgd_rate(**kwargs):
     
     if diag:
         print('Background Computation Integrating over Pixel Area')
+        print('Telescope diameter: {}'.format(diameter))
+        print('Telescope aperture: {}'.format(Area_Tel))
         print('Fλ total per arcsec2 {}'.format(fden))
-        print('Fλ ABmag per arcsec2 {}'.format((F_λ*scale_factor*pixel_area).to(ur.ABmag, equivalencies=ur.spectral_density(λ_mid))))
-        print('Bandpass: {}'.format(λ_bandpass))        
+        print('Fλ ABmag per pixel {}'.format((fden*pixel_area).to(ur.ABmag, equivalencies=ur.spectral_density(effective_wavelength))))
+        print('Bandpass: {}'.format(bandpass))        
         print('Collecting Area: {}'.format(Area_Tel))
         print('Pixel Area: {}'.format(pixel_area))
         print('Photons {}'.format(NumPhotons))
@@ -152,50 +162,99 @@ def bgd_rate(**kwargs):
     
     
     
-def find_limit(band, **kwargs):
+def find_limit(band, snr_limit, **kwargs):
+    """
+    Find the ABmag that results in a 10-sigma detection
+    
+    Required inputs:
+    band = Bandpass (180-220)*ur.nm
+    
+    Optional Inputs (defaults):
+    
+    
+    
+    diameter=Telescope Diameter (21*u.cm)
+    efficiency=Optical throughput (50%). Should include ALL photon-path terms.    
+    
+    pixel_size=Angular size of the pixel (6*ur.arcsec)
+    diag = Diagnostics toggle (False)
+    psf_size = FWHM of PSF (10. *ur.arcsec)
+    ---> pixel size is assumed to be psf_size / 2
+
+    exposure = Exposure time (300*ur.s)
+    
+    qe = Detector quantum efficiency (80%)
+
+    src_diag = Turn on diagnostics during source computation (False)
+    bgd_diag = Turn on diagnostics during background computation (True)
+    snr_diag = Report SNR diagnostics (True)
+
+    neff_bgd = Effective aperture background contribution, in pixels (9)
+
+    
+    """
 
     from astropy import units as ur
     
     import numpy as np
     
-#     exposure = kwargs.pop('exposure', 300*ur.s)
+    
+    # PSF size and pixel size
     psf_size = kwargs.pop('psf_size', 10*ur.arcsec)
-#     snr_limit = kwargs.pop('snr_limit', 5.0)
-#     diameter = kwargs.pop('diameter', 21*ur.cm)
-#     diag = kwargs.pop('diag', True)
-#     
-#     aperture_size_pixels = kwargs.pop('aperture_size_pixels', 25.)
-#     efficiency = kwargs.pop('efficiency', 0.87)
-#     qe = kwargs.pop('det_qe', 0.8)
-
     pixel_size = psf_size*0.5
+
+
+    # Effective number of background pixels
+    neff_bgd = kwargs.pop('neff_bgd', 9.0)
+    
+
+    # Effective Collecting Area of the telescope.
+    diameter = kwargs.pop('diameter', 21*ur.cm)
+    efficiency = kwargs.pop('efficiency', 0.5)
+    
+    # Exposure time
+    exposure = kwargs.pop('exposure', 300*ur.s)
+    
+    # Detector Q.E.
+    qe = kwargs.pop('qe', 0.8)
+    
+    EffectiveArea = efficiency*(diameter.to(ur.cm)*0.5)**2
+
+    src_diag = kwargs.pop('src_diag', False)
+    bgd_diag = kwargs.pop('bgd_diag', True)
+    snr_diag = kwargs.pop('snr_diag', True)
+
 
     # Returns rates per pixel:
 #     nbgd_ph, nbgd_elec = bgd_rate(band=band, diag=False,diameter = diameter,
 #         pixel_size = pixel_size, **kwargs)
-    nbgd_ph, nbgd_elec = bgd_rate(pixel_size = pixel_size, **kwargs)
+    nbgd_ph, nbgd_elec = bgd_rate(band=band, pixel_size = pixel_size,diag=bgd_diag,
+        diameter=diameter, **kwargs)
     
-    return
-
-    # Below is now background electrons in the PSF
-    bgd = nbgd_elec * aperture_size_pixels * efficiency * qe * exposure
+    
+    
+    # nbgd_elec is the number of background electrons per pixel per sec  
+    bgd = nbgd_elec * neff_bgd  * exposure * qe * efficiency
+    # bgd is now measured electrons during the exposure
     
     for dmag in np.arange(1000):
-        magtest = (15. + dmag * 0.1) * ur.ABmag
-        src_ph, src_elec = src_rate(ABmag=magtest, diag=False,diameter=diameter,band=band, **kwargs)
-        
+        magtest = (18. + dmag * 0.1) * ur.ABmag
+        src_ph, src_elec = src_rate(ABmag=magtest,
+                                    band=band,diameter=diameter,
+                                    diag= src_diag)
+       # src_elec is the number of electrons / cm2 / sec
         # Turn this in to electrons per second:
-        src = exposure * src_elec * efficiency * qe
-
-        σ = np.sqrt(src + bgd)
-        SNR = src / σ
+        src = src_elec * qe * exposure * efficiency
+        sig = np.sqrt(src + bgd)
+        SNR = src / sig
 
         if SNR < snr_limit:
-
-            if diag:
+            if snr_diag:
                 print()
+                print('SNR Computation')
                 print('Inputs: ')
                 print('Exposure {}'.format(exposure))
+                print('Efficiency {}'.format(efficiency))
                 print('Optics Diameter: {}'.format(diameter))
                 print('PSF Size: {}'.format(psf_size))
                 print()
@@ -230,7 +289,7 @@ def compute_snr(band, ABmag, **kwargs):
     snr_limit = kwargs.pop('snr_limit', 5.0)
     diameter = kwargs.pop('diameter', 30*ur.cm)
     diag = kwargs.pop('diag', False)
-    aperture_size_pixels = kwargs.pop('aperture_size_pixels', 25.)
+    aperture_size_pixels = kwargs.pop('aperture_size_pixels',9.)
     efficiency = kwargs.pop('efficiency', 0.87)
     qe = kwargs.pop('det_qe', 0.8)
 
@@ -239,12 +298,14 @@ def compute_snr(band, ABmag, **kwargs):
     pixel_size = psf_size*0.5
 
     # Returns rates per pixel:
-    nbgd_ph, nbgd_elec = bgd_rate(band=band, diag=False,diameter = diameter, pixel_size = pixel_size, **kwargs)
+    nbgd_ph, nbgd_elec = bgd_rate(band=band, diag=False,diameter = diameter,
+        pixel_size = pixel_size, **kwargs)
 
     # Below is now background electrons in the PSF
     bgd = nbgd_elec * aperture_size_pixels * efficiency * qe * exposure
     
-    src_ph, src_elec = src_rate(ABmag=ABmag, diag=False,diameter=diameter,band=band, **kwargs)
+    src_ph, src_elec = src_rate(ABmag=ABmag, diag=False,
+        diameter=diameter,band=band, **kwargs)
     # Turn this in to electrons per second:
     src = exposure * src_elec * efficiency * qe
 
@@ -254,12 +315,19 @@ def compute_snr(band, ABmag, **kwargs):
     if diag:
     
         print()
-        print('Exposure {}:'.format(exposure))
-        print('Magnitude test: {}'.format(ABmag))
-        print('Optical Efficiency: {}'.format(efficiency))
+        print('SNR Computation')
+        print('Inputs: ')
+        print('Exposure {}'.format(exposure))
+        print('Efficiency {}'.format(efficiency))
+        print('Optics Diameter: {}'.format(diameter))
+        print('PSF Size: {}'.format(psf_size))
+        print('ABMag: {}'.format(ABmag))
+        print()
+        print('Outputs:')
         print('Source Counts: {}'.format(src))
         print('Background Counts: {}'.format(bgd))
         print('Signal to noise ratio: {}'.format(SNR))
+        print()
 
     return SNR
 
