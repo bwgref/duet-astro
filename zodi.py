@@ -54,7 +54,5 @@ def load_zodi(**kwargs):
     # Normalize to flux density at 500 nm:
     spec['flux'] *= (scale*1e-8 / scale_norm) * ftab_unit
     
-
-    
     return spec
     
