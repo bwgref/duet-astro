@@ -206,6 +206,118 @@ def bgd_sky_rate(**kwargs):
 
     
     
+def outofband_bgd_sky_rate(**kwargs):
+    """
+    Loads the zodiacal background and normalizes it at 500 nm to a particular
+    flux level (low_zodi = 77, med_zodi = 300, high_zodi = 6000), which are taken from
+    a paper (to be dropped here later).
+    Calculates out-of-band contribution to the background (up to a maximum wavelength, default 900 nm).
+    Out-of-band rejection efficiency is folded in later, in the snr calculation.
+        
+    Optional Inputs (defaults):
+    band = Bandpass (180-220)*ur.nm
+    diameter=Telescope Diameter (21*ur.cm)
+    pixel_size=Angular size of the pixel (6*ur.arcsec)
+    max_wav = cutoff wavelength of detector (900*ur.nm)
+    diag = Diagnostics toggle (False)
+    
+    low_zodi = (True)
+    medium_zodi = (False)
+    high_zodi = (False)
+    
+    
+    Returns NumPh, NumElectrons, each of which are ph / cm2 / pixel and e- / cm2 / pixel
+ 
+    
+    """
+    
+    
+    import astropy.units as ur
+    import astropy.constants as cr
+    import numpy as np
+    from zodi import load_zodi
+
+
+    # Set up units here for flux conversion below
+    fλ_unit = ur.erg/ur.cm**2/ur.s / ur.Angstrom # Spectral radiances per Hz or per angstrom
+    fλ_density_unit = fλ_unit / (ur.arcsec *ur.arcsec)
+
+
+    diag = kwargs.pop('diag', False)
+    
+    pixel_size = kwargs.pop('pixel_size', 6*ur.arcsec)
+    pixel_area = pixel_size**2
+
+    diameter = kwargs.pop('diameter', 21.*ur.cm)
+    Area_Tel = np.pi*(diameter.to(ur.cm)*0.5)**2
+    max_wav = kwargs.pop('max_wav', 900.*ur.nm)
+    
+    low_zodi = kwargs.pop('low_zodi', True)
+    med_zodi = kwargs.pop('med_zodi', False)
+    high_zodi = kwargs.pop('high_zodi', False)
+    
+    
+    band = kwargs.pop('band', [180,220]*ur.nm)
+    bandpass = np.abs(band[1] - band[0])
+
+    effective_wavelength = (np.mean(band)).to(ur.AA)
+    ph_energy = (cr.h.cgs * cr.c.cgs / effective_wavelength.cgs).to(ur.eV)
+
+    elec_per_eV = 1 / (3.6*ur.eV) # per electron for Si
+    
+#     ABmag = 20*ur.ABmag # Just a place holder here
+#     F_λ = ABmag.to(fλ_unit, equivalencies=ur.spectral_density(λ_mid)) # Already converts to flux at this midpoint
+
+
+    if low_zodi:
+        zodi_level = 77
+    if med_zodi:
+        zodi_level = 300
+    if high_zodi:
+        zodi_level=6000
+        
+    zodi = load_zodi(scale=zodi_level)
+
+    ctr = 0
+    flux_density = 0
+    for ind, wv in enumerate(zodi['wavelength']):
+        if ( (wv >= band[0].to(ur.AA).value ) & (wv <= band[1].to(ur.AA).value) | (wv >= max_wav.to(ur.AA).value)):
+            continue
+        ctr += 1
+        flux_density += zodi['flux'][ind]
+
+    # Effective flux density in the band, per arcsecond:
+    flux_density /= float(ctr)
+    fden = flux_density.to(fλ_density_unit)
+    
+    outofbandpass = np.abs(max_wav - zodi['wavelength'][0]*ur.AA)-bandpass
+
+    ReceivedPower = (outofbandpass.to(ur.AA) * fden * Area_Tel * pixel_area).to(ur.eV/ ur.s)
+    NumPhotons = ReceivedPower / ph_energy # Number of photons
+
+
+    NumPhotons = NumPhotons 
+    
+    ElectronsPerPhoton = (ph_energy.to(ur.eV)) * elec_per_eV 
+
+    NumElectrons = ReceivedPower * elec_per_eV 
+    
+    if diag:
+        print('Background Computation Integrating over Pixel Area')
+        print('Telescope diameter: {}'.format(diameter))
+        print('Telescope aperture: {}'.format(Area_Tel))
+        print('Fλ total per arcsec2 {}'.format(fden))
+        print('Fλ ABmag per pixel {}'.format((fden*pixel_area).to(ur.ABmag, equivalencies=ur.spectral_density(effective_wavelength))))
+        print('Bandpass: {}'.format(bandpass))
+        print('Detector cutoff wavelength: {}'.format(max_wav))        
+        print('Collecting Area: {}'.format(Area_Tel))
+        print('Pixel Area: {}'.format(pixel_area))
+        print('Photons {}'.format(NumPhotons))
+        
+    return NumPhotons, NumElectrons
+
+
+
     
 def compute_snr(band, ABmag, **kwargs):
     """
@@ -234,6 +346,7 @@ def compute_snr(band, ABmag, **kwargs):
     neff_bgd = kwargs.pop('neff_bgd',5.6)
     efficiency = kwargs.pop('efficiency', 0.87)
     qe = kwargs.pop('det_qe', 0.8)
+    outofband_qe = kwargs.pop('outofband_qe', 0.001)
 
     qe = kwargs.pop('det_qe', 0.8)
 
@@ -243,13 +356,17 @@ def compute_snr(band, ABmag, **kwargs):
     nbgd_ph, nbgd_elec = bgd_sky_rate(band=band, diag=bgd_diag,diameter = diameter,
         pixel_size = pixel_size, **kwargs)
 
+    # Returns rates per pixel due to out-of-band sky backgrounds
+    noobbgd_ph, noobbgd_elec = outofband_bgd_sky_rate(band=band, diag=bgd_diag,diameter = diameter,
+        pixel_size = pixel_size, **kwargs)
+
     # Get background due to electronics:
     bgd_elec = bgd_electronics_rate(diag=bgd_elec_diag)
     
 
-    # Below is now background electrons in the PSF and the electronics background
+    # Below is now background electrons in the PSF plus out-of-band backgrounds in the PSF and the electronics background
     # rates.
-    bgd = nbgd_elec  * efficiency * qe * exposure + bgd_elec * exposure
+    bgd = nbgd_elec  * efficiency * qe * exposure + noobbgd_elec * efficiency * outofband_qe * exposure + bgd_elec * exposure
     
     src_ph, src_elec = src_rate(ABmag=ABmag, diag=src_diag,
         diameter=diameter,band=band, **kwargs)
