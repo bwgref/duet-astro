@@ -57,3 +57,118 @@ def load_telescope_parameters(version, **kwargs):
         print('Effective Area {}'.format( efficiency * pi * (0.5*diameter)**2))
               
     return diameter, qe, psf_fwhm, efficiency
+    
+    
+def load_qe(**kwargs):
+    """
+    Loads the detector QE and returns the values.
+    
+    band = 1 (default, 180-220 nm)
+    band = 2 (260-320 nm)
+    band = 3 (340-380 nm)
+    
+    Syntax:
+    
+    wave, qe = load_qe(band = 1)
+    
+    """
+    import astropy.units as ur
+    import numpy as np
+    
+    band = kwargs.pop('band', 1)
+    diag = kwargs.pop('diag', False)
+    
+    indir = 'input_data/'
+    
+    if band == 1:
+        infile = indir+'detector_180_220nm.csv'
+    if band == 2:
+        infile = indir+'detector_260_300nm.csv'
+    if band == 3:
+        infile = indir+'detector_340_380nm.csv'
+
+
+
+        
+        
+    f = open(infile, 'r')
+    header = True
+    qe = {}
+    set = False
+    for line in f:
+        if header:
+            header = False
+            continue
+        fields = line.split(',')
+        if not set:
+            wave = float(fields[0])
+            qe = float(fields[3])
+            set = True
+        else:
+            wave = np.append(wave, float(fields[0]))
+            qe = np.append(qe, float(fields[3]))
+ 
+    f.close()
+    
+    # Give wavelength a unit
+    wave = [i*ur.nm for i in wave]
+    
+    if diag:
+        print('Detector Q.E. loader')
+        print('Band {} has input file {}'.format(band, infile))
+        
+    
+    return wave, qe
+
+
+
+def load_reflectivity(**kwargs):
+    """
+    Loads the optics reflectivity and returns the values.
+    
+    
+    Syntax:
+    
+    wave, reflectivity = load_reflectivity()
+    
+    """
+    import astropy.units as ur
+    import numpy as np
+    
+    band = kwargs.pop('band', 1)
+    diag = kwargs.pop('diag', False)
+    
+    indir = 'input_data/'
+    
+    infile = indir+'al_mgf2_mirror_coatings.csv'
+
+    f = open(infile, 'r')
+    header = True
+    qe = {}
+    set = False
+    for line in f:
+        if header:
+            header = False
+            continue
+        fields = line.split(',')
+        if not set:
+            wave = float(fields[0])
+            reflectivity = float(fields[1])
+            set = True
+        else:
+            wave = np.append(wave, float(fields[0]))
+            reflectivity = np.append(reflectivity, float(fields[1]))
+ 
+    f.close()
+    
+    # Give wavelength a unit
+    wave = [i*ur.nm for i in wave]
+    
+    if diag:
+        print('Optics reflectivity loader')
+        print('Input file {}'.format(band, infile))
+        
+    
+    return wave, reflectivity
+
+
