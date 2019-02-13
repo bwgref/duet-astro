@@ -37,7 +37,7 @@ def load_zodi(**kwargs):
     spec = {'wavelength':[],
            'flux':[]}
     
-    f = open('scaled_zodiacal_spec.txt', 'r')
+    f = open('input_data/scaled_zodiacal_spec.txt', 'r')
     
     scale_norm = False
     for line in f:
