@@ -1,9 +1,7 @@
 def bb_abmag(diag=False, val=False, **kwargs):
     """
     Take a blackbody with a certain temperature and convert to AB magnitudes in two bands.
-    Scaled to u-band magnitude.
-    
-    Convert AB magnitude for a source into the number of source counts.
+    Scaled to u-band or Swift UVW2 magnitude.
     
     Inputs (defaults):
     umag = apparent u-band AB magnitude (22*ur.ABmag)
@@ -109,3 +107,95 @@ def sigerr(snr):
     
     return sigma
     
+def gettempbb(diag=False, val=False, **kwargs):
+    """
+    Take AB magnitudes in two bands (with errorbars) and fit a blackbody to retrieve the temperature.
+    Assumes no reddening.
+    
+    Inputs (defaults):
+    bandone = Bandpass 1st filter (180-220)*ur.nm
+    bandtwo = Bandpass 2nd filter (260-300)*ur.nm
+    magone = AB magnitude in band one (22*ur.ABmag) 
+    magtwo = AB magnitude in band two (22*ur.ABmag)
+    magone_err = error on the band one magnitude (0.1*ur.ABmag)  
+    magtwo_err = error on the band two magnitude (0.1*ur.ABmag)  
+    diag (False)
+        
+    Returns BBtemp, BBtemperr
+       
+    """
+    
+    import astropy.units as ur
+    import astropy.constants as cr
+    from astropy.modeling import models
+    from astropy.modeling.blackbody import FLAM
+    from scipy.optimize import curve_fit
+    import numpy as np
+    
+    bandone = kwargs.pop('bandone', [180,220]*ur.nm)
+    bandtwo = kwargs.pop('bandtwo', [260,300]*ur.nm)
+    magone = kwargs.pop('magone', 22*ur.ABmag)
+    magtwo = kwargs.pop('magtwo', 22*ur.ABmag)
+    magone_err = kwargs.pop('magone_err', 0.1*ur.ABmag)
+    magtwo_err = kwargs.pop('magtwo_err', 0.1*ur.ABmag)
+    
+    bbtemp_init = 10000. # Kelvin
+    bolflux_init = 1.E-10 # erg/(cm**2 * s)
+    
+    def bbfunc(x,*par):
+        temp,norm = par
+        mod = models.BlackBody1D(temperature=temp*ur.K,bolometric_flux = norm*ur.erg/(ur.cm**2 * ur.s))
+        return mod(x*ur.nm).to(FLAM, ur.spectral_density(x*ur.nm)).value
+    
+    # Since the fitter doesn't like quantities, make sure all inputs are in the correct units
+    bandone_nm = bandone.to(ur.nm)
+    bandtwo_nm = bandtwo.to(ur.nm)
+    
+    # Get central wavelengths (can be replaced later with effective wavelengths)
+    wav = [np.mean(bandone_nm).value, np.mean(bandtwo_nm).value]
+    
+    # Convert magnitudes and errors to flux densities
+    fden_one = magone.to(FLAM,equivalencies=ur.spectral_density(wav[0]*ur.nm))
+    fden_two = magtwo.to(FLAM,equivalencies=ur.spectral_density(wav[1]*ur.nm))
+    err_one = magone_err.to
+
+    coeff, var_matrix = curve_fit(bbfunc,[200,280],bb_fden.value,p0=[bbtemp_init, bolflux_init],sigma=bb_err.value,absolute_sigma=True)
+    
+    # Offset from comparison u-band magnitude:
+    #magoff = umag - magu
+    
+    # Offset from comparison u-band magnitude:
+    magoff = swiftmag - magsw
+
+    # Distance modulus
+    distmod = (5*np.log10(dist/dist0)).value*ur.ABmag
+
+    # Apply offsets
+    magone_final = magone + magoff + distmod
+    magtwo_final = magtwo + magoff + distmod
+ 
+    if diag:
+        print()
+        print('Compute ABmags in TD bands for blackbody')
+        print('Blackbody temperature: {}'.format(bbtemp))
+        print('Reference UVW2-band magnitude: {}'.format(swiftmag))
+        print('Band one: {}'.format(bandone))
+        print('Band two: {}'.format(bandtwo))
+        print('Distance: {}'.format(dist))
+        
+        print('Flux density band one: {}'.format(fluxden_one))
+        print('Flux density band two: {}'.format(fluxden_two))
+        print('Flux density Swift: {}'.format(fluxden_sw))
+        print('Distance modulus: {}'.format(distmod))
+        print('Raw ABmag band one: {}'.format(magone))
+        print('Raw ABmag band two: {}'.format(magtwo))
+        print('Raw ABmag Swift: {}'.format(magsw))
+        print('Offset from Swift band: {}'.format(magoff))
+        print('ABmag band one: {}'.format(magone_final))
+        print('ABmag band two: {}'.format(magtwo_final))
+        print('')    
+    
+    if val:
+        return magone_final.value, magtwo_final.value
+    else:
+        return magone_final, magtwo_final
