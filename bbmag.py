@@ -1,9 +1,7 @@
 def bb_abmag(diag=False, val=False, **kwargs):
     """
     Take a blackbody with a certain temperature and convert to AB magnitudes in two bands.
-    Scaled to u-band magnitude.
-    
-    Convert AB magnitude for a source into the number of source counts.
+    Scaled to u-band or Swift UVW2 magnitude.
     
     Inputs (defaults):
     umag = apparent u-band AB magnitude (22*ur.ABmag)
@@ -109,3 +107,96 @@ def sigerr(snr):
     
     return sigma
     
+def bbfunc(x,*par):
+    """
+    Helper function for gettempbb. Initialize a blackbody model without values.
+    """
+    import astropy.units as ur
+    from astropy.modeling import models
+    from astropy.modeling.blackbody import FLAM   
+    
+    temp,norm = par
+    mod = models.BlackBody1D(temperature=temp*ur.K,bolometric_flux = norm*ur.erg/(ur.cm**2 * ur.s))
+    return mod(x*ur.nm).to(FLAM, equivalencies=ur.spectral_density(x*ur.nm)).value
+    
+def gettempbb(diag=False, val=False, **kwargs):
+    """
+    Take AB magnitudes in two bands (with errorbars) and fit a blackbody to retrieve the temperature.
+    Assumes no reddening.
+    
+    Inputs (defaults):
+    bandone = Bandpass 1st filter (180-220)*ur.nm
+    bandtwo = Bandpass 2nd filter (260-300)*ur.nm
+    magone = AB magnitude in band one (22*ur.ABmag) 
+    magtwo = AB magnitude in band two (22*ur.ABmag)
+    magone_err = error on the band one magnitude (0.1*ur.ABmag)  
+    magtwo_err = error on the band two magnitude (0.1*ur.ABmag)
+    bbtemp_init = Initial BBtemperature for the fit (20000 K)  
+    diag (False)
+        
+    Returns BBtemp, BBtemperr
+       
+    """
+    
+    import astropy.units as ur
+    from astropy.modeling import models
+    from astropy.modeling.blackbody import FLAM
+    from scipy.optimize import curve_fit
+    import numpy as np
+    
+    bandone = kwargs.pop('bandone', [180,220]*ur.nm)
+    bandtwo = kwargs.pop('bandtwo', [260,300]*ur.nm)
+    magone = kwargs.pop('magone', 22*ur.ABmag)
+    magtwo = kwargs.pop('magtwo', 22*ur.ABmag)
+    magone_err = kwargs.pop('magone_err', 0.1*ur.ABmag)
+    magtwo_err = kwargs.pop('magtwo_err', 0.1*ur.ABmag)
+    
+    bbtemp_init = kwargs.pop('bbtemp_init', 20000.) # Kelvin
+    bolflux_init = 1.E-10 # erg/(cm**2 * s)
+    
+    # Since the fitter doesn't like quantities, make sure all inputs are in the correct units
+    bandone_nm = bandone.to(ur.nm)
+    bandtwo_nm = bandtwo.to(ur.nm)
+    
+    # Get central wavelengths (can be replaced later with effective wavelengths)
+    wav = [np.mean(bandone_nm).value, np.mean(bandtwo_nm).value]
+    
+    # Lists of magnitudes are weird...
+    mags = [magone.value, magtwo.value]*ur.ABmag
+    mags_err = np.array([magone_err.value, magtwo_err.value])
+    
+    # Convert magnitudes and errors to flux densities and remove units
+    fden = mags.to(FLAM,equivalencies=ur.spectral_density(wav*ur.nm)).value
+    snrs = 1./(10.**(mags_err/2.5) - 1.)
+    fden_err = fden / snrs
+
+    # Fit blackbody:
+    coeff, var_matrix = curve_fit(bbfunc, wav, fden, p0=[bbtemp_init, bolflux_init], sigma=fden_err, absolute_sigma=True)
+    perr = np.sqrt(np.diag(var_matrix))
+    
+    bbtemp = coeff[0]*ur.K
+    bbtemp_err = perr[0]*ur.K
+    
+    if diag:
+        print()
+        print('Fit blackbody to ABmags in two bands')
+        print('Blackbody temperature: {}'.format(bbtemp))
+        print('Band one: {}'.format(bandone))
+        print('Band two: {}'.format(bandtwo))
+        print('ABmag band one: {}'.format(magone))
+        print('ABmag error band one: {}'.format(magone_err))
+        print('ABmag band two: {}'.format(magtwo))
+        print('ABmag error band two: {}'.format(magtwo_err))
+        
+        print('Flux density band one: {}'.format(fden[0]))
+        print('Flux density band two: {}'.format(fden[1]))
+        print('Flux density error band one: {}'.format(fden_err[0]))
+        print('Flux density error band two: {}'.format(fden_err[1]))
+        print('Fitted blackbody temperature: {}'.format(bbtemp))
+        print('Fitted blackbody temperature error: {}'.format(bbtemp_err))
+        print('')    
+    
+    if val:
+        return bbtemp.value, bbtemp_err.value
+    else:
+        return bbtemp, bbtemp_err
