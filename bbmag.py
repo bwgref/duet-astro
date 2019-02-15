@@ -107,6 +107,18 @@ def sigerr(snr):
     
     return sigma
     
+def bbfunc(x,*par):
+    """
+    Helper function for gettempbb. Initialize a blackbody model without values.
+    """
+    import astropy.units as ur
+    from astropy.modeling import models
+    from astropy.modeling.blackbody import FLAM   
+    
+    temp,norm = par
+    mod = models.BlackBody1D(temperature=temp*ur.K,bolometric_flux = norm*ur.erg/(ur.cm**2 * ur.s))
+    return mod(x*ur.nm).to(FLAM, equivalencies=ur.spectral_density(x*ur.nm)).value
+    
 def gettempbb(diag=False, val=False, **kwargs):
     """
     Take AB magnitudes in two bands (with errorbars) and fit a blackbody to retrieve the temperature.
@@ -118,7 +130,8 @@ def gettempbb(diag=False, val=False, **kwargs):
     magone = AB magnitude in band one (22*ur.ABmag) 
     magtwo = AB magnitude in band two (22*ur.ABmag)
     magone_err = error on the band one magnitude (0.1*ur.ABmag)  
-    magtwo_err = error on the band two magnitude (0.1*ur.ABmag)  
+    magtwo_err = error on the band two magnitude (0.1*ur.ABmag)
+    bbtemp_init = Initial BBtemperature for the fit (20000 K)  
     diag (False)
         
     Returns BBtemp, BBtemperr
@@ -126,7 +139,6 @@ def gettempbb(diag=False, val=False, **kwargs):
     """
     
     import astropy.units as ur
-    import astropy.constants as cr
     from astropy.modeling import models
     from astropy.modeling.blackbody import FLAM
     from scipy.optimize import curve_fit
@@ -139,13 +151,8 @@ def gettempbb(diag=False, val=False, **kwargs):
     magone_err = kwargs.pop('magone_err', 0.1*ur.ABmag)
     magtwo_err = kwargs.pop('magtwo_err', 0.1*ur.ABmag)
     
-    bbtemp_init = 10000. # Kelvin
+    bbtemp_init = kwargs.pop('bbtemp_init', 20000.) # Kelvin
     bolflux_init = 1.E-10 # erg/(cm**2 * s)
-    
-    def bbfunc(x,*par):
-        temp,norm = par
-        mod = models.BlackBody1D(temperature=temp*ur.K,bolometric_flux = norm*ur.erg/(ur.cm**2 * ur.s))
-        return mod(x*ur.nm).to(FLAM, ur.spectral_density(x*ur.nm)).value
     
     # Since the fitter doesn't like quantities, make sure all inputs are in the correct units
     bandone_nm = bandone.to(ur.nm)
@@ -154,48 +161,42 @@ def gettempbb(diag=False, val=False, **kwargs):
     # Get central wavelengths (can be replaced later with effective wavelengths)
     wav = [np.mean(bandone_nm).value, np.mean(bandtwo_nm).value]
     
-    # Convert magnitudes and errors to flux densities
-    fden_one = magone.to(FLAM,equivalencies=ur.spectral_density(wav[0]*ur.nm))
-    fden_two = magtwo.to(FLAM,equivalencies=ur.spectral_density(wav[1]*ur.nm))
-    err_one = magone_err.to
-
-    coeff, var_matrix = curve_fit(bbfunc,[200,280],bb_fden.value,p0=[bbtemp_init, bolflux_init],sigma=bb_err.value,absolute_sigma=True)
+    # Lists of magnitudes are weird...
+    mags = [magone.value, magtwo.value]*ur.ABmag
+    mags_err = np.array([magone_err.value, magtwo_err.value])
     
-    # Offset from comparison u-band magnitude:
-    #magoff = umag - magu
+    # Convert magnitudes and errors to flux densities and remove units
+    fden = mags.to(FLAM,equivalencies=ur.spectral_density(wav*ur.nm)).value
+    snrs = 1./(10.**(mags_err/2.5) - 1.)
+    fden_err = fden / snrs
+
+    # Fit blackbody:
+    coeff, var_matrix = curve_fit(bbfunc, wav, fden, p0=[bbtemp_init, bolflux_init], sigma=fden_err, absolute_sigma=True)
+    perr = np.sqrt(np.diag(var_matrix))
     
-    # Offset from comparison u-band magnitude:
-    magoff = swiftmag - magsw
-
-    # Distance modulus
-    distmod = (5*np.log10(dist/dist0)).value*ur.ABmag
-
-    # Apply offsets
-    magone_final = magone + magoff + distmod
-    magtwo_final = magtwo + magoff + distmod
- 
+    bbtemp = coeff[0]*ur.K
+    bbtemp_err = perr[0]*ur.K
+    
     if diag:
         print()
-        print('Compute ABmags in TD bands for blackbody')
+        print('Fit blackbody to ABmags in two bands')
         print('Blackbody temperature: {}'.format(bbtemp))
-        print('Reference UVW2-band magnitude: {}'.format(swiftmag))
         print('Band one: {}'.format(bandone))
         print('Band two: {}'.format(bandtwo))
-        print('Distance: {}'.format(dist))
+        print('ABmag band one: {}'.format(magone))
+        print('ABmag error band one: {}'.format(magone_err))
+        print('ABmag band two: {}'.format(magtwo))
+        print('ABmag error band two: {}'.format(magtwo_err))
         
-        print('Flux density band one: {}'.format(fluxden_one))
-        print('Flux density band two: {}'.format(fluxden_two))
-        print('Flux density Swift: {}'.format(fluxden_sw))
-        print('Distance modulus: {}'.format(distmod))
-        print('Raw ABmag band one: {}'.format(magone))
-        print('Raw ABmag band two: {}'.format(magtwo))
-        print('Raw ABmag Swift: {}'.format(magsw))
-        print('Offset from Swift band: {}'.format(magoff))
-        print('ABmag band one: {}'.format(magone_final))
-        print('ABmag band two: {}'.format(magtwo_final))
+        print('Flux density band one: {}'.format(fden[0]))
+        print('Flux density band two: {}'.format(fden[1]))
+        print('Flux density error band one: {}'.format(fden_err[0]))
+        print('Flux density error band two: {}'.format(fden_err[1]))
+        print('Fitted blackbody temperature: {}'.format(bbtemp))
+        print('Fitted blackbody temperature error: {}'.format(bbtemp_err))
         print('')    
     
     if val:
-        return magone_final.value, magtwo_final.value
+        return bbtemp.value, bbtemp_err.value
     else:
-        return magone_final, magtwo_final
+        return bbtemp, bbtemp_err
