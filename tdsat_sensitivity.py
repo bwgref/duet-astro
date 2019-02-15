@@ -56,6 +56,7 @@ def src_rate(diag=False, **kwargs):
         print('Fλ {}'.format(F_λ))
         print('ReceivedPower: {}'.format(ReceivedPower))
         print('Photons per second: ', NumPh)
+        print('Photons per second per cm2: ', NumPh / Area_Tel)
         
         print('Fλ ABmag {}'.format((F_λ).to(ur.ABmag, equivalencies=ur.spectral_density(λ_mid))))
         print('Eff λ {}'.format(λ_mid))
@@ -68,32 +69,44 @@ def src_rate(diag=False, **kwargs):
     return NumPh, NumElectrons
 
 
-def bgd_electronics_rate(**kwargs):
+def bgd_electronics(exposure, **kwargs):
     """
-    Place holder to account for read noise, dark currents, etc
+    Place holder to account for dark currents, etc
+    
+    Required inputs:
+    exposure = Integration time of the frame (i.e. 300*ur.sc)
     
     Optional inputs:
     
     dark_current = Dark current in electrons per pixel per second (0.065)
+    read noise = read noise in eelcetrons per frame (33)
 
-    Returns: Electrons per second
+    Returns: Number of background electrons 
+
+    Syntax:
+    
+    nelec = bgd_electronics(300*ur.s)
 
     """
     import astropy.units as ur
     dark_current = kwargs.pop('dark_current', 0.065 / (1*ur.s)) # electrons per pixel
+    read_noise = kwargs.pop('read_noise', 33.)
     diag = kwargs.pop('diag', False)
     
     # Just dark current for now...
-    BgdRate = dark_current
+    nelec = dark_current *exposure + read_noise
     
     if diag:
-        print('Dark current (electrons) {}'.format(dark_current))
-        print('Total electronis bgd (electrons) {}'.format(BgdRate))
+        print('Dark current (electrons / sec) {}'.format(dark_current))
+        print('Exposure {}'.format(exposure))
+        print('Dark electrons (electrons) {}'.format(dark_current*exposure))
+        print('Read noise (electrons / pixel / frame) {}'.format(read_noise))
+        print('Total electronis bgd (electrons) {}'.format(nelec))
     
 
     
 
-    return BgdRate    
+    return nelec    
 
 
 
@@ -347,6 +360,8 @@ def compute_snr(band, ABmag, **kwargs):
     efficiency = kwargs.pop('efficiency', 0.87)
     qe = kwargs.pop('det_qe', 0.8)
     outofband_qe = kwargs.pop('outofband_qe', 0.001)
+    
+    frames = kwargs.pop('frames', 2)
 
     qe = kwargs.pop('det_qe', 0.8)
 
@@ -361,12 +376,12 @@ def compute_snr(band, ABmag, **kwargs):
         pixel_size = pixel_size, **kwargs)
 
     # Get background due to electronics:
-    bgd_elec = bgd_electronics_rate(diag=bgd_elec_diag)
+    bgd_elec = bgd_electronics(exposure, diag=bgd_elec_diag)
     
 
     # Below is now background electrons in the PSF plus out-of-band backgrounds in the PSF and the electronics background
     # rates.
-    bgd = nbgd_elec  * efficiency * qe * exposure + noobbgd_elec * efficiency * outofband_qe * exposure + bgd_elec * exposure
+    bgd = nbgd_ph  * efficiency * qe * exposure + noobbgd_ph * efficiency * outofband_qe * exposure + bgd_elec 
     
     src_ph, src_elec = src_rate(ABmag=ABmag, diag=src_diag,
         diameter=diameter,band=band, **kwargs)
@@ -376,7 +391,7 @@ def compute_snr(band, ABmag, **kwargs):
     # bgd has the dark current and the zodiacal background in there.
     # For now, assume that you're looking at the difference of two frames, hence the
     # factor of two below.
-    σ = np.sqrt(src + 2 * neff_bgd * bgd)
+    σ = np.sqrt(src + frames * neff_bgd * bgd)
     SNR = src / σ
 
     if diag:
@@ -455,7 +470,9 @@ def find_limit(band, snr_limit, **kwargs):
     src_diag = kwargs.pop('src_diag', False)
     bgd_elec_diag = kwargs.pop('bgd_elec_diag', False)
     snr_diag = kwargs.pop('snr_diag', False)
-    
+    outofband_qe = kwargs.pop('outofband_qe', 0.001)
+
+    frames = kwargs.pop('frames', 2)
 
     # Effective Collecting Area of the telescope default settings
     diameter = kwargs.pop('diameter', 21*ur.cm)
@@ -475,13 +492,18 @@ def find_limit(band, snr_limit, **kwargs):
     # Returns rates per pixel due to sky backgrounds (just zodiacal for now)
     nbgd_ph, nbgd_elec = bgd_sky_rate(band=band, pixel_size = pixel_size,diag=bgd_diag,
         diameter=diameter, **kwargs)
-        
+    
+    
+    # Returns rates per pixel due to out-of-band sky backgrounds
+    noobbgd_ph, noobbgd_elec = outofband_bgd_sky_rate(band=band, diag=bgd_diag,diameter = diameter,
+        pixel_size = pixel_size, **kwargs)
+
     # Get background due to electronics:
-    bgd_elec = bgd_electronics_rate(diag=bgd_elec_diag)
+    bgd_elec = bgd_electronics(exposure, diag=bgd_elec_diag)
  
     # Get total background rate per pixel (efficiency and q.e. don't operatre
     # on electronic noise):
-    bgd = nbgd_elec  * efficiency * qe * exposure + bgd_elec * exposure
+    bgd = nbgd_ph  * efficiency * qe * exposure + noobbgd_ph * efficiency * outofband_qe * exposure + bgd_elec
 
     # Dumb loop here. Start bright and keep getting fainter until you hit 10-sigma   
 
@@ -492,8 +514,8 @@ def find_limit(band, snr_limit, **kwargs):
             diameter=diameter,band=band, **kwargs)
 
        # src_elec is the number of electrons / sec
-        src = src_elec * qe * exposure * efficiency
-        sig = np.sqrt(src + 2*neff_bgd*bgd)
+        src = src_ph * qe * exposure * efficiency
+        sig = np.sqrt(src + frames*neff_bgd*bgd)
         SNR = src / sig
 
         if SNR < snr_limit:
