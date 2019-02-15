@@ -360,6 +360,7 @@ def compute_snr(band, ABmag, **kwargs):
     efficiency = kwargs.pop('efficiency', 0.87)
     qe = kwargs.pop('det_qe', 0.8)
     outofband_qe = kwargs.pop('outofband_qe', 0.001)
+        
     
     frames = kwargs.pop('frames', 2)
 
@@ -376,7 +377,7 @@ def compute_snr(band, ABmag, **kwargs):
         pixel_size = pixel_size, **kwargs)
 
     # Get background due to electronics:
-    bgd_elec = bgd_electronics(exposure, diag=bgd_elec_diag)
+    bgd_elec = bgd_electronics(exposure, diag=bgd_elec_diag, **kwargs)
     
 
     # Below is now background electrons in the PSF plus out-of-band backgrounds in the PSF and the electronics background
