@@ -56,6 +56,7 @@ def src_rate(diag=False, **kwargs):
         print('Fλ {}'.format(F_λ))
         print('ReceivedPower: {}'.format(ReceivedPower))
         print('Photons per second: ', NumPh)
+        print('Photons per second per cm2: ', NumPh / Area_Tel)
         
         print('Fλ ABmag {}'.format((F_λ).to(ur.ABmag, equivalencies=ur.spectral_density(λ_mid))))
         print('Eff λ {}'.format(λ_mid))
