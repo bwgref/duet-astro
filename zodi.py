@@ -6,6 +6,13 @@ import numpy as np
 def wavelength_to_energy(wave):
     """
     Convert wavelength to energy. Wavelength must have unit.
+
+    Examples
+    --------
+    >>> from astropy import units as u
+    >>> energy = wavelength_to_energy(1239.84193 * u.nm)
+    >>> np.isclose(energy.to(u.eV).value, 1)
+    True
     """
     from astropy import units as u
     from astropy import constants as c
