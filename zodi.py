@@ -5,7 +5,7 @@ import numpy as np
 
 def wavelength_to_energy(wave):
     """
-
+    Convert wavelength to energy. Wavelength must have unit.
     """
     from astropy import units as u
     from astropy import constants as c
@@ -13,10 +13,38 @@ def wavelength_to_energy(wave):
 
 
 def rebin_spectrum(wave, flux, new_wave_grid):
+    """Regrid spectrum from wave to new_wave_grid."""
     from scipy.stats import binned_statistic
     stat, _, _ = binned_statistic(wave, flux, statistic='mean',
                             bins=new_wave_grid)
     return stat
+
+
+def load_airglow(airglow_spec):
+    """Load airglow spectra and rebin them to 1 Angstrom."""
+    from astropy import units as ur
+    wave, flux = np.genfromtxt(airglow_spec,
+                               unpack=True, comments=";")
+    w0 = np.floor(wave.min())
+    w1 = np.ceil(wave.max()) + 1
+    new_wave_grid = np.arange(w0 - 0.5, w1 + 0.5, 1)
+
+    new_flux = rebin_spectrum(wave, flux, new_wave_grid)
+    new_wave_grid = np.arange(w0, w1, 1)
+
+    # eliminate NaNs
+    good = (new_flux == new_flux)
+
+    new_wave_grid = new_wave_grid[good] * ur.Angstrom
+
+    photon_to_power = wavelength_to_energy(new_wave_grid) / ur.s
+
+    # Need to work around Astropy bug with units
+    new_flux = new_flux[good] * photon_to_power / ur.A / ur.cm ** 2 / ur.sr
+    new_flux *= ur.W / (ur.J / ur.s)
+    new_flux *= ur.A / (ur.um)
+    new_flux *= ur.cm ** 2 / (ur.m ** 2)
+    return new_wave_grid, new_flux
 
 
 def load_zodi(**kwargs):
@@ -45,15 +73,11 @@ def load_zodi(**kwargs):
     For a Sun avoidance of 45 degrees this looks like a value of 200 - 900
     based strongly on the heliocentric longitdue. However, if you try
     72, 300, and 1000 it looks like you'll probably span this space.
-
-    Examples
-    --------
-    >>> a = load_zodi()
-
     """
     from astropy import units as ur
 
     scale = kwargs.pop('scale', 77)
+    return_wl_units = kwargs.pop('return_wl_units', False)
 
     ftab_unit = ur.W/ur.m**2 / ur.micron / ur.sr
 
@@ -71,35 +95,13 @@ def load_zodi(**kwargs):
     spec['flux'] = spec["flux"] * (scale*1e-8 / scale_norm) * ftab_unit
 
     for airglow_spec in glob.glob(os.path.join("input_data", "airglow*.dat")):
-        # read spectrum
-        wave, flux = np.genfromtxt(airglow_spec,
-                                   unpack=True, comments=";")
-        
-        # rebin it to 1 Angstrom. The choice of +- 0.5 is because of how
-        # binned_statistics works
-        w0 = np.floor(wave.min())
-        w1 = np.ceil(wave.max()) + 1
-        new_wave_grid = np.arange(w0 - 0.5, w1 + 0.5, 1)
-        new_flux = rebin_spectrum(wave, flux, new_wave_grid)
-        # back to wanted grid (half bins of grid used in rebin_spectrum)
-        new_wave_grid = np.arange(w0, w1, 1)
+        new_wave_grid, new_flux = load_airglow(airglow_spec)
 
-        # eliminate NaNs
-        good = (new_flux == new_flux)
-
-        # give units!
-        new_wave_grid = new_wave_grid[good] * ur.Angstrom
-        photon_to_power = wavelength_to_energy(new_wave_grid) / ur.s
-
-        # Need to work around Astropy bug with units, guiding the conversion
-        new_flux = new_flux[good] * photon_to_power / ur.A / ur.cm**2 / ur.sr
-        new_flux *= ur.W / (ur.J / ur.s)
-        new_flux *= ur.A / (ur.um)
-        new_flux *= ur.cm**2 / (ur.m**2)
-
-        # look for the wanted spectral bin and sum the new flux
         for w, f in zip(new_wave_grid, new_flux):
             idx = np.argmin(np.abs(spec['wavelength'] - w))
             spec["flux"][idx] += f
+
+    if not return_wl_units:
+        spec["wavelength"] = spec["wavelength"].value
 
     return spec
