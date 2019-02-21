@@ -20,17 +20,17 @@ def rebin_spectrum(wave, flux, new_wave_grid):
     return stat
 
 
-def load_airglow(airglow_spec):
+def load_airglow(airglow_spec, bin_width=1):
     """Load airglow spectra and rebin them to 1 Angstrom."""
     from astropy import units as ur
     wave, flux = np.genfromtxt(airglow_spec,
                                unpack=True, comments=";")
     w0 = np.floor(wave.min())
-    w1 = np.ceil(wave.max()) + 1
-    new_wave_grid = np.arange(w0 - 0.5, w1 + 0.5, 1)
+    w1 = np.ceil(wave.max()) + bin_width
+    new_wave_grid = np.arange(w0 - 0.5 * bin_width, w1 + 0.5 * bin_width, bin_width)
 
     new_flux = rebin_spectrum(wave, flux, new_wave_grid)
-    new_wave_grid = np.arange(w0, w1, 1)
+    new_wave_grid = np.arange(w0, w1, bin_width)
 
     # eliminate NaNs
     good = (new_flux == new_flux)
@@ -40,11 +40,9 @@ def load_airglow(airglow_spec):
     photon_to_power = wavelength_to_energy(new_wave_grid) / ur.s
 
     # Need to work around Astropy bug with units
-    new_flux = new_flux[good] * photon_to_power / ur.A / ur.cm ** 2 / ur.sr
-    new_flux *= ur.W / (ur.J / ur.s)
-    new_flux *= ur.A / (ur.um)
-    new_flux *= ur.cm ** 2 / (ur.m ** 2)
-    return new_wave_grid, new_flux
+    new_flux = new_flux[good] * photon_to_power / ur.Angstrom / ur.cm ** 2 / ur.sr
+
+    return new_wave_grid, new_flux.to(ur.W/ur.m**2 / ur.micron / ur.sr)
 
 
 def load_zodi(**kwargs):
@@ -77,6 +75,7 @@ def load_zodi(**kwargs):
     from astropy import units as ur
 
     scale = kwargs.pop('scale', 77)
+    bin_width = kwargs.pop('bin_width', 1)
     return_wl_units = kwargs.pop('return_wl_units', False)
 
     ftab_unit = ur.W/ur.m**2 / ur.micron / ur.sr
@@ -94,9 +93,11 @@ def load_zodi(**kwargs):
     # Normalize to flux density at 500 nm:
     spec['flux'] = spec["flux"] * (scale*1e-8 / scale_norm) * ftab_unit
 
+    print(spec["flux"])
     for airglow_spec in glob.glob(os.path.join("input_data", "airglow*.dat")):
-        new_wave_grid, new_flux = load_airglow(airglow_spec)
+        new_wave_grid, new_flux = load_airglow(airglow_spec, bin_width=bin_width)
 
+        print(new_flux)
         for w, f in zip(new_wave_grid, new_flux):
             idx = np.argmin(np.abs(spec['wavelength'] - w))
             spec["flux"][idx] += f
