@@ -316,7 +316,8 @@ def outofband_bgd_sky_rate(**kwargs):
     NumElectrons = ReceivedPower * elec_per_eV 
     
     if diag:
-        print('Background Computation Integrating over Pixel Area')
+        print('')
+        print('Out of band Background Computation Integrating over Pixel Area')
         print('Telescope diameter: {}'.format(diameter))
         print('Telescope aperture: {}'.format(Area_Tel))
         print('Fλ total per arcsec2 {}'.format(fden))
@@ -411,7 +412,13 @@ def compute_snr(band, ABmag, **kwargs):
         print('Source Photons: {}'.format(src_ph*efficiency*qe*exposure))
         print('Source Electrons: {}'.format(src_elec*efficiency*qe*exposure))
 
-        print('Background Counts: {}'.format(bgd*neff_bgd))
+        print()
+        print('In-band sky background photons: {}'.format(neff_bgd * nbgd_ph  * efficiency * qe * exposure))
+        print('Out-of-band sky background photons: {}'.format(neff_bgd*noobbgd_ph * efficiency * outofband_qe * exposure))
+        print('Electronics Background: {}'.format(neff_bgd*bgd_elec))
+        print('Total Background Counts: {}'.format(bgd*neff_bgd))
+
+        print()
         print('Signal to noise ratio: {}'.format(SNR))
         print()
 
