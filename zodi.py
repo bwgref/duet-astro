@@ -100,11 +100,9 @@ def load_zodi(**kwargs):
     # Normalize to flux density at 500 nm:
     spec['flux'] = spec["flux"] * (scale*1e-8 / scale_norm) * ftab_unit
 
-    print(spec["flux"])
     for airglow_spec in glob.glob(os.path.join("input_data", "airglow*.dat")):
         new_wave_grid, new_flux = load_airglow(airglow_spec, bin_width=bin_width)
 
-        print(new_flux)
         for w, f in zip(new_wave_grid, new_flux):
             idx = np.argmin(np.abs(spec['wavelength'] - w))
             spec["flux"][idx] += f
