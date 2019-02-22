@@ -6,6 +6,7 @@ def bb_abmag(diag=False, val=False, **kwargs):
     Inputs (defaults):
     umag = apparent u-band AB magnitude (22*ur.ABmag)
     swiftmag = apparent Swift UVW2 magnitude (22*ur.ABmag)
+    ref = band to use for reference magnitude; options are 'u', 'swift' ('swift')
     bandone = Bandpass 1st filter (180-220)*ur.nm
     bandtwo = Bandpass 2nd filter (260-300)*ur.nm
     bbtemp = Blackbody temperature (20000*ur.K)
@@ -32,6 +33,7 @@ def bb_abmag(diag=False, val=False, **kwargs):
     umag = kwargs.pop('umag', 22*ur.ABmag)
     swiftmag = kwargs.pop('swiftmag', 22*ur.ABmag)
     dist = kwargs.pop('dist', 10*ur.pc)
+    ref = kwargs.pop('ref', 'swift')
     dist0 = 10*ur.pc
     
     bandu = [340,380]*ur.nm # For comparison purposes
@@ -53,11 +55,12 @@ def bb_abmag(diag=False, val=False, **kwargs):
     magu = fluxden_u.to(ur.ABmag, equivalencies=ur.spectral_density(np.mean(bandu)))
     magsw = fluxden_sw.to(ur.ABmag, equivalencies=ur.spectral_density(np.mean(bandsw)))
     
+    if (ref == 'u'):
     # Offset from comparison u-band magnitude:
-    #magoff = umag - magu
-    
-    # Offset from comparison u-band magnitude:
-    magoff = swiftmag - magsw
+        magoff = umag - magu
+    elif (ref =='swift'):
+    # Offset from comparison swift UVW2-band magnitude:
+        magoff = swiftmag - magsw
 
     # Distance modulus
     distmod = (5*np.log10(dist/dist0)).value*ur.ABmag
