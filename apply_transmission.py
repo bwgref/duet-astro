@@ -19,10 +19,15 @@ def apply_trans(wav_s, flux_s, wav_t, trans, **kwargs):
     import astropy.constants as cr
     import numpy as np
     
-    # To do: some checks, wav_s and flux_s must be the same length, wav_t and trans 
-    # must be the same length, wav_s and wav_t must be in wavelength units, trans
-    # must be between 0 and 1 for all indices.
-    
+    # Check if the inputs make sense 
+    assert len(wav_s) == len(flux_s), "Input spectrum and corresponding wavelength array are not the same length"
+    assert len(wav_s) == len(flux_s), "Input spectrum and corresponding wavelength array are not the same length"   
+    assert len(wav_t) == len(trans), "Transmission curve and corresponding wavelength array are not the same length"
+    assert max(trans) <= 1., "Values larger than 1 found in transmission curve"
+    assert min(trans) >= 0., "Values smaller than 0 found in transmission curve"
+    assert wav_s.unit.is_equivalent(ur.m), "Input wavelength array does not have unit of length"
+    assert wav_t.unit.is_equivalent(ur.m), "Transmission wavelength array does not have unit of length"
+        
     # Make sure wav_s and wav_t are in the same units for interpolation
     wav_ttrue = wav_t.to(wav_s.unit)
     
@@ -33,8 +38,8 @@ def apply_trans(wav_s, flux_s, wav_t, trans, **kwargs):
     flux_corr = flux_s * trans_int
     
     diag = kwargs.pop('diag', False)
-        
+    
     if diag:
         print('Diagnostics?')
-        
+    
     return flux_corr
