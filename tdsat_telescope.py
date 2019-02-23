@@ -9,7 +9,16 @@ def load_telescope_parameters(version, **kwargs):
     version = 4: 400 mm design
 
     Syntax:
-    diameter, qe, psf_fwhm, efficiency = load_telescope_parameters(version)
+    diameter, qe, psf_fwhm, pixel_size, efficiency = load_telescope_parameters(version)
+    
+    2019/02/22 (BG)
+    ---
+        
+    Note, going to depreicate versions < 4 eventually since those assume that
+    the pixels are 0.5 * pixel size
+    
+    To be done: Remove QE from this method and get it somewhere else.
+    ---
     
     """
     
@@ -20,43 +29,70 @@ def load_telescope_parameters(version, **kwargs):
     diag = kwargs.pop('diag', True)
     
     
+    # Eventually depricate these things
     if version == 0:
         qe = 0.8 # To be improved later.
         diameter = 30*ur.cm
         psf_fwhm = 10*ur.arcsec
+        pixel_size = psf_fwhm * 0.5
         efficiency = 0.87 # Ultrasat spec
     if version == 1:
         qe = 0.8
         efficiency = 0.54 # Reported from Mike  
         diameter = 21 * ur.cm
         psf_fwhm = 4 * ur.arcsec
+        pixel_size = psf_fwhm * 0.5
+
     if version == 2:
         qe = 0.8
         efficiency = 0.65 # Reported from Mike
         diameter = 30 * ur.cm
         psf_fwhm = 9*ur.arcsec
+        pixel_size = psf_fwhm * 0.5
     
     if version == 3:
         qe = 0.8
         diameter = 35*ur.cm
         efficiency = 0.67 # Reported from Mike
         psf_fwhm = 18*ur.arcsec
+        pixel_size = psf_fwhm * 0.5
 
     if version == 4:
         qe = 0.8
         diameter = 40*ur.cm
         efficiency = 0.70 # Reported from Mike
         psf_fwhm = 23*ur.arcsec
+        pixel_size = psf_fwhm * 0.5
+
+
+    # Versions below here allow the PSF and the pixel to be decoupled
+
+    # "Big Schmidt"
+    if version == 5:
+        qe = 0.8
+        diameter = 33.0*ur.cm
+        eff_diam = 31.0*ur.cm
+        efficiency = (eff_diam/diameter)**2
+
+        plate_scale = 0.43 # arcsec per micron
+        
+        psf_fwhm_um = 21.6 # microns
+        psf_fwhm = plate_scale * psf_fwhm_um * ur.arcsec
+        
+        pixel_size = plate_scale * 10 * ur.arcsec
+
+
 
     if diag:
         print('Telescope Configuration {}'.format(version))
         print('Entrance Pupil diameter {}'.format(diameter))
         print('Optical Effifiency {}'.format(efficiency))
         print('PSF FWHM {}'.format(psf_fwhm))
+        print('Pixel size {}'.format(pixel_size))
         print('Effective Aperture {}'.format(diameter*(efficiency)**0.5))
         print('Effective Area {}'.format( efficiency * pi * (0.5*diameter)**2))
               
-    return diameter, qe, psf_fwhm, efficiency
+    return diameter, qe, psf_fwhm, pixel_size, efficiency
     
     
 def load_qe(**kwargs):
