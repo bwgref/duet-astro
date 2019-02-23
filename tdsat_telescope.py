@@ -28,6 +28,7 @@ def load_telescope_parameters(version, **kwargs):
     
     diag = kwargs.pop('diag', True)
     
+    name = ''
     
     # Eventually depricate these things
     if version == 0:
@@ -67,9 +68,10 @@ def load_telescope_parameters(version, **kwargs):
 
     # Versions below here allow the PSF and the pixel to be decoupled
 
-    # "Big Schmidt"
+    # "Big Schmidt" w/ 6k x 6k array
     if version == 5:
-        qe = 0.8
+        name = 'Big Schmidt'
+        qe = 0.7
         diameter = 33.0*ur.cm
         eff_diam = 31.0*ur.cm
         efficiency = (eff_diam/diameter)**2
@@ -81,10 +83,88 @@ def load_telescope_parameters(version, **kwargs):
         
         pixel_size = plate_scale * 10 * ur.arcsec
 
+    
+    # Smaller Schmidts (same focal length?) each with 6k x 6k focal plane array
+    if version == 6:
+        name = 'Two mini Big Schmidts'
+        qe = 0.7
+        diameter = 21.0*ur.cm
+        eff_diam = 18.1*ur.cm
+        efficiency = (eff_diam/diameter)**2
 
+        plate_scale = 0.43 # arcsec per micron
+        
+        psf_fwhm_um = 6.7 # microns
+        psf_fwhm = plate_scale * psf_fwhm_um * ur.arcsec
+        
+        pixel_size = plate_scale * 10 * ur.arcsec
+
+    
+    # Medium Schmidt (same focal length?) each with 6k x 6k focal plane array
+    if version == 7:
+        name = 'Medium Schmidt'
+
+        qe = 0.7
+        diameter = 24.0*ur.cm
+        eff_diam = 21.4*ur.cm
+        efficiency = (eff_diam/diameter)**2
+
+        plate_scale = 0.43 # arcsec per micron
+        
+        psf_fwhm_um = 7.6 # microns
+        psf_fwhm = plate_scale * psf_fwhm_um * ur.arcsec
+        
+        pixel_size = plate_scale * 10 * ur.arcsec
+
+    # Smaller Medium Schmidts (same focal length?) each with 6k x 6k focal plane array
+    if version == 8:
+        name = 'Two Small "Medium" Schmidts'
+        qe = 0.7
+        diameter = 14.0*ur.cm
+        eff_diam = 9.4*ur.cm
+        efficiency = (eff_diam/diameter)**2
+
+        plate_scale = 0.43 # arcsec per micron
+        
+        psf_fwhm_um = 8.6 # microns
+        psf_fwhm = plate_scale * psf_fwhm_um * ur.arcsec
+        
+        pixel_size = plate_scale * 10 * ur.arcsec
+
+    # Fast Medium Schmidts (same focal length?) each with 6k x 6k focal plane array
+    if version == 9:
+        name = 'Fast Schmidt'
+
+        qe = 0.7
+        diameter = 32.0*ur.cm
+        eff_diam = 30.9*ur.cm
+        efficiency = (eff_diam/diameter)**2
+
+        plate_scale = 0.64 # arcsec per micron
+        
+        psf_fwhm_um = 44.3 # microns
+        psf_fwhm = plate_scale * psf_fwhm_um * ur.arcsec
+        
+        pixel_size = plate_scale * 10 * ur.arcsec
+
+    # Fast Medium Schmidts (same focal length?) each with 6k x 6k focal plane array
+    if version == 10:
+        name="Mini Fast Schmidts"
+        qe = 0.7
+        diameter = 22.0*ur.cm
+        eff_diam = 20.6*ur.cm
+        efficiency = (eff_diam/diameter)**2
+
+        plate_scale = 0.64 # arcsec per micron
+        
+        psf_fwhm_um = 14.1 # microns
+        psf_fwhm = plate_scale * psf_fwhm_um * ur.arcsec
+        
+        pixel_size = plate_scale * 10 * ur.arcsec
 
     if diag:
         print('Telescope Configuration {}'.format(version))
+        print('Name: {}'.format(name))
         print('Entrance Pupil diameter {}'.format(diameter))
         print('Optical Effifiency {}'.format(efficiency))
         print('PSF FWHM {}'.format(psf_fwhm))
