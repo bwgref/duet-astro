@@ -120,7 +120,6 @@ def bgd_sky_rate(**kwargs):
     Optional Inputs (defaults):
     band = Bandpass (180-220)*ur.nm
     diameter=Telescope Diameter (21*u.cm)
-    efficiency=Optical throughput (50%)
     pixel_size=Angular size of the pixel (6*ur.arcsec)
     diag = Diagnostics toggle (False)
     
@@ -544,6 +543,28 @@ def find_limit(band, snr_limit, **kwargs):
                 print()
             break
     return magtest
+
+
+def calc_exposure(k, src_rate, bgd_rate, read_noise, neff):
+    """
+    Compute the time to get to a given significance (k) given the source rate,
+    the background rate, the read noise, and the number
+    of effective background pixels
+    
+    -----
+    
+    time = calc_exposure(k, src_rate, bgd_rate, read_noise, neff)
+    
+    """
+    denom = 2 * src_rate**2
+
+    nom1 = (k**2) * (src_rate + neff*bgd_rate)
+    
+    nom2 = ( k**4 *(src_rate + neff*bgd_rate)**2 +
+                    4 * k**2 * src_rate**2 * neff * read_noise**2)**(0.5)
+    exposure = (nom1 + nom2)/ denom
+    return exposure
+
 
 
 
