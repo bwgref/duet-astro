@@ -248,7 +248,7 @@ def bgd_sky_qe_rate(**kwargs):
     import astropy.units as ur
     import astropy.constants as cr
     import numpy as np
-    from zodi import load_zodi_v2, wavelength_to_energy
+    from zodi import load_zodi, wavelength_to_energy
     from apply_transmission import apply_trans
     from tdsat_telescope import make_red_filter, load_qe
 
@@ -285,7 +285,7 @@ def bgd_sky_qe_rate(**kwargs):
     if high_zodi:
         zodi_level=6000
         
-    zodi = load_zodi_v2(scale=zodi_level)
+    zodi = load_zodi(scale=zodi_level)
 
     wave = zodi['wavelength'] 
     flux = zodi['flux'] 
