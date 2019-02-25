@@ -202,10 +202,6 @@ def load_qe(**kwargs):
         infile = indir+'detector_260_300nm.csv'
     if band == 3:
         infile = indir+'detector_340_380nm.csv'
-
-
-
-        
         
     f = open(infile, 'r')
     header = True
@@ -227,14 +223,14 @@ def load_qe(**kwargs):
     f.close()
     
     # Give wavelength a unit
-    wave = [i*ur.nm for i in wave]
+    wave *= ur.nm
     
     if diag:
         print('Detector Q.E. loader')
         print('Band {} has input file {}'.format(band, infile))
         
     
-    return wave, qe
+    return wave, qe / 100.
 
 
 
@@ -251,7 +247,6 @@ def load_reflectivity(**kwargs):
     import astropy.units as ur
     import numpy as np
     
-    band = kwargs.pop('band', 1)
     diag = kwargs.pop('diag', False)
     
     indir = 'input_data/'
@@ -278,7 +273,7 @@ def load_reflectivity(**kwargs):
     f.close()
     
     # Give wavelength a unit
-    wave = [i*ur.nm for i in wave]
+    wave *= ur.nm
     
     if diag:
         print('Optics reflectivity loader')
@@ -287,4 +282,45 @@ def load_reflectivity(**kwargs):
     
     return wave, reflectivity
 
+def make_red_filter(in_wave, **kwargs):
+    """
+    Mocks up a filter function at all of the "wave" points with 1 "in band"
+    and "rejection" out of band.
+    
+    Optional inputs (defaults):
+    low_wave = lower wavelength of the band (180*ur.nm)
+    high_wave = lower wavelength of the band (220*ur.nm)
+    rejection = Out of band rejection level (1e-3)
+    diag = Give diagnostic info (False)
+    
+    
+    Syntax:
+    filter = make_filter(wave)
+        
+    
+    """
+    import astropy.units as ur
+    import numpy as np
+    
+    low_wave = kwargs.pop('low_wave', 180*ur.nm)
+    high_wave = kwargs.pop('high_wave', 220*ur.nm) 
+    rejection = kwargs.pop('rejection', 1e-3)
+    diag = kwargs.pop('diag', False)
 
+    wave = in_wave.to(ur.Angstrom).value
+
+    low_check = low_wave.to(ur.Angstrom).value
+    high_check = high_wave.to(ur.Angstrom).value
+    
+
+    red_filter = np.zeros_like(wave)
+    red_filter[(wave<low_check) | (wave>high_check)] += rejection
+    red_filter[(wave>=low_check) & (wave<=high_check)] += 1.0
+    
+    if diag:
+        print('Low wavelength: {}'.format(low_wave))
+        print('High wavelength: {}'.format(high_wave))
+        print('Rejection level: {}'.format(rejection))
+    
+    
+    return red_filter
