@@ -44,12 +44,15 @@ def load_airglow(airglow_spec, bin_width=1):
 
     new_wave_grid = new_wave_grid[good] * ur.Angstrom
 
-    photon_to_power = wavelength_to_energy(new_wave_grid) / ur.s
+#    photon_to_power = wavelength_to_energy(new_wave_grid) / ur.s
 
     # Need to work around Astropy bug with units
-    new_flux = new_flux[good] * photon_to_power / ur.Angstrom / ur.cm ** 2 / ur.sr
+#    new_flux = new_flux[good] * photon_to_power / ur.Angstrom / ur.cm ** 2 / ur.sr
+    new_flux = new_flux[good] * (1.0 / (ur.Angstrom * ur.cm**2 * ur.sr * ur.s))
+    
 
-    return new_wave_grid, new_flux.to(ur.W/ur.m**2 / ur.micron / ur.sr)
+
+    return new_wave_grid, new_flux
 
 
 
