@@ -183,7 +183,7 @@ def bgd_sky_rate(**kwargs):
     ctr = 0
     flux_density = 0
     for ind, wv in enumerate(zodi['wavelength']):
-        if ( (wv < band[0].to(ur.AA).value ) | (wv > band[1].to(ur.AA).value)):
+        if ( (wv < band[0].to(ur.AA) ) | (wv > band[1].to(ur.AA))):
             continue
         ctr += 1
         flux_density += zodi['flux'][ind]
@@ -216,7 +216,112 @@ def bgd_sky_rate(**kwargs):
         
     return NumPhotons, NumElectrons
 
+
+
+
+
+def bgd_sky_qe_rate(**kwargs):
+    """
+    Loads the zodiacal background and normalizes it at 500 nm to a particular
+    flux level (low_zodi = 77, med_zodi = 300, high_zodi = 6000).
     
+    See the docstring for load_zodi in zodi.py 
+        
+    Optional Inputs (defaults):
+    band = Bandpass (180-220)*ur.nm
+    diameter=Telescope Diameter (21*u.cm)
+    pixel_size=Angular size of the pixel (6*ur.arcsec)
+    rejection = Out of band rejection (1e-3)
+    diag = Diagnostics toggle (False)
+    
+    low_zodi = (True)
+    medium_zodi = (False)
+    high_zodi = (False)
+    
+    
+    Returns NumPh, NumElectrons, each of which are ph / cm2 / pixel and e- / cm2 / pxiel
+ 
+    
+    """
+    
+    
+    import astropy.units as ur
+    import astropy.constants as cr
+    import numpy as np
+    from zodi import load_zodi_v2, wavelength_to_energy
+    from apply_transmission import apply_trans
+    from tdsat_telescope import make_red_filter, load_qe
+
+
+
+    # Set up units here for flux conversion below
+#    fλ_unit = ur.erg/ur.cm**2/ur.s / ur.Angstrom # Spectral radiances per Hz or per angstrom
+#    fλ_density_unit = fλ_unit / (ur.arcsec *ur.arcsec)
+
+    diag = kwargs.pop('diag', False)
+    
+    pixel_size = kwargs.pop('pixel_size', 6*ur.arcsec)
+    pixel_area = pixel_size**2
+
+    diameter = kwargs.pop('diameter', 21.*ur.cm)
+    Area_Tel = np.pi*(diameter.to(ur.cm)*0.5)**2
+
+    
+    low_zodi = kwargs.pop('low_zodi', True)
+    med_zodi = kwargs.pop('med_zodi', False)
+    high_zodi = kwargs.pop('high_zodi', False)
+    rejection = kwargs.pop('rejection', 1e-3)
+    
+    band = kwargs.pop('band', [180,220]*ur.nm)
+    bandpass = np.abs(band[1] - band[0])
+
+#    effective_wavelength = (np.mean(band)).to(ur.AA)
+#    ph_energy = (cr.h.cgs * cr.c.cgs / effective_wavelength.cgs).to(ur.eV)
+
+    if low_zodi:
+        zodi_level = 77
+    if med_zodi:
+        zodi_level = 300
+    if high_zodi:
+        zodi_level=6000
+        
+    zodi = load_zodi_v2(scale=zodi_level)
+
+    wave = zodi['wavelength'] 
+    flux = zodi['flux'] 
+
+    # Make the red filter and loda the qe
+    low_wave = band[0]
+    high_wave = band[1]
+    qe_wave, qe = load_qe(low_wave =low_wave, high_wave = high_wave, rejection=rejection)
+    red_filter = make_red_filter(wave)
+
+    # Apply red filter and the QE curve
+    red_flux = apply_trans(wave, flux, wave, red_filter)
+    qe_flux = apply_trans(wave, red_flux, qe_wave, qe)
+
+
+    # Assume bins are the same size:
+    de = wave[1] - wave[0]    
+    # Convert to more convenient units:
+    ph_flux = ((de*qe_flux).cgs).to(1 / ((ur.cm**2 * ur.arcsec**2 * ur.s)))
+    fluence = ph_flux.sum()
+
+    BgdRatePerPix = pixel_area * fluence * Area_Tel
+    
+
+    if diag:
+        print('Background Computation Integrating over Pixel Area')
+        print('Telescope diameter: {}'.format(diameter))
+        print('Telescope aperture: {}'.format(Area_Tel))
+        print('Background fluence per arcsec2 {}'.format(fluence))
+        print('Bandpass: {}'.format(bandpass))        
+        print('Collecting Area: {}'.format(Area_Tel))
+        print('Pixel Area: {}'.format(pixel_area))
+        print('Rate {}'.format(BgdRatePerPix))
+        
+    return BgdRatePerPix
+
     
 def outofband_bgd_sky_rate(**kwargs):
     """

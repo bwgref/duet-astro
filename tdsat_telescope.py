@@ -230,7 +230,7 @@ def load_qe(**kwargs):
         print('Band {} has input file {}'.format(band, infile))
         
     
-    return wave, qe
+    return wave, qe / 100.
 
 
 

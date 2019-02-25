@@ -52,6 +52,7 @@ def load_airglow(airglow_spec, bin_width=1):
     return new_wave_grid, new_flux.to(ur.W/ur.m**2 / ur.micron / ur.sr)
 
 
+
 def load_zodi(**kwargs):
     """
     From here
@@ -85,7 +86,7 @@ def load_zodi(**kwargs):
     bin_width = kwargs.pop('bin_width', 1)
     return_wl_units = kwargs.pop('return_wl_units', True)
 
-    ftab_unit = ur.W/ur.m**2 / ur.micron / ur.sr
+    ftab_unit = 1.0 /(ur.cm**2 * ur.Angstrom * ur.sr * ur.s) # ph / m2 / micron / sr
 
     scale_norm = False
     wave, flux = np.genfromtxt(os.path.join('input_data',
@@ -93,12 +94,15 @@ def load_zodi(**kwargs):
                                unpack=True)
 
     spec = {'wavelength': wave * ur.Angstrom, 'flux': flux}
-    if not scale_norm:
-        wave_at_5e3 = np.argmin(np.abs(wave - 5e3))
-        scale_norm = float(flux[wave_at_5e3])
+##    if not scale_norm:
+#      wave_at_5e3 = np.argmin(np.abs(wave - 5e3))
+#        scale_norm = float(flux[wave_at_5e3])
+    scale_norm = 1.0
+
+
 
     # Normalize to flux density at 500 nm:
-    spec['flux'] = spec["flux"] * (scale*1e-8 / scale_norm) * ftab_unit
+    spec['flux'] = spec["flux"] * (scale / scale_norm) * ftab_unit
 
     for airglow_spec in glob.glob(os.path.join("input_data", "airglow*.dat")):
         new_wave_grid, new_flux = load_airglow(airglow_spec, bin_width=bin_width)
