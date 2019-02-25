@@ -83,7 +83,7 @@ def load_zodi(**kwargs):
 
     scale = kwargs.pop('scale', 77)
     bin_width = kwargs.pop('bin_width', 1)
-    return_wl_units = kwargs.pop('return_wl_units', False)
+    return_wl_units = kwargs.pop('return_wl_units', True)
 
     ftab_unit = ur.W/ur.m**2 / ur.micron / ur.sr
 
