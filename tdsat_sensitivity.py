@@ -294,7 +294,7 @@ def bgd_sky_qe_rate(**kwargs):
     low_wave = band[0]
     high_wave = band[1]
     qe_wave, qe = load_qe(low_wave =low_wave, high_wave = high_wave, rejection=rejection)
-    red_filter = make_red_filter(wave)
+    red_filter = make_red_filter(wave, rejection=rejection)
 
     # Apply red filter and the QE curve
     red_flux = apply_trans(wave, flux, wave, red_filter)
