@@ -447,29 +447,52 @@ def compute_snr(band, ABmag, **kwargs):
     ABmag = 22*ur.ABmag
     snr = compute_snr(band, ABmag)
     
+    ---
+    Optional inputs:
+    diag = SNR calculation diagnositcs (False)
+    bgd_diag = Background estimation diagnostics (False)
+    bgd_elec_diag = Background electronics diagnostics (False)
+    src_diag = Source counts diagnostics (False)
     
+    psf_size = PSF FWHM (10 *u.arcsec)
+    pixel_size = Pixel size (5*ur.arcsec)
+    exposure = Frame exposure time (300 *ur.s)
+    diameter = Entrance pupil diamtere (30 * ur.cm)
+    frames = Number of frames to difference (1, i.e. perfect background subtraction)
     
+    efficiency = Total optical efficiency. Note that this should currently include
+        reflectivity, transmission through the correctors, and the geometric
+        obscuration of the beam by the focal plane. The latter is from load_telescope.
+        
     """
     import astropy.units as ur
     import numpy as np
-    
-    exposure = kwargs.pop('exposure', 300*ur.s)
-    psf_size = kwargs.pop('psf_size', 10*ur.arcsec)
-    snr_limit = kwargs.pop('snr_limit', 5.0)
-    diameter = kwargs.pop('diameter', 30*ur.cm)
+    from tdsat_neff import get_neff
+
+
     diag = kwargs.pop('diag', False)
     bgd_diag = kwargs.pop('bgd_diag', False)
     bgd_elec_diag = kwargs.pop('bgd_elec_diag', False)
     src_diag = kwargs.pop('src_diag', False)
-    neff_bgd = kwargs.pop('neff_bgd',5.6)
-    efficiency = kwargs.pop('efficiency', 0.87)
-    qe = kwargs.pop('det_qe', 0.8)
-    outofband_qe = kwargs.pop('outofband_qe', 0.001)
-        
-    frames = kwargs.pop('frames', 2)
 
+
+    # Telescope and observation params
+    psf_size = kwargs.pop('psf_size', 10*ur.arcsec)
     pixel_size = kwargs.pop('pixel_size', 5*ur.arcsec)
+    qe = kwargs.pop('det_qe', 0.8)
 
+    exposure = kwargs.pop('exposure', 300*ur.s)
+    diameter = kwargs.pop('diameter', 30*ur.cm)
+
+    frames = kwargs.pop('frames', 1)
+    efficiency = kwargs.pop('efficiency', 0.8)
+
+    # To be depricated
+    outofband_qe = kwargs.pop('outofband_qe', 0.001)
+    neff_bgd = kwargs.pop('neff_bgd',5.6)
+
+    neff_bgd =  get_neff(psf_size, pixel_size)
+    
     # Returns rates per pixel due to sky backgrounds
     #nbgd_ph, nbgd_elec = bgd_sky_rate(band=band, diag=bgd_diag,diameter = diameter,
     #    pixel_size = pixel_size, **kwargs)
