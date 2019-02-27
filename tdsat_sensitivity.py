@@ -466,28 +466,28 @@ def compute_snr(band, ABmag, **kwargs):
     qe = kwargs.pop('det_qe', 0.8)
     outofband_qe = kwargs.pop('outofband_qe', 0.001)
         
-    
     frames = kwargs.pop('frames', 2)
 
-    qe = kwargs.pop('det_qe', 0.8)
-
-    pixel_size = psf_size*0.5
+    pixel_size = kwargs.pop('pixel_size', 5*ur.arcsec)
 
     # Returns rates per pixel due to sky backgrounds
-    nbgd_ph, nbgd_elec = bgd_sky_rate(band=band, diag=bgd_diag,diameter = diameter,
-        pixel_size = pixel_size, **kwargs)
+    #nbgd_ph, nbgd_elec = bgd_sky_rate(band=band, diag=bgd_diag,diameter = diameter,
+    #    pixel_size = pixel_size, **kwargs)
 
     # Returns rates per pixel due to out-of-band sky backgrounds
-    noobbgd_ph, noobbgd_elec = outofband_bgd_sky_rate(band=band, diag=bgd_diag,diameter = diameter,
-        pixel_size = pixel_size, **kwargs)
+    #noobbgd_ph, noobbgd_elec = outofband_bgd_sky_rate(band=band, diag=bgd_diag,diameter = diameter,
+    #    pixel_size = pixel_size, **kwargs)
 
+    # Use the updated sky background calculator with qe already folded in
+    nbgd_ph = bgd_sky_qe_rate(band=band, diag=bgd_diag, diameter = diameter,
+        pixel_size = pixel_size, rejection = outofband_qe, **kwargs)
+    
     # Get background due to electronics:
     bgd_elec = bgd_electronics(exposure, diag=bgd_elec_diag, **kwargs)
     
-
-    # Below is now background electrons in the PSF plus out-of-band backgrounds in the PSF and the electronics background
-    # rates.
-    bgd = nbgd_ph  * efficiency * qe * exposure + noobbgd_ph * efficiency * outofband_qe * exposure + bgd_elec 
+    # Below is now background PHOTONS in the PSF and the electronics background
+    # rates (in electrons).
+    bgd = nbgd_ph * efficiency * exposure + bgd_elec 
     
     src_ph, src_elec = src_rate(ABmag=ABmag, diag=src_diag,
         diameter=diameter,band=band, **kwargs)
