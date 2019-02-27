@@ -443,6 +443,7 @@ def compute_snr(band, ABmag, **kwargs):
     
     syntax:
     
+    import astropy.units as ur
     band = [180, 220]*ur.nm
     ABmag = 22*ur.ABmag
     snr = compute_snr(band, ABmag)
