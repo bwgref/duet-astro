@@ -73,7 +73,7 @@ def load_telescope_parameters(version, **kwargs):
         name = 'Big Schmidt'
         qe = 0.7
         diameter = 33.0*ur.cm
-        eff_diam = 31.0*ur.cm
+        eff_diam = 29.1*ur.cm
         efficiency = (eff_diam/diameter)**2
 
         plate_scale = 0.43 # arcsec per micron
@@ -89,7 +89,7 @@ def load_telescope_parameters(version, **kwargs):
         name = 'Two mini Big Schmidts'
         qe = 0.7
         diameter = 21.0*ur.cm
-        eff_diam = 18.1*ur.cm
+        eff_diam = 15.1*ur.cm
         efficiency = (eff_diam/diameter)**2
 
         plate_scale = 0.43 # arcsec per micron
@@ -106,7 +106,7 @@ def load_telescope_parameters(version, **kwargs):
 
         qe = 0.7
         diameter = 24.0*ur.cm
-        eff_diam = 21.4*ur.cm
+        eff_diam = 19.1*ur.cm
         efficiency = (eff_diam/diameter)**2
 
         plate_scale = 0.43 # arcsec per micron
@@ -121,7 +121,7 @@ def load_telescope_parameters(version, **kwargs):
         name = 'Two Small "Medium" Schmidts'
         qe = 0.7
         diameter = 14.0*ur.cm
-        eff_diam = 9.4*ur.cm
+        eff_diam = 6.3*ur.cm
         efficiency = (eff_diam/diameter)**2
 
         plate_scale = 0.43 # arcsec per micron
@@ -137,7 +137,7 @@ def load_telescope_parameters(version, **kwargs):
 
         qe = 0.7
         diameter = 32.0*ur.cm
-        eff_diam = 30.9*ur.cm
+        eff_diam = 29.89*ur.cm
         efficiency = (eff_diam/diameter)**2
 
         plate_scale = 0.64 # arcsec per micron
@@ -152,7 +152,7 @@ def load_telescope_parameters(version, **kwargs):
         name="Mini Fast Schmidts"
         qe = 0.7
         diameter = 22.0*ur.cm
-        eff_diam = 20.6*ur.cm
+        eff_diam = 19.2*ur.cm
         efficiency = (eff_diam/diameter)**2
 
         plate_scale = 0.64 # arcsec per micron
