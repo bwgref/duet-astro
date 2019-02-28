@@ -294,7 +294,7 @@ def bgd_sky_qe_rate(**kwargs):
     low_wave = band[0]
     high_wave = band[1]
     qe_wave, qe = load_qe(low_wave =low_wave, high_wave = high_wave, rejection=rejection)
-    red_filter = make_red_filter(wave, rejection=rejection)
+    red_filter = make_red_filter(wave, rejection=rejection, high_wave = high_wave, low_wave = low_wave)
 
     # Apply red filter and the QE curve
     red_flux = apply_trans(wave, flux, wave, red_filter)
@@ -315,6 +315,7 @@ def bgd_sky_qe_rate(**kwargs):
         print('Telescope diameter: {}'.format(diameter))
         print('Telescope aperture: {}'.format(Area_Tel))
         print('Background fluence per arcsec2 {}'.format(fluence))
+        print('Band: {}'.format(band))
         print('Bandpass: {}'.format(bandpass))        
         print('Collecting Area: {}'.format(Area_Tel))
         print('Pixel Area: {}'.format(pixel_area))
