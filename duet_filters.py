@@ -103,7 +103,7 @@ def optimize_filter(low_wave, high_wave, **kwargs):
         of the low_wave
 
     """
-    from tdsat_telescope import make_red_filter, load_qe, load_reflectivity
+    from tdsat_telescope import load_qe, load_reflectivity
     from apply_transmission import apply_trans
     from zodi import load_zodi
     import astropy.units as ur

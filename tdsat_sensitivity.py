@@ -238,9 +238,11 @@ def bgd_sky_qe_rate(**kwargs):
     medium_zodi = (False)
     high_zodi = (False)
     
+    qe_band = Whivch QE curve to us (1 --> 180-220 nm)
+    blue_filter = Apply blue_side filter (False)
     
-    Returns NumPh, NumElectrons, each of which are ph / cm2 / pixel and e- / cm2 / pxiel
- 
+    
+    Returns bgd_rate which is ph / s / pixel 
     
     """
     
@@ -250,8 +252,8 @@ def bgd_sky_qe_rate(**kwargs):
     import numpy as np
     from zodi import load_zodi, wavelength_to_energy
     from apply_transmission import apply_trans
-    from tdsat_telescope import make_red_filter, load_qe
-
+    from tdsat_telescope import load_qe, load_reflectivity
+    from duet_filters import make_red_filter, optimize_filter
 
 
     # Set up units here for flux conversion below
@@ -274,6 +276,9 @@ def bgd_sky_qe_rate(**kwargs):
     
     band = kwargs.pop('band', [180,220]*ur.nm)
     bandpass = np.abs(band[1] - band[0])
+    
+    qe_band = kwargs.pop('qe_band', 1)
+    blue_filter = kwargs.pop('blue_filter', 'False')
 
 #    effective_wavelength = (np.mean(band)).to(ur.AA)
 #    ph_energy = (cr.h.cgs * cr.c.cgs / effective_wavelength.cgs).to(ur.eV)
@@ -289,22 +294,33 @@ def bgd_sky_qe_rate(**kwargs):
 
     wave = zodi['wavelength'] 
     flux = zodi['flux'] 
-
-    # Make the red filter and loda the qe
+    
+    
+    
+    # Load reflectivity and QE curves:
+    ref_wave, reflectivity = load_reflectivity()
+    qe_wave, qe = load_qe(band=1)
+    
+    # Make the red filter
     low_wave = band[0]
     high_wave = band[1]
-    qe_wave, qe = load_qe(band=1)
-    red_filter = make_red_filter(wave, rejection=rejection, high_wave = high_wave, low_wave = low_wave)
+    rejection = optimize_filter(low_wave, high_wave, target=0.5, 
+        blue_filter=blue_filter)
+    
+    red_filter = make_red_filter(wave, rejection=rejection, high_wave = high_wave,
+            low_wave = low_wave, blue_filter = blue_filter)
 
-    # Apply red filter and the QE curve
-    red_flux = apply_trans(wave, flux, wave, red_filter)
-    qe_flux = apply_trans(wave, red_flux, qe_wave, qe)
-
+    # Apply reflectivity and QE to the Zodi spectrum:
+    ref_flux = apply_trans(zodi['wavelength'], zodi['flux'], ref_wave, reflectivity/100.)
+    qe_flux = apply_trans(zodi['wavelength'], ref_flux, qe_wave, qe)
+    
+    # Apply red filter
+    band_flux = apply_trans(wave, qe_flux, wave, red_filter)
 
     # Assume bins are the same size:
     de = wave[1] - wave[0]    
     # Convert to more convenient units:
-    ph_flux = ((de*qe_flux).cgs).to(1 / ((ur.cm**2 * ur.arcsec**2 * ur.s)))
+    ph_flux = ((de*band_flux).cgs).to(1 / ((ur.cm**2 * ur.arcsec**2 * ur.s)))
     fluence = ph_flux.sum()
 
     BgdRatePerPix = pixel_area * fluence * Area_Tel
@@ -313,12 +329,16 @@ def bgd_sky_qe_rate(**kwargs):
     if diag:
         print('Background Computation Integrating over Pixel Area')
         print('Telescope diameter: {}'.format(diameter))
-        print('Telescope aperture: {}'.format(Area_Tel))
-        print('Background fluence per arcsec2 {}'.format(fluence))
-        print('Band: {}'.format(band))
-        print('Bandpass: {}'.format(bandpass))        
         print('Collecting Area: {}'.format(Area_Tel))
+        print('Band: {}'.format(band))
+        print('Bandpass: {}'.format(bandpass))
+        print()
+        print('Out-of-band rejection: {}'.format(rejection))
+        print('Apply blue filter? {}'.format(blue_filter))
+        print()
         print('Pixel Area: {}'.format(pixel_area))
+        print()
+        print('Background fluence per arcsec2 {}'.format(fluence))
         print('Rate {}'.format(BgdRatePerPix))
         
     return BgdRatePerPix
