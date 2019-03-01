@@ -272,7 +272,6 @@ def bgd_sky_qe_rate(**kwargs):
     low_zodi = kwargs.pop('low_zodi', True)
     med_zodi = kwargs.pop('med_zodi', False)
     high_zodi = kwargs.pop('high_zodi', False)
-    rejection = kwargs.pop('rejection', 1e-3)
     
     band = kwargs.pop('band', [180,220]*ur.nm)
     bandpass = np.abs(band[1] - band[0])
