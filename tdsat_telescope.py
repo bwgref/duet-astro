@@ -8,16 +8,21 @@ def load_telescope_parameters(version, **kwargs):
     version = 3: 350 mm design
     version = 4: 400 mm design
 
+    ###
+    
+    
+    ### Version 2:
+    
+
     Syntax:
     diameter, qe, psf_fwhm, pixel_size, efficiency = load_telescope_parameters(version)
     
-    2019/02/22 (BG)
     ---
         
     Note, going to depreicate versions < 4 eventually since those assume that
     the pixels are 0.5 * pixel size
     
-    To be done: Remove QE from this method and get it somewhere else.
+    To be done: Remove QE from this method and put it somewhere else.
     ---
     
     """
@@ -147,7 +152,8 @@ def load_telescope_parameters(version, **kwargs):
         
         pixel_size = plate_scale * 10 * ur.arcsec
 
-    # Fast Medium Schmidts (same focal length?) each with 6k x 6k focal plane array
+
+    # Mini-fast Schmidts
     if version == 10:
         name="Mini Fast Schmidts"
         qe = 0.7
@@ -161,6 +167,68 @@ def load_telescope_parameters(version, **kwargs):
         psf_fwhm = plate_scale * psf_fwhm_um * ur.arcsec
         
         pixel_size = plate_scale * 10 * ur.arcsec
+
+    ##### Second round of telescope designs
+    if version == 11:
+        name="Small Focal Plane CMOS"
+        qe = 0.6
+        diameter = 26.0*ur.cm
+        eff_diam = 23.1*ur.cm
+        efficiency = (eff_diam/diameter)**2
+
+        plate_scale = 6.4/10. # arcsec per micron
+        
+        psf_fwhm_um = 6.7 # microns
+        psf_fwhm = plate_scale * psf_fwhm_um * ur.arcsec
+        
+        pixel_size = plate_scale * 10 * ur.arcsec
+
+    
+    
+    if version == 12:
+        name="Swiss Cross CMOS"
+        qe = 0.6
+        diameter = 30.*ur.cm
+        eff_diam = 21.7*ur.cm
+        efficiency = (eff_diam/diameter)**2
+
+        plate_scale = 4.0/10. # arcsec per micron
+        
+        psf_fwhm_um = 7.2 # microns
+        psf_fwhm = plate_scale * psf_fwhm_um * ur.arcsec
+        
+        pixel_size = plate_scale * 10 * ur.arcsec
+
+    if version == 13:
+        name="Swiss Cross CCD"
+        qe = 0.6
+        diameter = 30.*ur.cm
+        eff_diam = 20.2*ur.cm
+        efficiency = (eff_diam/diameter)**2
+
+        plate_scale = 5.4/13. # arcsec per micron
+        
+        psf_fwhm_um = 16.1 # microns
+        psf_fwhm = plate_scale * psf_fwhm_um * ur.arcsec
+        
+        pixel_size = plate_scale * 13 * ur.arcsec
+
+    if version == 14:
+        name="Medium Focal Plane (CMOS 6k x 6k)"
+        qe = 0.6
+        diameter = 30.*ur.cm
+        eff_diam = 22.6*ur.cm
+        efficiency = (eff_diam/diameter)**2
+
+        plate_scale = 4.3/10. # arcsec per micron
+        
+        psf_fwhm_um = 7.1 # microns
+        psf_fwhm = plate_scale * psf_fwhm_um * ur.arcsec
+        
+        pixel_size = plate_scale * 10 * ur.arcsec
+    
+    
+
 
     if diag:
         print('Telescope Configuration {}'.format(version))
