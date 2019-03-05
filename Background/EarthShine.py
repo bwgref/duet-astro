@@ -22,6 +22,11 @@ Performs calculations to determine the Earth shine background
     fig, ax = plotEarthShineOrbit(ra, dec, wavelengthStart, wavelengthStop, \
                               inclination, precPhase, \
                               increment=5, altitude=600, earthExclusion=30)
+    
+    Plots the average Earth Shine background level for a series of inclinations
+    over an entire year.
+    fig, ax = plotEarthShineYear(ra, dec, wavelengthStart, wavelengthStop, \
+                             altitude=600, earthExclusion=30, year=2019)
 
 Created on Wed Feb 20 08:00:37 2019
 
@@ -310,9 +315,10 @@ def plotEarthShineOrbit(ra, dec, wavelengthStart, wavelengthStop, \
 
 """
 fig, ax = plotEarthShineYear(ra, dec, wavelengthStart, wavelengthStop, \
-                             altitude=600, earthExclusion=30)
+                             altitude=600, earthExclusion=30, year=2019)
 
-Plots the average Earth Shine background level for a series of inclinations.
+Plots the average Earth Shine background level for a series of inclinations
+over an entire year.
 
 Inputs:
     ra  - Right ascension of target in degrees (0 to 360)
