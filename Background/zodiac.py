@@ -3,19 +3,33 @@
 zodiac.py
 Performs calculations to determine the zodiacal light background
 
+    Get average zodiacal light background spectrum from target.
+    zodSpecArray = backSpecAtTarget(ra, dec, wavelengthStart, wavelengthStop,
+                                    textfile='', date=[2019,1,1], endDate='')
+
     Lookup zodiacal light background at particular wavelength band at 
     ecliptic poles.
-        zodSpecArray = zodiacSpectrum(wavelengthStart, wavelengthStop, textfile='')
+    zodSpecArray = zodiacSpectrum(wavelengthStart, wavelengthStop, textfile='')
 
     Look up the normalization factor for zodiacal light compared with 
     ecliptic poles based on equatorial right ascension and declination of target.
-        normFactor = zodiacLocNorm(ra, dec, date)
-        min, avg, max = zodiacLocNorm(ra, dec, startDate, endDate)
+    normFactor = zodiacLocNorm(ra, dec, date)
+    min, avg, max = zodiacLocNorm(ra, dec, startDate, endDate)
     
     Look up closest value in "Zodiac_Light_Table.csv" for given heliocentric
     latitude and longitude.
-        zodBack = zodiacLookup(lat, lon)
+    zodBack = zodiacLookup(lat, lon)
     
+    Integrate over a spectrum and return the flux density as a single value
+    fluxDensity = integrateSpectrum(spectrum)
+
+    Get zodiacal light background at target for every day of a year, integrated
+    between two wavelengths.
+    zodBackArray = zodiacOverYear(ra, dec, wavelengthStart, wavelengthStop, year=2019)
+
+    Plot the zodiacal background at a location over a year for two wavelength
+    bands (1800-2200 Angstrom and 2600-3000 Angstrom).
+    fig, ax = plotZodiacOverYear(ra, dec, year=2019)
 
 Created on Thu Feb 14 15:51:56 2019
 
@@ -180,6 +194,9 @@ def zodiacSpectrum(wavelengthStart, wavelengthStop, textfile = ''):
 
 
 """
+normFactor = zodiacLocNorm(ra, dec, date)
+min, avg, max = zodiacLocNorm(ra, dec, startDate, endDate)
+
 Look up the normalization factor for zodiacal light compared with 
 ecliptic poles based on equatorial right ascension and declination of target.
 
@@ -312,6 +329,8 @@ def zodiacLocNorm(ra, dec, inDate, endDate=None):
 
 
 """
+zodBack = zodiacLookup(lat, lon)
+
 Look up closest value in "Zodiac_Light_Table.csv" for given heliocentric
 latitude and longitude.
 
@@ -368,3 +387,193 @@ def zodiacLookup(lat, lon):
         return zodBack
     except ValueError:
         return bgArr[lonInd,latInd]  #Solar exclusion
+    
+    
+"""
+fluxDensity = integrateSpectrum(spectrum)
+
+Integrate over a spectrum and return the flux density as a single value
+
+Input:
+    spectrum - A numpy 2D array of evenly spaced wavelengths (Å) and 
+               flux density (photons/s/cm2/str/Å).
+
+Output:
+    Flux density of spectrum as a single value (photons/s/cm2/str/Å).  'SE' if
+    input spectrum contains the value 'SE'.
+
+"""
+def integrateSpectrum(spectrum):
+
+    import warnings
+    import numpy as np
+
+    #Return 'SE' if spectrum is in solar exclusion region
+    #Ignore warning for comparing string to numpy array
+    warnings.simplefilter(action='ignore', category=FutureWarning)
+    if 'SE' in spectrum[:,1]:
+        return 'SE'
+
+    wavelengthStart = spectrum[0,0]
+    wavelengthEnd = spectrum[-1,0]
+    wavelengthRange = wavelengthEnd - wavelengthStart
+    deltaLambda = spectrum[1,0] - wavelengthStart
+
+    #Sum all flux densities and normalize by fractional bin width
+    return np.sum(spectrum[:,1]) * deltaLambda/wavelengthRange
+    
+    
+
+    
+"""
+zodBackArray = zodiacOverYear(ra, dec, wavelengthStart, wavelengthStop, year=2019)
+
+Get zodiacal light background at target for every day of a year, integrated
+between two wavelengths.
+
+Inputs:
+    ra - Right Ascension in degrees (0 to 360)
+    dec - Declination in degrees (-90 to 90)
+    wavelengthStart - Start of wavelength range in Angstrom (1195 to 26957)
+    wavlengthStop   - End of wavelength range in Angstrom (1195 to 26957)
+
+Optional Inputs:
+    year - Year of observations (to determine if it is a leap year)
+           
+Output:
+    A list of background flux densities (photons/s/cm2/str/Å) with an
+    element for each day of year.  'SE' for days when ra and dec is behind/near
+    the Sun.
+
+""" 
+def zodiacOverYear(ra, dec, wavelengthStart, wavelengthStop, year=2019):
+    
+    import Orbit as orb
+    
+    #Get list of dates over year
+    yearList = orb.getYearList(year)
+    nDays = len(yearList)
+    
+    #Initialize output array
+    outArr = [None]*nDays
+    
+    #Go through each date and get background
+    for ii in range(nDays):
+        spectrum = backSpecAtTarget(ra, dec, wavelengthStart, wavelengthStop, \
+                                    date=yearList[ii])
+        outArr[ii] = integrateSpectrum(spectrum)
+
+
+    #Return output array of flux densities for each day of year
+    return outArr
+
+
+
+"""
+fig, ax = plotZodiacOverYear(ra, dec, year=2019)
+
+Plot the zodiacal background at a location over a year for two wavelength
+bands (1800-2200 Angstrom and 2600-3000 Angstrom).
+
+Inputs:
+    ra - Right Ascension in degrees (0 to 360)
+    dec - Declination in degrees (-90 to 90)
+
+Optional Inputs:
+    year - Year of observations (to determine if it is a leap year)
+
+Output:
+    A two element list with the figure and axes objects of plot.
+
+"""
+def plotZodiacOverYear(ra, dec, year=2019):
+    
+    import matplotlib.pyplot as plt
+    
+    #Define Wavelength Bands
+    band1 = [1800, 2200]
+    band2 = [2600, 3000]
+    
+    #Define replacement value for solar exclusion ('SE') values
+    seValue = 1e6
+    
+    
+    #Find background values
+    back1 = zodiacOverYear(ra, dec, band1[0], band1[1], year=year)
+    back2 = zodiacOverYear(ra, dec, band2[0], band2[1], year=year)
+    
+    #Replace 'SE' with replacement value
+    back1 = [seValue if val == 'SE' else val for val in back1]
+    back2 = [seValue if val == 'SE' else val for val in back2]
+    
+    
+    #Plot results
+    fig, ax = plt.subplots()
+    
+    ax.plot(range(1,len(back1)+1), back1, label="Band 1 (1800-2200 Å)")
+    ax.plot(range(1,len(back2)+1), back2, label="Band 2 (2600-3000 Å)")
+    
+    ax.set_title("Zodiacal Light Background Over Year")
+    ax.set_xlabel("Day of Year (DOY)")
+    ax.set_ylabel("Flux Density (photons/s/cm$^2$/str/Å)")
+    ax.set_ylim([1, 1e6])
+    ax.set_yscale('log')
+    ax.set_xlim([1, len(back1)])
+    ax.legend(title='Wavelength Band')
+    
+    return [fig,ax]
+    
+
+
+"""
+fig, ax = plotZodBackHistogram(ra, dec, wavelengthStart, wavelengthStop, \
+                               year=2019)
+
+Make a histogram tallying number of days target spends at zodiacal light
+background level.
+
+Inputs:
+    ra - Right Ascension in degrees (0 to 360)
+    dec - Declination in degrees (-90 to 90)
+    wavelengthStart - Start of wavelength range in Angstrom (1195 to 26957)
+    wavlengthStop   - End of wavelength range in Angstrom (1195 to 26957)
+
+Optional Inputs:
+    year - Year of observations (to determine if it is a leap year)
+
+Output:
+    A two element list with the figure and axes objects of plot.
+
+"""
+def plotZodBackHistogram(ra, dec, wavelengthStart, wavelengthStop, year=2019):
+    
+    import numpy as np
+    import matplotlib.pyplot as plt
+    
+    #Define replacement value for solar exclusion ('SE') values
+    seValue = 1e6
+    
+    
+    #Find background values
+    back = zodiacOverYear(ra, dec, wavelengthStart, wavelengthStop, year=year)
+    
+    #Replace 'SE' with replacement value
+    back = [seValue if val == 'SE' else val for val in back]
+    
+    #Create bin values
+    bins = 10**(np.arange(0,7))
+    
+    
+    #Plot results
+    fig, ax = plt.subplots()
+    
+    ax.hist(back, bins=bins)
+    
+    ax.set_title("Zodiacal Light Background Over Year")
+    ax.set_xlabel("Flux Density (photons/s/cm$^2$/str/Å)")
+    ax.set_ylabel("Number of Days at Flux Density")
+    ax.set_ylim([0, len(back)])
+    ax.set_xlim([1, 1e6])
+    ax.set_xscale('log')
+    
+    return [fig,ax]

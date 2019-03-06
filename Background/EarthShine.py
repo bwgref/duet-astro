@@ -5,10 +5,28 @@ Performs calculations to determine the Earth shine background
 
     Lookup Earth shine background spectrum at 24 deg from Earth's limb.
     (Supports limb angle as optional input).
-    esSpecArray = earthShineSpectrum(wavelengthStart, wavelengthStop)
+    esSpecArray = earthShineSpectrum(wavelengthStart, wavelengthStop, \
+                                     limbAng = 24, textfile = '')
 
     Find Earth Shine normalization factor based on angle from limb
     limbFactor = limbAngleFactor(limbAng)
+
+    Determine the Earth shine background level at a target over an orbit in a 
+    given wavelength band.
+    backArr = earthShineOrbit(ra, dec, wavelengthStart, wavelengthStop, \
+                              inclination, precPhase, \
+                              increment=5, altitude=600, earthExclusion=30)
+
+    Plot the Earth Shine background level over a complete orbit for a given
+    wavelength band.
+    fig, ax = plotEarthShineOrbit(ra, dec, wavelengthStart, wavelengthStop, \
+                              inclination, precPhase, \
+                              increment=5, altitude=600, earthExclusion=30)
+    
+    Plots the average Earth Shine background level for a series of inclinations
+    over an entire year.
+    fig, ax = plotEarthShineYear(ra, dec, wavelengthStart, wavelengthStop, \
+                             altitude=600, earthExclusion=30, year=2019)
 
 Created on Wed Feb 20 08:00:37 2019
 
@@ -150,5 +168,224 @@ def limbAngleFactor(limbAng):
     
     #Return factor difference between earthShineMag and reference magnitude
     return un.magFactor(earthShineMag, refMag)
+
+
+
+"""
+backArr = earthShineOrbit(ra, dec, wavelengthStart, wavelengthStop, \
+                          inclination, precPhase, \
+                          increment=5, altitude=600, earthExclusion=30)
+
+Determine the Earth shine background level at a target over an orbit in a 
+given wavelength band.
+
+Inputs:
+    ra  - Right ascension of target in degrees (0 to 360)
+    dec - Declination of target in degrees (-90 to 90)
+    wavelengthStart - Start of wavelength range in Angstrom (1195 to 26957)
+    wavlengthStop   - End of wavelength range in Angstrom (1195 to 26957)
+    precPhase   - Phase of the precession of the orbit (0 to 360) (right 
+                  ascension of acending node)
+    inclination - Inclination of orbit with respect to Earth's equator in
+                  degrees.    
+
+Optional inputs:
+    increment - The step size between each orbital phase angle in degrees.  
+                Must be a factor of 360.  (Default: 5)
+    altitude  - Altitude of spacecraft from Earth's surface in km. 
+                (Default: 600)
+    earthExclusion - Minimum angle spacecraft can point towards Earth.
+                     (Default: 30)
+
+Output:
+    List of Earth shine background flux densities (photons/s/cm2/str/Å) for 
+    each orbital phase of given incremental step size.  For times when target
+    is behind the Earth or in the Earth Exclusion area, returns 'EE'.
+                  
+"""
+def earthShineOrbit(ra, dec, wavelengthStart, wavelengthStop, \
+                    inclination, precPhase, \
+                    increment=5, altitude=600, earthExclusion=30):
+    
+    import numpy as np
+    import Orbit
+    import CoordinateTransform as ct
+    import zodiac
+    
+    #Create list of orbital phases
+    orbPhases = np.arange(0, 360, increment)
+
+    #Initialize output array
+    backArr = [None]*len(orbPhases)
+
+    #Solve for background for each orbital location
+    for ii in range(len(orbPhases)):
+        
+        #Get orbit position
+        orbPos = Orbit.orbitPosition(orbPhases[ii], precPhase, inclination)
+        
+        #Determine angle between position and target
+        targetAngle = ct.angleBetweenRaDecs(ra, dec, orbPos[0], orbPos[1])
+        
+        #Determine angle viewable
+        viewAngle = Orbit.viewAngle(altitude, earthExclusion)
+        
+        #Determine background value if in view
+        if targetAngle > viewAngle:
+            backArr[ii] = 'EE'
+        else:
+            orbitToLimbAngle = Orbit.angleToLimb(altitude)
+            targetToLimbAngle = 90 + orbitToLimbAngle - targetAngle
+            spectrum = earthShineSpectrum(wavelengthStart, wavelengthStop, \
+                                          targetToLimbAngle)
+            backArr[ii] = zodiac.integrateSpectrum(spectrum)
+
+    #Return array of backgrounds
+    return backArr        
+        
+        
+
+"""
+fig, ax = plotEarthShineOrbit(ra, dec, wavelengthStart, wavelengthStop, \
+                              inclination, precPhase, \
+                              increment=5, altitude=600, earthExclusion=30)
+
+Plot the Earth Shine background level over a complete orbit for a given
+wavelength band.
+
+Inputs:
+    ra  - Right ascension of target in degrees (0 to 360)
+    dec - Declination of target in degrees (-90 to 90)
+    wavelengthStart - Start of wavelength range in Angstrom (1195 to 26957)
+    wavlengthStop   - End of wavelength range in Angstrom (1195 to 26957)
+    precPhase   - Phase of the precession of the orbit (0 to 360) (right 
+                  ascension of acending node)
+    inclination - Inclination of orbit with respect to Earth's equator in
+                  degrees.    
+
+Optional inputs:
+    increment - The step size between each orbital phase angle in degrees.  
+                Must be a factor of 360.  (Default: 5)
+    altitude  - Altitude of spacecraft from Earth's surface in km. 
+                (Default: 600)
+    earthExclusion - Minimum angle spacecraft can point towards Earth.
+                     (Default: 30)
+
+Output:
+    Figure and axis objects of plot of Earth Shine background over orbit.
+
+"""
+def plotEarthShineOrbit(ra, dec, wavelengthStart, wavelengthStop, \
+                        inclination, precPhase, \
+                        increment=5, altitude=600, earthExclusion=30):
+    
+    import matplotlib.pyplot as plt
+    import numpy as np
+    #import Orbit as orb
+    
+    #Replacement value for 'EE'
+    eeReplacement = 1e6
+    
+    
+    #Set up the orbital phases
+    orbPhases = np.arange(0, 365, 5)
+
+    #Get Earth Shine background
+    back = earthShineOrbit(ra, dec, wavelengthStart, wavelengthStop, \
+                           inclination, precPhase, \
+                           increment=5, altitude=600, earthExclusion=30)    
+    
+    #Replace 'EE' values and add 360 value
+    back.append(back[0])
+    back = [eeReplacement if val == 'EE' else val for val in back]
+    
+    #Plot
+    fig, ax = plt.subplots()
+    ax.plot(orbPhases, back)
+    
+    ax.set_title("Earth Shine Background Over Orbit")
+    ax.set_xlabel("Orbital Phase (deg)")
+    ax.set_ylabel("Flux Density (photons/s/cm$^2$/str/Å)")
+    ax.set_xlim([0,360])
+    ax.set_yscale('log')
+    
+    return [fig, ax]
+        
+
+
+"""
+fig, ax = plotEarthShineYear(ra, dec, wavelengthStart, wavelengthStop, \
+                             altitude=600, earthExclusion=30, year=2019)
+
+Plots the average Earth Shine background level for a series of inclinations
+over an entire year.
+
+Inputs:
+    ra  - Right ascension of target in degrees (0 to 360)
+    dec - Declination of target in degrees (-90 to 90)
+    wavelengthStart - Start of wavelength range in Angstrom (1195 to 26957)
+    wavlengthStop   - End of wavelength range in Angstrom (1195 to 26957)
+
+Optional Inputs:
+    altitude  - Altitude of spacecraft from Earth's surface in km. 
+                (Default: 600)
+    earthExclusion - Minimum angle spacecraft can point towards Earth.
+                     (Default: 30)  
+    year - Year to use for plot (Default: 2019)
+    
+Output:
+    Figure and axis objects of plot of Earth Shine background over year.
+
+"""
+def plotEarthShineYear(ra, dec, wavelengthStart, wavelengthStop, \
+                       altitude=600, earthExclusion=30, year=2019):
+
+    import matplotlib.pyplot as plt
+    import numpy as np
+    import Orbit as orb
+    
+    fig, ax = plt.subplots()
+    
+    dates = orb.getYearList(year)
+    #inclinations = np.arange(0, 100, 10)
+    sunSyncInc = orb.sunSyncInclination(altitude)
+    inclinations = np.array([0,23.5,30,40,66.5,90,sunSyncInc])
+    
+    #Orbital increment to use
+    increment = 1
+    
+    backAvg = [0] * len(dates)
+    
+    for inclination in inclinations:
+        for ii in range(len(dates)):
+            
+            precPhase = orb.getPrecPhase(inclination, dates[ii], vernalPhase=90)
+            back = earthShineOrbit(ra, dec, wavelengthStart, wavelengthStop, \
+                                   inclination, precPhase, \
+                                   increment, altitude, earthExclusion)
+            #Remove 'EE' values
+            backClean = [val for val in back if val != 'EE']
+            backAvg[ii] = np.mean(backClean)
+
+        ax.plot(range(len(dates)), backAvg, label="{:.1f}".format(inclination))
+    
+    
+    ax.set_title("Average Earth Shine vs. Inclination")
+    ax.set_xlabel("Day of Year")
+    ax.set_ylabel("Average Flux Density (photons/s/cm$^2$/str/Å)")
+    ax.set_ylim([0.1,100])
+    ax.set_xlim([0,365])
+    ax.set_yscale('log')
+    
+    ax.legend(title='inclination', ncol=3, loc='lower right')
+    
+    return [fig,ax]
+    
+
+
+
+
+
+
 
 
