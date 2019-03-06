@@ -174,9 +174,9 @@ def bgd_sky_rate(**kwargs):
     if low_zodi:
         zodi_level = 77
     if med_zodi:
-        zodi_level = 300
+        zodi_level = 165
     if high_zodi:
-        zodi_level=6000
+        zodi_level=900
         
     zodi = load_zodi(scale=zodi_level)
 
@@ -238,7 +238,7 @@ def bgd_sky_qe_rate(**kwargs):
     medium_zodi = (False)
     high_zodi = (False)
     
-    qe_band = Whivch QE curve to us (1 --> 180-220 nm)
+    qe_band = Whivch QE curve to us (1 --> 180-220 nm, 2-->260-300 nm)
     blue_filter = Apply blue_side filter (False)
     
     
@@ -277,17 +277,23 @@ def bgd_sky_qe_rate(**kwargs):
     bandpass = np.abs(band[1] - band[0])
     
     qe_band = kwargs.pop('qe_band', 1)
-    blue_filter = kwargs.pop('blue_filter', 'False')
+    blue_filter = kwargs.pop('blue_filter', False)
+    
+    filter_target = kwargs.pop('filter_target', 0.5)
 
 #    effective_wavelength = (np.mean(band)).to(ur.AA)
 #    ph_energy = (cr.h.cgs * cr.c.cgs / effective_wavelength.cgs).to(ur.eV)
 
+    # Specified from Kristin. The highest Zodi that we hit is actually only 900 
+    # (down from 6000 in previous iterations) sine any closer to the Sun we violate
+    # our Sun-angle constraints.
+    
     if low_zodi:
         zodi_level = 77
     if med_zodi:
-        zodi_level = 300
+        zodi_level = 165
     if high_zodi:
-        zodi_level=6000
+        zodi_level=900
         
     zodi = load_zodi(scale=zodi_level)
 
@@ -298,12 +304,12 @@ def bgd_sky_qe_rate(**kwargs):
     
     # Load reflectivity and QE curves:
     ref_wave, reflectivity = load_reflectivity()
-    qe_wave, qe = load_qe(band=1)
+    qe_wave, qe = load_qe(band=qe_band)
     
     # Make the red filter
     low_wave = band[0]
     high_wave = band[1]
-    rejection = optimize_filter(low_wave, high_wave, target=0.5, 
+    rejection = optimize_filter(low_wave, high_wave, target_ratio=filter_target, 
         blue_filter=blue_filter)
     
     red_filter = make_red_filter(wave, rejection=rejection, high_wave = high_wave,
@@ -409,9 +415,9 @@ def outofband_bgd_sky_rate(**kwargs):
     if low_zodi:
         zodi_level = 77
     if med_zodi:
-        zodi_level = 300
+        zodi_level = 165
     if high_zodi:
-        zodi_level=6000
+        zodi_level=900
         
     zodi = load_zodi(scale=zodi_level)
 

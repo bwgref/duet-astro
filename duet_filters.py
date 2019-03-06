@@ -56,13 +56,13 @@ def make_red_filter(in_wave, **kwargs):
     """
     import astropy.units as ur
     import numpy as np
-    blue_filter = kwargs.pop('blue_filter', False)
 
     
     low_wave = kwargs.pop('low_wave', 180*ur.nm)
     high_wave = kwargs.pop('high_wave', 220*ur.nm) 
     rejection = kwargs.pop('rejection', 1e-3)
     diag = kwargs.pop('diag', False)
+    blue_filter = kwargs.pop('blue_filter', False)
 
     wave = in_wave.to(ur.Angstrom).value
 
@@ -81,7 +81,9 @@ def make_red_filter(in_wave, **kwargs):
     if diag:
         print('Low wavelength: {}'.format(low_wave))
         print('High wavelength: {}'.format(high_wave))
+        print('Blue filter?: {}'.format(blue_filter))
         print('Rejection level: {}'.format(rejection))
+        
     
     
     return red_filter
@@ -94,6 +96,7 @@ def optimize_filter(low_wave, high_wave, **kwargs):
     ---
     Inputs:
     low_wave = Lower side of bandpass (units consistent with length)
+    high_wave = High side of the bandpass
 
     Option inputs:
     
@@ -115,6 +118,7 @@ def optimize_filter(low_wave, high_wave, **kwargs):
     qe_band = kwargs.pop('qe_band', 1)
     target_ratio = kwargs.pop('target_ratio', 0.5)
     blue_filter = kwargs.pop('blue_filter', False)
+    diag = kwargs.pop('diag', False)
     # Load zodiacal background. Note that the out-of-band Zodi dominates over the
     # atmospheric lines (which are present here). Using the lowest Zodi background
     # represents the "worst case".
@@ -129,11 +133,10 @@ def optimize_filter(low_wave, high_wave, **kwargs):
     qe_flux = apply_trans(zodi['wavelength'], ref_flux, qe_wave, qe)
  
     # Make a "standard" red filter:
-    rejection = 1e-3
+    rejection = 1.0
     red_filter = make_red_filter(zodi['wavelength'], low_wave = low_wave,
                                  high_wave=high_wave, rejection = rejection,
-                                 blue_filter=blue_filter)
-    
+                                 blue_filter=blue_filter, diag=diag)
                                                                  
     band_flux = apply_trans(zodi['wavelength'], qe_flux, zodi['wavelength'], red_filter)
  
@@ -150,6 +153,13 @@ def optimize_filter(low_wave, high_wave, **kwargs):
     ratio = out_of_band / in_band
     target_rejection = (rejection * (target_ratio / ratio)).value
     
-    
-    
+    if diag:
+        print()
+        print('Optimize filter diagnostics:')
+        print('Low wave:{}'.format(low_wave))
+        print('High wave:{}'.format(high_wave))
+        print('Blue filter? {}'.format(blue_filter))
+        print('Target ratio: {}'.format(target_ratio))
+        print('Target rejection: {}'.format(target_rejection))    
+        print()
     return target_rejection

@@ -197,7 +197,7 @@ def load_telescope_parameters(version, **kwargs):
         psf_fwhm_um = 7.2 # microns
         psf_fwhm = plate_scale * psf_fwhm_um * ur.arcsec
         
-        pixel_size = plate_scale * 10 * ur.arcsec
+        pixel_size = plate_scale * 10. * ur.arcsec
 
     if version == 13:
         name="Swiss Cross CCD"
