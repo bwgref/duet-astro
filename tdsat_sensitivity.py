@@ -277,7 +277,7 @@ def bgd_sky_qe_rate(**kwargs):
     bandpass = np.abs(band[1] - band[0])
     
     qe_band = kwargs.pop('qe_band', 1)
-    blue_filter = kwargs.pop('blue_filter', 'False')
+    blue_filter = kwargs.pop('blue_filter', False)
     
     filter_target = kwargs.pop('filter_target', 0.5)
 
@@ -291,7 +291,7 @@ def bgd_sky_qe_rate(**kwargs):
     if low_zodi:
         zodi_level = 77
     if med_zodi:
-        zodi_level = 179
+        zodi_level = 165
     if high_zodi:
         zodi_level=900
         
