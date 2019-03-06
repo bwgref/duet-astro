@@ -174,9 +174,9 @@ def bgd_sky_rate(**kwargs):
     if low_zodi:
         zodi_level = 77
     if med_zodi:
-        zodi_level = 300
+        zodi_level = 165
     if high_zodi:
-        zodi_level=6000
+        zodi_level=900
         
     zodi = load_zodi(scale=zodi_level)
 
@@ -415,9 +415,9 @@ def outofband_bgd_sky_rate(**kwargs):
     if low_zodi:
         zodi_level = 77
     if med_zodi:
-        zodi_level = 300
+        zodi_level = 165
     if high_zodi:
-        zodi_level=6000
+        zodi_level=900
         
     zodi = load_zodi(scale=zodi_level)
 
