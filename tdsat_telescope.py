@@ -234,7 +234,7 @@ def load_telescope_parameters(version, **kwargs):
         print('Telescope Configuration {}'.format(version))
         print('Name: {}'.format(name))
         print('Entrance Pupil diameter {}'.format(diameter))
-        print('Optical Effifiency {}'.format(efficiency))
+        print('Optical Efficiency {}'.format(efficiency))
         print('PSF FWHM {}'.format(psf_fwhm))
         print('Pixel size {}'.format(pixel_size))
         print('Effective Aperture {}'.format(diameter*(efficiency)**0.5))
@@ -345,7 +345,7 @@ def load_reflectivity(**kwargs):
     
     if diag:
         print('Optics reflectivity loader')
-        print('Input file {}'.format(band, infile))
+        print('Input file {}'.format(infile))
         
     
     return wave, reflectivity
@@ -397,8 +397,38 @@ def load_redfilter(**kwargs):
     wave *= ur.nm
     
     if diag:
-        print('Redd filter loader')
+        print('Red filter loader')
         print('Band {} has input file {}'.format(band, infile))
         
     
     return wave, transmission / 100.
+
+
+def apply_filters(wave, spec, **kwargs):
+    """
+    Loads the detector QE and returns the values.
+    
+    band = 1 (default, 180-220 nm)
+    band = 2 (260-320 nm)
+    
+    Syntax:
+    
+    wave, transmission = load_redfilter(band=1)
+    
+    """
+    
+    from apply_transmission import apply_trans
+
+    # Load filters
+    ref_wave, reflectivity = load_reflectivity(**kwargs)
+    qe_wave, qe = load_qe(**kwargs) 
+    red_wave, red_trans = load_redfilter(**kwargs)    
+
+    ref_flux = apply_trans(wave, spec, ref_wave, reflectivity/100.)
+    qe_flux = apply_trans(wave, ref_flux, qe_wave, qe)
+    band_flux = apply_trans(wave, qe_flux, red_wave, red_trans)
+
+    return band_flux
+    
+    
+
