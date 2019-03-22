@@ -350,4 +350,55 @@ def load_reflectivity(**kwargs):
     
     return wave, reflectivity
 
-
+def load_redfilter(**kwargs):
+    """
+    Loads the detector QE and returns the values.
+    
+    band = 1 (default, 180-220 nm)
+    band = 2 (260-320 nm)
+    
+    Syntax:
+    
+    wave, transmission = load_redfilter(band=1)
+    
+    """
+    import astropy.units as ur
+    import numpy as np
+    
+    band = kwargs.pop('band', 1)
+    diag = kwargs.pop('diag', False)
+    
+    indir = 'input_data/'
+    
+    infile = indir+'duet{}_filter.csv'.format(band)
+    
+        
+    f = open(infile, 'r')
+    header = True
+    qe = {}
+    set = False
+    for line in f:
+        if header:
+            if line.startswith('Wavelength'):
+                header = False
+            continue
+        fields = line.split(',')
+        if not set:
+            wave = float(fields[0])
+            transmission = float(fields[1])
+            set = True
+        else:
+            wave = np.append(wave, float(fields[0]))
+            transmission = np.append(transmission, float(fields[1]))
+ 
+    f.close()
+    
+    # Give wavelength a unit
+    wave *= ur.nm
+    
+    if diag:
+        print('Redd filter loader')
+        print('Band {} has input file {}'.format(band, infile))
+        
+    
+    return wave, transmission / 100.
