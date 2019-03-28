@@ -310,7 +310,7 @@ def bgd_sky_qe_rate(**kwargs):
     
     
     if real_red:
-        band_flux = apply_filters(zodi['wavelength'], zodi['flux'], band=qe_band, diag=diag)
+        band_flux = apply_filters(zodi['wavelength'], zodi['flux'], band=qe_band, diag=diag, **kwargs)
     else:
 
     # Make the red filter

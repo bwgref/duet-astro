@@ -284,8 +284,8 @@ def bb_abmag_fluence(val=False, **kwargs):
     ph_flux = flux_conv * dw / ph_energy
 
     # Apply filters, QE, etc.
-    band1_fluence = apply_filters(wav, ph_flux, diag=diag).sum().sum()
-    band2_fluence = apply_filters(wav, ph_flux, band = 2, diag=diag).sum()
+    band1_fluence = apply_filters(wav, ph_flux, diag=diag, **kwargs).sum().sum()
+    band2_fluence = apply_filters(wav, ph_flux, band = 2, diag=diag, **kwargs).sum()
 
 
 

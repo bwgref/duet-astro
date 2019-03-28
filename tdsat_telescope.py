@@ -190,6 +190,8 @@ def load_telescope_parameters(version, **kwargs):
         qe = 0.6
         diameter = 30.*ur.cm
         eff_diam = 21.7*ur.cm
+        eff_diam = 24.7*ur.cm
+        
         efficiency = (eff_diam/diameter)**2
 
         plate_scale = 4.0/10. # arcsec per micron
@@ -217,7 +219,7 @@ def load_telescope_parameters(version, **kwargs):
         name="Medium Focal Plane (CMOS 6k x 6k)"
         qe = 0.6
         diameter = 30.*ur.cm
-        eff_diam = 22.6*ur.cm
+        eff_diam = 0.7*27.3*ur.cm
         efficiency = (eff_diam/diameter)**2
 
         plate_scale = 4.3/10. # arcsec per micron
@@ -227,6 +229,23 @@ def load_telescope_parameters(version, **kwargs):
         
         pixel_size = plate_scale * 10 * ur.arcsec
     
+    ######
+    
+    if version == 15:
+        name="25 cm primary"
+        qe = 0.6
+        diameter = 20.*ur.cm
+        eff_diam = 17*ur.cm
+        efficiency = (eff_diam/diameter)**2
+
+        plate_scale = 6.4/10. # arcsec per micron
+        
+        psf_fwhm_um = 10.3 # microns
+        psf_fwhm = plate_scale * psf_fwhm_um * ur.arcsec
+        
+        pixel_size = plate_scale * 10 * ur.arcsec
+    
+
     
 
 
@@ -367,11 +386,15 @@ def load_redfilter(**kwargs):
     
     band = kwargs.pop('band', 1)
     diag = kwargs.pop('diag', False)
+    light = kwargs.pop('light', False)
     
     indir = 'input_data/'
     
-    infile = indir+'duet{}_filter.csv'.format(band)
-    
+    if light:
+        infile = indir+'duet{}_filter_light.csv'.format(band)
+    else:
+        infile = indir+'duet{}_filter.csv'.format(band)
+        
         
     f = open(infile, 'r')
     header = True
@@ -379,7 +402,7 @@ def load_redfilter(**kwargs):
     set = False
     for line in f:
         if header:
-            if line.startswith('Wavelength'):
+            if (line.startswith('Wavelength')) or ('%T' in line):
                 header = False
             continue
         fields = line.split(',')
