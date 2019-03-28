@@ -294,7 +294,7 @@ def bb_abmag_fluence(val=False, **kwargs):
         print('Compute ABmags in TD bands for blackbody')
         print('Blackbody temperature: {}'.format(bbtemp))
         print('Reference UVW2-band magnitude: {}'.format(swiftmag))
-        print('Distance: {}'.format(dist))
+        print('Distance: {} (Reference distance is 10 pc)'.format(dist))
         print()
         print('Flux density Swift: {}'.format(fluxden_sw))
         print('Distance modulus: {}'.format(distmod))
