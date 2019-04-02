@@ -65,7 +65,7 @@ def bb_abmag(diag=False, val=False, **kwargs):
         magoff = swiftmag - magsw
 
     # Distance modulus
-    distmod = (5*np.log10(dist/dist0)).value*ur.ABmag
+    distmod = (5*np.log10(dist/dist0)).value*ur.mag
 
     # Apply offsets
     magone_final = magone + magoff + distmod
@@ -308,3 +308,5 @@ def bb_abmag_fluence(val=False, **kwargs):
         return band1_fluence.value, band2_fluence.value
     else:
         return band1_fluence, band2_fluence
+
+
