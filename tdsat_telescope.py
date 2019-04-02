@@ -386,7 +386,7 @@ def load_redfilter(**kwargs):
     
     band = kwargs.pop('band', 1)
     diag = kwargs.pop('diag', False)
-    light = kwargs.pop('light', False)
+    light = kwargs.pop('light', True)
     
     indir = 'input_data/'
     
