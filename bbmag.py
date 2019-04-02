@@ -1,3 +1,5 @@
+
+
 def bb_abmag(diag=False, val=False, **kwargs):
     """
     Take a blackbody with a certain temperature and convert to AB magnitudes in two bands.
@@ -63,7 +65,7 @@ def bb_abmag(diag=False, val=False, **kwargs):
         magoff = swiftmag - magsw
 
     # Distance modulus
-    distmod = (5*np.log10(dist/dist0)).value*ur.ABmag
+    distmod = (5*np.log10(dist/dist0)).value*ur.mag
 
     # Apply offsets
     magone_final = magone + magoff + distmod
@@ -203,3 +205,108 @@ def gettempbb(diag=False, val=False, **kwargs):
         return bbtemp.value, bbtemp_err.value
     else:
         return bbtemp, bbtemp_err
+
+
+def bb_abmag_fluence(val=False, **kwargs):
+    """
+    Take a blackbody with a certain temperature and convert to photon rate in a band.
+    
+    Now applies the various filters and returns *photon fluence* in the band
+    
+    Inputs (defaults):
+    umag = apparent u-band AB magnitude (22*ur.ABmag)
+    swiftmag = apparent Swift UVW2 magnitude (22*ur.ABmag)
+    ref = band to use for reference magnitude; options are 'u', 'swift' ('swift')
+    bandone = Bandpass 1st filter (180-220)*ur.nm
+    bandtwo = Bandpass 2nd filter (260-300)*ur.nm
+    bbtemp = Blackbody temperature (20000*ur.K)
+    dist = Distance (10*ur.pc)
+    val = Return values without unit if True (False)
+    
+    diag (False)
+        
+    Returns ABmag1, ABmag2
+       
+    Also still to do: Add background from galaxies.
+       
+    """
+    
+    import astropy.units as ur
+    import astropy.constants as cr
+    from astropy.modeling import models
+    from astropy.modeling.blackbody import FLAM
+    import numpy as np
+    from tdsat_telescope import apply_filters
+
+    
+    
+    bbtemp = kwargs.pop('bbtemp', 20000.*ur.K)
+#    bandone = kwargs.pop('bandone', [180,220]*ur.nm)
+#    bandtwo = kwargs.pop('bandtwo', [260,300]*ur.nm)
+    umag = kwargs.pop('umag', 22*ur.ABmag)
+    swiftmag = kwargs.pop('swiftmag', 22*ur.ABmag)
+    dist = kwargs.pop('dist', 10*ur.pc)
+    ref = kwargs.pop('ref', 'swift')
+    diag=kwargs.pop('diag', False)
+    dist0 = 10*ur.pc
+    
+    bandu = [340,380]*ur.nm # For comparison purposes
+    bandsw = [172.53,233.57]*ur.nm # Swift UVW2 effective band (lambda_eff +/- 0.5 width_eff)
+
+    wav = np.arange(1000,9000) * ur.AA # Wavelength scale in 1 Angstrom steps
+    bb = models.BlackBody1D(temperature=bbtemp) # Load the blackbody model
+    flux = bb(wav).to(FLAM, ur.spectral_density(wav))
+
+    # Get Swift reference AB mag
+    fluxden_sw = np.mean(flux[(wav >= bandsw[0].to(ur.AA)) & (wav <= bandsw[1].to(ur.AA))])
+    magsw = fluxden_sw.to(ur.ABmag, equivalencies=ur.spectral_density(np.mean(bandsw)))
+
+
+    # Conver to flux AB mags across the band.
+    flux_ab = flux.to(ur.ABmag, equivalencies = ur.spectral_density(wav))
+
+    # Distance modulus
+    distmod = (5*np.log10(dist/dist0)).value*ur.mag
+
+    # Set up input:
+    magoff = swiftmag - magsw
+
+    # Apply the distance modulus and the Swift reference offset
+    flux_mag = flux_ab + magoff + distmod
+
+
+    # Convert back to flux
+    flux_conv = flux_mag.to(FLAM, equivalencies=ur.spectral_density(wav))
+    dw = 1*ur.AA
+    ph_energy = (cr.h.cgs * cr.c.cgs / wav.cgs)
+
+    # Convert to photon flux.
+    ph_flux = flux_conv * dw / ph_energy
+
+    # Apply filters, QE, etc.
+    band1_fluence = apply_filters(wav, ph_flux, diag=diag, **kwargs).sum().sum()
+    band2_fluence = apply_filters(wav, ph_flux, band = 2, diag=diag, **kwargs).sum()
+
+
+
+    if diag:
+        print()
+        print('Compute ABmags in TD bands for blackbody')
+        print('Blackbody temperature: {}'.format(bbtemp))
+        print('Reference UVW2-band magnitude: {}'.format(swiftmag))
+        print('Distance: {} (Reference distance is 10 pc)'.format(dist))
+        print()
+        print('Flux density Swift: {}'.format(fluxden_sw))
+        print('Distance modulus: {}'.format(distmod))
+        print('Raw ABmag Swift: {}'.format(magsw))
+        print('Offset from Swift band: {}'.format(magoff))
+        print('Fluence band one: {}'.format(band1_fluence))
+        print('Fluence band two: {}'.format(band2_fluence))
+        print('')    
+    
+    if val:
+        return band1_fluence.value, band2_fluence.value
+    else:
+        return band1_fluence, band2_fluence
+
+

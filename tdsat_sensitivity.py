@@ -69,6 +69,9 @@ def src_rate(diag=False, **kwargs):
     return NumPh, NumElectrons
 
 
+
+
+
 def bgd_electronics(exposure, **kwargs):
     """
     Place holder to account for dark currents, etc
@@ -252,7 +255,7 @@ def bgd_sky_qe_rate(**kwargs):
     import numpy as np
     from zodi import load_zodi, wavelength_to_energy
     from apply_transmission import apply_trans
-    from tdsat_telescope import load_qe, load_reflectivity
+    from tdsat_telescope import load_qe, load_reflectivity, load_redfilter, apply_filters
     from duet_filters import make_red_filter, optimize_filter
 
 
@@ -281,6 +284,8 @@ def bgd_sky_qe_rate(**kwargs):
     
     filter_target = kwargs.pop('filter_target', 0.5)
 
+    real_red = kwargs.pop('real_red', False)
+
 #    effective_wavelength = (np.mean(band)).to(ur.AA)
 #    ph_energy = (cr.h.cgs * cr.c.cgs / effective_wavelength.cgs).to(ur.eV)
 
@@ -302,25 +307,34 @@ def bgd_sky_qe_rate(**kwargs):
     
     
     
-    # Load reflectivity and QE curves:
-    ref_wave, reflectivity = load_reflectivity()
-    qe_wave, qe = load_qe(band=qe_band)
     
-    # Make the red filter
-    low_wave = band[0]
-    high_wave = band[1]
-    rejection = optimize_filter(low_wave, high_wave, target_ratio=filter_target, 
-        blue_filter=blue_filter)
     
-    red_filter = make_red_filter(wave, rejection=rejection, high_wave = high_wave,
-            low_wave = low_wave, blue_filter = blue_filter)
+    if real_red:
+        band_flux = apply_filters(zodi['wavelength'], zodi['flux'], band=qe_band, diag=diag, **kwargs)
+    else:
 
-    # Apply reflectivity and QE to the Zodi spectrum:
-    ref_flux = apply_trans(zodi['wavelength'], zodi['flux'], ref_wave, reflectivity/100.)
-    qe_flux = apply_trans(zodi['wavelength'], ref_flux, qe_wave, qe)
+    # Make the red filter
+        low_wave = band[0]
+        high_wave = band[1]
+        rejection = optimize_filter(low_wave, high_wave, target_ratio=filter_target, 
+            blue_filter=blue_filter)
+            
+        
     
-    # Apply red filter
-    band_flux = apply_trans(wave, qe_flux, wave, red_filter)
+        red_trans = make_red_filter(wave, rejection=rejection, high_wave = high_wave,
+                low_wave = low_wave, blue_filter = blue_filter)
+        red_wave = wave
+            # Load reflectivity and QE curves:
+        ref_wave, reflectivity = load_reflectivity()
+        qe_wave, qe = load_qe(band=qe_band)
+
+        
+        # Apply reflectivity and QE to the Zodi spectrum:
+        ref_flux = apply_trans(zodi['wavelength'], zodi['flux'], ref_wave, reflectivity/100.)
+        qe_flux = apply_trans(zodi['wavelength'], ref_flux, qe_wave, qe)
+    
+        # Apply red filter
+        band_flux = apply_trans(wave, qe_flux, red_wave, red_trans)
 
     # Assume bins are the same size:
     de = wave[1] - wave[0]    
@@ -338,8 +352,8 @@ def bgd_sky_qe_rate(**kwargs):
         print('Band: {}'.format(band))
         print('Bandpass: {}'.format(bandpass))
         print()
-        print('Out-of-band rejection: {}'.format(rejection))
-        print('Apply blue filter? {}'.format(blue_filter))
+#        print('Out-of-band rejection: {}'.format(rejection))
+#        print('Apply blue filter? {}'.format(blue_filter))
         print()
         print('Pixel Area: {}'.format(pixel_area))
         print()

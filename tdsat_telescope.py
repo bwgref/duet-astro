@@ -190,6 +190,8 @@ def load_telescope_parameters(version, **kwargs):
         qe = 0.6
         diameter = 30.*ur.cm
         eff_diam = 21.7*ur.cm
+        eff_diam = 24.7*ur.cm
+        
         efficiency = (eff_diam/diameter)**2
 
         plate_scale = 4.0/10. # arcsec per micron
@@ -217,7 +219,7 @@ def load_telescope_parameters(version, **kwargs):
         name="Medium Focal Plane (CMOS 6k x 6k)"
         qe = 0.6
         diameter = 30.*ur.cm
-        eff_diam = 22.6*ur.cm
+        eff_diam = 0.7*27.3*ur.cm
         efficiency = (eff_diam/diameter)**2
 
         plate_scale = 4.3/10. # arcsec per micron
@@ -227,6 +229,23 @@ def load_telescope_parameters(version, **kwargs):
         
         pixel_size = plate_scale * 10 * ur.arcsec
     
+    ######
+    
+    if version == 15:
+        name="25 cm primary"
+        qe = 0.6
+        diameter = 20.*ur.cm
+        eff_diam = 17*ur.cm
+        efficiency = (eff_diam/diameter)**2
+
+        plate_scale = 6.4/10. # arcsec per micron
+        
+        psf_fwhm_um = 10.3 # microns
+        psf_fwhm = plate_scale * psf_fwhm_um * ur.arcsec
+        
+        pixel_size = plate_scale * 10 * ur.arcsec
+    
+
     
 
 
@@ -234,7 +253,7 @@ def load_telescope_parameters(version, **kwargs):
         print('Telescope Configuration {}'.format(version))
         print('Name: {}'.format(name))
         print('Entrance Pupil diameter {}'.format(diameter))
-        print('Optical Effifiency {}'.format(efficiency))
+        print('Optical Efficiency {}'.format(efficiency))
         print('PSF FWHM {}'.format(psf_fwhm))
         print('Pixel size {}'.format(pixel_size))
         print('Effective Aperture {}'.format(diameter*(efficiency)**0.5))
@@ -345,9 +364,94 @@ def load_reflectivity(**kwargs):
     
     if diag:
         print('Optics reflectivity loader')
-        print('Input file {}'.format(band, infile))
+        print('Input file {}'.format(infile))
         
     
     return wave, reflectivity
 
+def load_redfilter(**kwargs):
+    """
+    Loads the detector QE and returns the values.
+    
+    band = 1 (default, 180-220 nm)
+    band = 2 (260-320 nm)
+    
+    Syntax:
+    
+    wave, transmission = load_redfilter(band=1)
+    
+    """
+    import astropy.units as ur
+    import numpy as np
+    
+    band = kwargs.pop('band', 1)
+    diag = kwargs.pop('diag', False)
+    light = kwargs.pop('light', True)
+    
+    indir = 'input_data/'
+    
+    if light:
+        infile = indir+'duet{}_filter_light.csv'.format(band)
+    else:
+        infile = indir+'duet{}_filter.csv'.format(band)
+        
+        
+    f = open(infile, 'r')
+    header = True
+    qe = {}
+    set = False
+    for line in f:
+        if header:
+            if (line.startswith('Wavelength')) or ('%T' in line):
+                header = False
+            continue
+        fields = line.split(',')
+        if not set:
+            wave = float(fields[0])
+            transmission = float(fields[1])
+            set = True
+        else:
+            wave = np.append(wave, float(fields[0]))
+            transmission = np.append(transmission, float(fields[1]))
+ 
+    f.close()
+    
+    # Give wavelength a unit
+    wave *= ur.nm
+    
+    if diag:
+        print('Red filter loader')
+        print('Band {} has input file {}'.format(band, infile))
+        
+    
+    return wave, transmission / 100.
+
+
+def apply_filters(wave, spec, **kwargs):
+    """
+    Loads the detector QE and returns the values.
+    
+    band = 1 (default, 180-220 nm)
+    band = 2 (260-320 nm)
+    
+    Syntax:
+    
+    wave, transmission = load_redfilter(band=1)
+    
+    """
+    
+    from apply_transmission import apply_trans
+
+    # Load filters
+    ref_wave, reflectivity = load_reflectivity(**kwargs)
+    qe_wave, qe = load_qe(**kwargs) 
+    red_wave, red_trans = load_redfilter(**kwargs)    
+
+    ref_flux = apply_trans(wave, spec, ref_wave, reflectivity/100.)
+    qe_flux = apply_trans(wave, ref_flux, qe_wave, qe)
+    band_flux = apply_trans(wave, qe_flux, red_wave, red_trans)
+
+    return band_flux
+    
+    
 
