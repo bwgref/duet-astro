@@ -14,6 +14,7 @@ def bb_abmag(diag=False, val=False, **kwargs):
     bbtemp = Blackbody temperature (20000*ur.K)
     dist = Distance (10*ur.pc)
     val = Return values without unit if True (False)
+    bolflux = Bolometric flux; if not 1, refmag and distance are ignored (1*ur.erg/ur.cm**2/ur.s)
     
     diag (False)
         
@@ -37,12 +38,13 @@ def bb_abmag(diag=False, val=False, **kwargs):
     dist = kwargs.pop('dist', 10*ur.pc)
     ref = kwargs.pop('ref', 'swift')
     dist0 = 10*ur.pc
+    bolflux = kwargs.pop('bolflux', 1.*ur.erg/(ur.cm**2 * ur.s))
     
     bandu = [340,380]*ur.nm # For comparison purposes
     bandsw = [172.53,233.57]*ur.nm # Swift UVW2 effective band (lambda_eff +/- 0.5 width_eff)
 
     wav = np.arange(1000,9000) * ur.AA # Wavelength scale in 1 Angstrom steps
-    bb = models.BlackBody1D(temperature=bbtemp) # Load the blackbody model
+    bb = models.BlackBody1D(temperature=bbtemp,bolometric_flux=bolflux) # Load the blackbody model
     flux = bb(wav).to(FLAM, ur.spectral_density(wav))
 
     # Calculate mean flux density in each band:
@@ -70,6 +72,13 @@ def bb_abmag(diag=False, val=False, **kwargs):
     # Apply offsets
     magone_final = magone + magoff + distmod
     magtwo_final = magtwo + magoff + distmod
+
+    if (bolflux == 1.*ur.erg/(ur.cm**2 * ur.s)):
+        magone_final = magone + magoff + distmod
+        magtwo_final = magtwo + magoff + distmod
+    else:
+        magone_final = magone
+        magtwo_final = magtwo
  
     if diag:
         print()
@@ -213,6 +222,8 @@ def bb_abmag_fluence(val=False, **kwargs):
     
     Now applies the various filters and returns *photon fluence* in the band
     
+    Now also accepts bolometric flux as input.
+    
     Inputs (defaults):
     umag = apparent u-band AB magnitude (22*ur.ABmag)
     swiftmag = apparent Swift UVW2 magnitude (22*ur.ABmag)
@@ -222,6 +233,7 @@ def bb_abmag_fluence(val=False, **kwargs):
     bbtemp = Blackbody temperature (20000*ur.K)
     dist = Distance (10*ur.pc)
     val = Return values without unit if True (False)
+    bolflux = Bolometric flux; if not 1, refmag and distance are ignored (1*ur.erg/ur.cm**2/ur.s)
     
     diag (False)
         
@@ -249,12 +261,13 @@ def bb_abmag_fluence(val=False, **kwargs):
     ref = kwargs.pop('ref', 'swift')
     diag=kwargs.pop('diag', False)
     dist0 = 10*ur.pc
+    bolflux = kwargs.pop('bolflux', 1.*ur.erg/(ur.cm**2 * ur.s))
     
     bandu = [340,380]*ur.nm # For comparison purposes
     bandsw = [172.53,233.57]*ur.nm # Swift UVW2 effective band (lambda_eff +/- 0.5 width_eff)
 
     wav = np.arange(1000,9000) * ur.AA # Wavelength scale in 1 Angstrom steps
-    bb = models.BlackBody1D(temperature=bbtemp) # Load the blackbody model
+    bb = models.BlackBody1D(temperature=bbtemp,bolometric_flux=bolflux) # Load the blackbody model
     flux = bb(wav).to(FLAM, ur.spectral_density(wav))
 
     # Get Swift reference AB mag
@@ -272,8 +285,10 @@ def bb_abmag_fluence(val=False, **kwargs):
     magoff = swiftmag - magsw
 
     # Apply the distance modulus and the Swift reference offset
-    flux_mag = flux_ab + magoff + distmod
-
+    if (bolflux == 1.*ur.erg/(ur.cm**2 * ur.s)):
+        flux_mag = flux_ab + magoff + distmod
+    else:
+        flux_mag = flux_ab
 
     # Convert back to flux
     flux_conv = flux_mag.to(FLAM, equivalencies=ur.spectral_density(wav))
@@ -286,7 +301,6 @@ def bb_abmag_fluence(val=False, **kwargs):
     # Apply filters, QE, etc.
     band1_fluence = apply_filters(wav, ph_flux, diag=diag, **kwargs).sum().sum()
     band2_fluence = apply_filters(wav, ph_flux, band = 2, diag=diag, **kwargs).sum()
-
 
 
     if diag:

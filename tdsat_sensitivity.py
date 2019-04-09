@@ -734,6 +734,23 @@ def calc_exposure(k, src_rate, bgd_rate, read_noise, neff):
     exposure = (nom1 + nom2)/ denom
     return exposure
 
+def calc_snr(texp, src_rate, bgd_rate, read_noise, neff):
+    """
+    Compute S/N given the exposure time, source rate,
+    the background rate, the read noise, and the number
+    of effective background pixels and the number of stacked exposures
+
+    -----
+    
+    snr = calc_snr(texp, src_rate, bgd_rate, read_noise, neff, nexp)
+    
+    """
+    denom = (src_rate*texp + neff * (bgd_rate*texp + read_noise**2))**0.5
+
+    nom = src_rate * texp
+    
+    snr = nom / denom
+    return snr
 
 
 
