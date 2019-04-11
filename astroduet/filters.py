@@ -1,5 +1,5 @@
 import os
-
+from numpy import allclose
 
 curdir = os.path.dirname(__file__)
 datadir = os.path.join(curdir, 'data')
@@ -233,3 +233,86 @@ def apply_filters(wave, spec, **kwargs):
     band_flux = apply_trans(wave, qe_flux, red_wave, red_trans)
 
     return band_flux
+
+
+def filter_parameters(*args, **kwargs):
+    """
+    Construct the effective central wavelength and the effective bandpass
+    for the filters.
+    
+    Parameters
+    ----------
+
+
+    Other parameters
+    ----------------
+    vega : conditional, default False
+        Use the Vega spetrum (9.8e3 K blackbody) to compute values. Otherwise computed
+        "flat" values if quoting AB mags.
+        
+    diag : conditional, default False  
+        Show the diagnostic info on the parameters.
+
+    Examples
+    --------
+    >>> band1, band2 = filter_parameters()
+    >>> allclose(band1[0].value, 213.6)
+    True
+    
+
+    """
+
+
+    from astropy.modeling import models
+    from astropy.modeling.blackbody import FLAM
+    from astropy import units as u
+    import numpy as np
+
+    vega = kwargs.pop('vega', False)
+    diag = kwargs.pop('diag', False)
+
+    wave = np.arange(1000, 10000)*u.AA
+    if vega:
+        temp = 9.8e3*u.K    
+        bb = models.BlackBody1D(temperature=temp)
+        flux = bb(wave).to(FLAM, u.spectral_density(wave))
+    else:
+        flux = np.zeros_like(wave.value)
+        flux += 1
+        flux *= FLAM
+
+    band1 = apply_filters(wave, flux, band=1)
+    band2 = apply_filters(wave, flux, band=2)
+    
+    λ_eff1 = ((band1*wave).sum() / (band1.sum())).to(u.nm)
+    λ_eff2 = ((band2*wave).sum() / (band2.sum())).to(u.nm)
+
+    dλ = wave[1] - wave[0]
+    t1 = band1 / flux
+    t2 = band2 / flux
+
+    w1 = (dλ * t1.sum() / t1.max()).to(u.nm)
+    w2 = (dλ * t2.sum() / t2.max()).to(u.nm)
+
+    if diag:
+        print('Band1: {0:0.2f} λ_eff, {1:0.2f} W_eff'.format(λ_eff1, w1))
+        print('Band2: {0:0.2f} λ_eff, {1:0.2f} W_eff'.format(λ_eff2, w2))
+
+    return [λ_eff1, w1], [λ_eff2, w2]
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
