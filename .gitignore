@@ -2,3 +2,6 @@ __pycache__/*
 .ipy*
 *.pyc
 .DS_Store
+astroduet.egg-info/*
+astroduet/version.py
+build/*

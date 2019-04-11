@@ -1,5 +1,6 @@
 import os
-
+from numpy import allclose
+import astropy.units as u
 
 curdir = os.path.dirname(__file__)
 datadir = os.path.join(curdir, 'data')
@@ -212,15 +213,43 @@ def apply_trans(wav_s, flux_s, wav_t, trans, **kwargs):
 
 def apply_filters(wave, spec, **kwargs):
     """
-    Loads the detector QE and returns the values.
+    
+    Applies the reflectivity, QE, and red-filter based on the input files
+    in the data subdirectory. See the individual scripts or set diag=True
+    to see what filters are beign used.
+    
+    Optional Parameters
+    ----------
+    wave : float array
+        The array containing the wavelengths of the spcetrum
+        
+    spec : float array
+        The spectrum that you want to filter.
+    
+    Optional Parameters
+    ----------
+    band : int
+        Which band to use. Default is band=1, but this is set (poorly) in
+        the lower-level scripts, so it's al little opaque here.
+        Can be 1 or 2.    
+    
+    
+    Returns
+    -------
+    band_flux : float array
+        The spectrum after the filtering has been applied. Will have the
+        same length as "spec".
 
-    band = 1 (default, 180-220 nm)
-    band = 2 (260-320 nm)
-
-    Syntax:
-
-    wave, transmission = load_redfilter(band=1)
-
+    
+    Examples
+    --------
+    >>> wave = [190, 200]*u.nm
+    >>> spec = [1, 1]
+    >>> band_flux = apply_filters(wave, spec)
+    >>> test = [0.20659143, 0.37176641]
+    >>> allclose(band_flux, test)
+    True
+ 
     """
 
     # Load filters
@@ -228,8 +257,95 @@ def apply_filters(wave, spec, **kwargs):
     qe_wave, qe = load_qe(**kwargs)
     red_wave, red_trans = load_redfilter(**kwargs)
 
+    # Apply filters
     ref_flux = apply_trans(wave, spec, ref_wave, reflectivity/100.)
     qe_flux = apply_trans(wave, ref_flux, qe_wave, qe)
     band_flux = apply_trans(wave, qe_flux, red_wave, red_trans)
 
     return band_flux
+
+
+def filter_parameters(*args, **kwargs):
+    """
+    Construct the effective central wavelength and the effective bandpass
+    for the filters.
+    
+    Parameters
+    ----------
+
+
+    Other parameters
+    ----------------
+    vega : conditional, default False
+        Use the Vega spetrum (9.8e3 K blackbody) to compute values. Otherwise computed
+        "flat" values if quoting AB mags.
+        
+    diag : conditional, default False  
+        Show the diagnostic info on the parameters.
+
+    Examples
+    --------
+    >>> band1, band2 = filter_parameters()
+    >>> allclose(band1['eff_wave'].value, 213.6)
+    True
+    
+
+    """
+
+    from astropy.modeling import models
+    from astropy.modeling.blackbody import FLAM
+    from astropy import units as u
+    import numpy as np
+
+    vega = kwargs.pop('vega', False)
+    diag = kwargs.pop('diag', False)
+
+    wave = np.arange(1000, 10000)*u.AA
+    if vega:
+        temp = 9.8e3*u.K    
+        bb = models.BlackBody1D(temperature=temp)
+        flux = bb(wave).to(FLAM, u.spectral_density(wave))
+    else:
+        flux = np.zeros_like(wave.value)
+        flux += 1
+        flux *= FLAM
+
+    band1 = apply_filters(wave, flux, band=1)
+    band2 = apply_filters(wave, flux, band=2)
+    
+    λ_eff1 = ((band1*wave).sum() / (band1.sum())).to(u.nm)
+    λ_eff2 = ((band2*wave).sum() / (band2.sum())).to(u.nm)
+
+    dλ = wave[1] - wave[0]
+    t1 = band1 / flux
+    t2 = band2 / flux
+
+    w1 = (dλ * t1.sum() / t1.max()).to(u.nm)
+    w2 = (dλ * t2.sum() / t2.max()).to(u.nm)
+
+    band1 = {'eff_wave': λ_eff1,
+             'eff_width': w1}
+    band2 = {'eff_wave': λ_eff2,
+             'eff_width': w2}
+
+    if diag:
+        print('Band1: {0:0.2f} λ_eff, {1:0.2f} W_eff'.format(λ_eff1, w1))
+        print('Band2: {0:0.2f} λ_eff, {1:0.2f} W_eff'.format(λ_eff2, w2))
+
+    return band1, band2
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
