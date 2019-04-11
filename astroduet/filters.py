@@ -286,12 +286,11 @@ def filter_parameters(*args, **kwargs):
     Examples
     --------
     >>> band1, band2 = filter_parameters()
-    >>> allclose(band1[0].value, 213.6)
+    >>> allclose(band1['eff_wave'].value, 213.6)
     True
     
 
     """
-
 
     from astropy.modeling import models
     from astropy.modeling.blackbody import FLAM
@@ -324,12 +323,16 @@ def filter_parameters(*args, **kwargs):
     w1 = (dλ * t1.sum() / t1.max()).to(u.nm)
     w2 = (dλ * t2.sum() / t2.max()).to(u.nm)
 
+    band1 = {'eff_wave': λ_eff1,
+             'eff_width': w1}
+    band2 = {'eff_wave': λ_eff2,
+             'eff_width': w2}
+
     if diag:
         print('Band1: {0:0.2f} λ_eff, {1:0.2f} W_eff'.format(λ_eff1, w1))
         print('Band2: {0:0.2f} λ_eff, {1:0.2f} W_eff'.format(λ_eff2, w2))
 
-    return [λ_eff1, w1], [λ_eff2, w2]
-
+    return band1, band2
 
 
 

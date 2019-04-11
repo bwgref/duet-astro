@@ -1,5 +1,7 @@
 from astropy import units as u
 from numpy import pi, sqrt, allclose
+from .filters import filter_parameters
+
 
 class Telescope():
     """
@@ -40,11 +42,17 @@ class Telescope():
     pixel: float
         Angular pixel size with Astropy units
 
-    bandone: 1-d float array
-        ``[eff_band, eff_width]``
+    band1: dict
+        ``{eff_wave: float, eff_width: float}``
 
-    bandtwo: 1-d float array
-        ``[eff_band, eff_width]``
+    band2: dict
+        ``{eff_wave: float, eff_width: float}``
+
+    bandpass1: 1-d float array
+        ``[eff_wave - eff_width*0.5, eff_wave+eff_width*0.5]``
+    
+    bandpass2: 1-d float array
+        ``[eff_wave - eff_width*0.5, eff_wave+eff_width*0.5]``
     
     eff_area: float
         Effective area computed using the eff_epd size.
@@ -83,14 +91,15 @@ class Telescope():
         self.update_psf()
         self.update_effarea()
 
+        [self.band1, self.band2] = filter_parameters()   
 
-        center_D1 = 208
-        width_D1 = 53
-        self.bandone=[center_D1 - 0.5*width_D1, center_D1+0.5*width_D1]*u.nm
+        center_D1 = self.band1['eff_wave']
+        width_D1 = self.band1['eff_width']
+        self.bandpass1 =[center_D1 - 0.5*width_D1, center_D1+0.5*width_D1]
 
-        center_D2 = 284
-        width_D2 = 68
-        self.bandtwo=[center_D2 - 0.5*width_D2, center_D2+0.5*width_D2]*u.nm
+        center_D2 = self.band2['eff_wave']
+        width_D2 = self.band2['eff_width']
+        self.bandpass2 =[center_D2 - 0.5*width_D2, center_D2+0.5*width_D2]
         
         
     def info(self):
@@ -105,8 +114,10 @@ class Telescope():
         self.update_psf()
         print('Effective PSF FWHM: {:0.2}'.format(self.psf_size))
         print()
-        print('Band 1: {}'.format(self.bandone))
-        print('Band 2: {}'.format(self.bandtwo))
+        print('Band 1: {}'.format(self.band1))
+        print('Bandpass 1: {}'.format(self.bandpass1))
+        print('Band 2: {}'.format(self.band2))
+        print('Bandpass 2: {}'.format(self.bandpass2))
         
     # Allow some things to get updated.
     def update_psf(self):
