@@ -1,3 +1,10 @@
+import os
+
+
+curdir = os.path.dirname(__file__)
+datadir = os.path.join(curdir, 'data')
+
+
 def load_telescope_parameters(version, **kwargs):
     """
     Utility script to load the telescope parameters
@@ -281,14 +288,12 @@ def load_qe(**kwargs):
     band = kwargs.pop('band', 1)
     diag = kwargs.pop('diag', False)
 
-    indir = 'input_data/'
-
     if band == 1:
-        infile = indir+'detector_180_220nm.csv'
+        infile = os.path.join(datadir, 'detector_180_220nm.csv')
     if band == 2:
-        infile = indir+'detector_260_300nm.csv'
+        infile = os.path.join(datadir, 'detector_260_300nm.csv')
     if band == 3:
-        infile = indir+'detector_340_380nm.csv'
+        infile = os.path.join(datadir, 'detector_340_380nm.csv')
 
     f = open(infile, 'r')
     header = True
@@ -336,9 +341,7 @@ def load_reflectivity(**kwargs):
 
     diag = kwargs.pop('diag', False)
 
-    indir = 'input_data/'
-
-    infile = indir+'al_mgf2_mirror_coatings.csv'
+    infile = os.path.join(datadir, 'al_mgf2_mirror_coatings.csv')
 
     f = open(infile, 'r')
     header = True
@@ -388,13 +391,10 @@ def load_redfilter(**kwargs):
     diag = kwargs.pop('diag', False)
     light = kwargs.pop('light', True)
 
-    indir = 'input_data/'
-
     if light:
-        infile = indir+'duet{}_filter_light.csv'.format(band)
+        infile = os.path.join(datadir, 'duet{}_filter_light.csv'.format(band))
     else:
-        infile = indir+'duet{}_filter.csv'.format(band)
-
+        infile = os.path.join(datadir, 'duet{}_filter.csv'.format(band))
 
     f = open(infile, 'r')
     header = True

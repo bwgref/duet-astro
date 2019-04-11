@@ -3,6 +3,10 @@ import os
 import numpy as np
 
 
+curdir = os.path.dirname(__file__)
+datadir = os.path.join(curdir, 'data')
+
+
 def wavelength_to_energy(wave):
     """
     Convert wavelength to energy. Wavelength must have unit.
@@ -49,7 +53,7 @@ def load_airglow(airglow_spec, bin_width=1):
     # Need to work around Astropy bug with units
 #    new_flux = new_flux[good] * photon_to_power / ur.Angstrom / ur.cm ** 2 / ur.sr
     new_flux = new_flux[good] * (1.0 / (ur.Angstrom * ur.cm**2 * ur.sr * ur.s))
-    
+
 
 
     return new_wave_grid, new_flux
@@ -92,7 +96,7 @@ def load_zodi(**kwargs):
     ftab_unit = 1.0 /(ur.cm**2 * ur.Angstrom * ur.sr * ur.s) # ph / m2 / micron / sr
 
     scale_norm = False
-    wave, flux = np.genfromtxt(os.path.join('input_data',
+    wave, flux = np.genfromtxt(os.path.join(datadir,
                                             'scaled_zodiacal_spec.txt'),
                                unpack=True)
 
@@ -107,7 +111,7 @@ def load_zodi(**kwargs):
     # Normalize to flux density at 500 nm:
     spec['flux'] = spec["flux"] * (scale / scale_norm) * ftab_unit
 
-    for airglow_spec in glob.glob(os.path.join("input_data", "airglow*.dat")):
+    for airglow_spec in glob.glob(os.path.join(datadir, "airglow*.dat")):
         new_wave_grid, new_flux = load_airglow(airglow_spec, bin_width=bin_width)
 
         for w, f in zip(new_wave_grid, new_flux):
