@@ -114,12 +114,12 @@ def cross_two_gtis(gti0, gti1):
     --------
     >>> gti1 = np.array([[1, 2]])
     >>> gti2 = np.array([[1, 2]])
-    >>> newgti = cross_gtis([gti1, gti2])
+    >>> newgti = cross_two_gtis(gti1, gti2)
     >>> np.all(newgti == [[1, 2]])
     True
     >>> gti1 = np.array([[1, 4]])
     >>> gti2 = np.array([[1, 2], [2, 4]])
-    >>> newgti = cross_gtis([gti1, gti2])
+    >>> newgti = cross_two_gtis(gti1, gti2)
     >>> np.all(newgti == [[1, 4]])
     True
     """
@@ -220,7 +220,7 @@ def get_visibility_windows(observation_start : float, observation_end : float,
 
     Examples
     --------
-    >>> ow = get_observing_windows(0, 5760 * 2)
+    >>> ow = get_visibility_windows(0, 5760 * 2)
     >>> np.allclose(ow, [[0, 2100], [5760, 7860]])
     True
     """
