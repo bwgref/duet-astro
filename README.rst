@@ -8,6 +8,15 @@
  Dynamic Ultraviolet Explorer Telescope
 
 
+Installation
+------------
+In the current version, a development installation is recommended.
+From the shell:
+
+.. code-block:: bash
+
+    pip install -e .
+
 License
 -------
 
