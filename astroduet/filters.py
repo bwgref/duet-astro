@@ -1,5 +1,6 @@
 import os
 from numpy import allclose
+import astropy.units as u
 
 curdir = os.path.dirname(__file__)
 datadir = os.path.join(curdir, 'data')
@@ -212,15 +213,43 @@ def apply_trans(wav_s, flux_s, wav_t, trans, **kwargs):
 
 def apply_filters(wave, spec, **kwargs):
     """
-    Loads the detector QE and returns the values.
+    
+    Applies the reflectivity, QE, and red-filter based on the input files
+    in the data subdirectory. See the individual scripts or set diag=True
+    to see what filters are beign used.
+    
+    Optional Parameters
+    ----------
+    wave : float array
+        The array containing the wavelengths of the spcetrum
+        
+    spec : float array
+        The spectrum that you want to filter.
+    
+    Optional Parameters
+    ----------
+    band : int
+        Which band to use. Default is band=1, but this is set (poorly) in
+        the lower-level scripts, so it's al little opaque here.
+        Can be 1 or 2.    
+    
+    
+    Returns
+    -------
+    band_flux : float array
+        The spectrum after the filtering has been applied. Will have the
+        same length as "spec".
 
-    band = 1 (default, 180-220 nm)
-    band = 2 (260-320 nm)
-
-    Syntax:
-
-    wave, transmission = load_redfilter(band=1)
-
+    
+    Examples
+    --------
+    >>> wave = [190, 200]*u.nm
+    >>> spec = [1, 1]
+    >>> band_flux = apply_filters(wave, spec)
+    >>> test = [0.20659143, 0.37176641]
+    >>> allclose(band_flux, test)
+    True
+ 
     """
 
     # Load filters
@@ -228,6 +257,7 @@ def apply_filters(wave, spec, **kwargs):
     qe_wave, qe = load_qe(**kwargs)
     red_wave, red_trans = load_redfilter(**kwargs)
 
+    # Apply filters
     ref_flux = apply_trans(wave, spec, ref_wave, reflectivity/100.)
     qe_flux = apply_trans(wave, ref_flux, qe_wave, qe)
     band_flux = apply_trans(wave, qe_flux, red_wave, red_trans)
