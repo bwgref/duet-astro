@@ -67,7 +67,7 @@ class Telescope():
     """
 
     def __init__(self, on_axis=True):
-        self.EPD = 30*u.cm
+        self.EPD = 26*u.cm
         
         if on_axis:
             self.eff_epd = 24.2*u.cm
@@ -93,13 +93,13 @@ class Telescope():
 
         [self.band1, self.band2] = filter_parameters()   
 
-        center_D1 = self.band1['eff_wave']
-        width_D1 = self.band1['eff_width']
-        self.bandpass1 =[center_D1 - 0.5*width_D1, center_D1+0.5*width_D1]
+        center_D1 = self.band1['eff_wave'].to(u.nm).value
+        width_D1 = self.band1['eff_width'].to(u.nm).value
+        self.bandpass1 =[center_D1 - 0.5*width_D1, center_D1+0.5*width_D1] * u.nm
 
-        center_D2 = self.band2['eff_wave']
-        width_D2 = self.band2['eff_width']
-        self.bandpass2 =[center_D2 - 0.5*width_D2, center_D2+0.5*width_D2]
+        center_D2 = self.band2['eff_wave'].to(u.nm).value
+        width_D2 = self.band2['eff_width'].to(u.nm).value
+        self.bandpass2 =[center_D2 - 0.5*width_D2, center_D2+0.5*width_D2] * u.nm
         
         
     def info(self):
