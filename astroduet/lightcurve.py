@@ -6,69 +6,11 @@ from scipy.interpolate import interp1d
 from astropy.table import Table, QTable
 import astropy.constants as c
 import astropy.units as u
-from astropy import log
-
-from .duet_telescope import load_telescope_parameters
-from .duet_sensitivity import src_rate, bgd_sky_qe_rate, bgd_electronics, calc_exposure
 from .duet_sensitivity import calc_snr
 from .duet_neff import get_neff
-from .bbmag import bb_abmag_fluence, bb_abmag, sigerr
-
-read_noise = 3.*(2**0.5) # Read noise for two frames
-
-point_drift = 1*u.arcsec # To be added to the PSF in quadrature
-point_jitter = 5*u.arcsec
-# Define bands
-td1_band = [193, 233]*u.nm
-
-
-# Transmission efficiency
-trans_eff = (0.975)**8 # from Jim.
-
-print('Transmission efficiency: {}'.format(trans_eff))
-
-# Load telescope info
-config=11
-diameter, qe, psf_size, pixel_size, efficiency = load_telescope_parameters(config)
-
-area = np.pi * (diameter*0.5)**2
-area_onaxis = np.pi * (0.5*24.2*u.cm)**2
-efficiency = area_onaxis / area
-
-print('Effective area (used) {}'.format(area*efficiency))
-# Add in fuzz...
-psf_size = (psf_size**2 + point_drift**2 + point_jitter**2)**0.5
-
-print('Effective PSF size {}'.format(psf_size))
-# Get the number of effective background pixels
-neff = get_neff(psf_size, pixel_size)
-print('Number of effective bgd pixels: {}'.format(neff))
-light=True
-texp = 300*u.s
-# Compute sky background
-bgd_ph_rate = bgd_sky_qe_rate(low_zodi=True,
-                              diameter=diameter,
-                              pixel_size=pixel_size, real_red=True, light=light)
-bgd_band1 = trans_eff * efficiency * bgd_ph_rate
-print('Sky background rate per pixel band1: {}'.format(bgd_band1))
-
-bgd_ph_rate = bgd_sky_qe_rate(low_zodi=True,
-                              diameter=diameter,
-                              qe_band=2,
-                              pixel_size=pixel_size, real_red=True, light=light)
-bgd_band2 = trans_eff  * efficiency * bgd_ph_rate
-print('Sky background rate per pixel band2: {}'.format(bgd_band2))
-
-
-center_D1 = 208
-width_D1 = 53
-bandone=[center_D1 - 0.5*width_D1, center_D1+0.5*width_D1]*u.nm
-
-center_D2 = 284
-width_D2 = 68
-bandtwo=[center_D2 - 0.5*width_D2, center_D2+0.5*width_D2]*u.nm
-
-dist0 = 10*u.pc
+from .bbmag import sigerr
+from .config import Telescope
+from .background import background_pixel_rate
 
 
 def join_equal_gti_boundaries(gti):
@@ -289,22 +231,44 @@ def calculate_lightcurve_from_model(model_time, model_lc, observing_windows=None
             lc.append(flux)
 
     result_table = QTable()
-    result_table['Time'] = np.array(times) * u.s
+    result_table['time'] = np.array(times) * u.s
     result_table['Light curve'] = np.array(lc) * model_lc.unit
 
     return result_table
 
 
-def calculate_snr(lc, dist=10 * u.pc, background=0):
-    """Calculate the signal to noise ratio of from photon fluxes."""
-    band_fluence = lc *(dist0.to(u.pc)/dist.to(u.pc))**2
-    band_rate = trans_eff * efficiency * area * band_fluence
+def calculate_snr(duet, band_fluence,
+                  texp=300*u.s, read_noise=3. * (2 ** 0.5),
+                  background=0):
+    """Calculate the signal to noise ratio of from photon fluxes.
+
+    Parameters
+    ----------
+    duet : a ``astroduet.config.Telescope`` instance
+    band_fluence : array of floats
+        Series of photon flux measurements, rescaled at 10 pc
+
+    Other parameters
+    ----------------
+    background : float
+        Background level
+    texp : float
+        Exposure time
+    read_noise : float, default 3\sqrt(2)
+        Readout noise
+    """
+    neff = get_neff(duet.psf_size, duet.pixel)
+    efficiency = (duet.eff_epd / duet.EPD)**2
+    area = np.pi * duet.EPD**2
+
+    band_rate = duet.trans_eff * efficiency * area * band_fluence
     lc_snr = calc_snr(texp, band_rate, background,
                       read_noise, neff)
     return lc_snr
 
 
-def get_lightcurve(input_lc_file, distance=10*u.pc, observing_windows=None, **kwargs):
+def get_lightcurve(input_lc_file, distance=10*u.pc, observing_windows=None,
+                   duet=None, **kwargs):
     """Get a realistic light curve from a given theoretical light curve.
 
     Parameters
@@ -318,50 +282,67 @@ def get_lightcurve(input_lc_file, distance=10*u.pc, observing_windows=None, **kw
         Distance of the SN event
     observing_windows : [[start0, end0], [start1, end1], ...], ``astropy.units.s``, default None
         Observing times in seconds
+    duet : ``astroduet.config.Telescope`` object
+        The telescope config to be used. Default config if None.
     """
+    if duet is None:
+        duet = Telescope()
+
+    print('Effective PSF size {}'.format(duet.psf_size))
+    # Get the number of effective background pixels
+    neff = get_neff(duet.psf_size, duet.pixel)
+    print('Number of effective bgd pixels: {}'.format(neff))
+    print()
+
+    bands = [duet.bandpass1, duet.bandpass2]
+
     fname, ext = os.path.splitext(input_lc_file)
     if ext == '.asc':
         model_lc_table = QTable()
         _mlt = Table.read(input_lc_file, format='ascii')
-        model_lc_table['Time'] = _mlt['Time'] * u.s
+        model_lc_table['time'] = _mlt['time'] * u.s
         model_lc_table['photflux_D1'] = _mlt['photonflux_D1'] * (1 / u.s)
         model_lc_table['photflux_D2'] = _mlt['photonflux_D2'] * (1 / u.s)
     else:
         model_lc_table = QTable.read(input_lc_file)
 
-    table_photflux_D1 = \
-        calculate_lightcurve_from_model(model_lc_table['Time'], model_lc_table['photflux_D1'],
-                                        exposure_length=300 * u.s,
-                                        observing_windows=observing_windows, **kwargs)
-    table_photflux_D2 = \
-        calculate_lightcurve_from_model(model_lc_table['Time'], model_lc_table['photflux_D2'],
-                                        exposure_length=300 * u.s,
-                                        observing_windows=observing_windows, **kwargs)
     result_table = QTable()
-    result_table['Time'] = table_photflux_D1['Time']
-    result_table['photflux_D1'] = table_photflux_D1['Light curve']
-    result_table['photflux_D2'] = table_photflux_D2['Light curve']
-    result_table['snr_D1'] = calculate_snr(table_photflux_D1['Light curve'], distance,
-                                           background=bgd_band1)
-    result_table['snr_D2'] = calculate_snr(table_photflux_D2['Light curve'], distance,
-                                           background=bgd_band2)
 
-    flux_D1 = \
-        table_photflux_D1['Light curve'] * c.h * c.c / np.mean(bandone)
-    flux_D2 = \
-        table_photflux_D2['Light curve'] * c.h * c.c / np.mean(bandtwo)
+    background = background_pixel_rate(duet, low_zodi=True)
 
-    flux_density_D1 = flux_D1 / (bandone[1] - bandone[0]) *(dist0.to(u.pc)/distance.to(u.pc))**2
-    flux_density_D2 = flux_D2 / (bandtwo[1] - bandtwo[0]) *(dist0.to(u.pc)/distance.to(u.pc))**2
+    for duet_no in range(1, 3):
+        duet_label = f'D{duet_no}'
 
-    result_table['ABmag_D1'] = \
-        flux_density_D1.to(u.ABmag,
-                           equivalencies=u.spectral_density(np.mean(bandone)))
-    result_table['ABmag_D2'] = \
-        flux_density_D2.to(u.ABmag,
-                           equivalencies=u.spectral_density(np.mean(bandtwo)))
+        table_photflux = \
+            calculate_lightcurve_from_model(
+                model_lc_table['time'],
+                model_lc_table[f'photflux_{duet_label}'],
+                exposure_length=300 * u.s,
+                observing_windows=observing_windows,
+                **kwargs)
 
-    result_table['ABmag_D1_err'] = sigerr(result_table['snr_D1'])
-    result_table['ABmag_D2_err'] = sigerr(result_table['snr_D2'])
+        if duet_no == 1:
+            result_table['time'] = table_photflux['time']
+
+        result_table[f'photflux_{duet_label}'] = table_photflux['Light curve']
+        distance_conversion = (10 * u.pc / distance.to(u.pc)) ** 2
+        band_fluence = \
+            table_photflux['Light curve'] * distance_conversion
+        result_table[f'snr_{duet_label}'] = \
+            calculate_snr(duet, band_fluence,
+                          background=background[duet_no - 1])
+
+        band = bands[duet_no - 1]
+        flux = \
+            table_photflux['Light curve'] * c.h * c.c / np.mean(band)
+
+        flux_density = flux / (band[1] - band[0]) * distance_conversion
+        abmag = flux_density.to(
+            u.ABmag, equivalencies=u.spectral_density(np.mean(band)))
+
+        abmag_err = sigerr(abmag)
+
+        result_table[f'ABmag_{duet_label}'] = abmag
+        result_table[f'ABmag_{duet_label}_err'] = abmag_err
 
     return result_table
