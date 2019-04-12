@@ -1,15 +1,12 @@
 Metadata-Version: 1.2
 Name: astroduet
-Version: 0.0.dev157
+Version: 0.0.dev190
 Summary: Dynamic Ultraviolet Explorer Telescope
 Home-page: ""
 Author: DUET mission design group
 Author-email: bwgref@caltech.edu
 License: Other
-<<<<<<< Updated upstream
-=======
 Description-Content-Type: UNKNOWN
->>>>>>> Stashed changes
 Description: Dynamic Ultraviolet Explorer Telescope
 Platform: UNKNOWN
 Requires-Python: >=3.6
