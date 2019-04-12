@@ -67,7 +67,7 @@ class Telescope():
     """
 
     def __init__(self, on_axis=True):
-        self.EPD = 30*u.cm
+        self.EPD = 26*u.cm
         
         if on_axis:
             self.eff_epd = 24.2*u.cm
