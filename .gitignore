@@ -5,3 +5,4 @@ __pycache__/*
 astroduet.egg-info/*
 astroduet/version.py
 build/*
+.cache/*
