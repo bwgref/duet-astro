@@ -55,7 +55,11 @@ astroduet/data/stripped_teff.txt
 astroduet/tests/__init__.py
 astroduet/tests/coveragerc
 astroduet/tests/setup_package.py
+<<<<<<< Updated upstream
 astroduet/tests/test_example.py
+=======
+astroduet/tests/test_import.py
+>>>>>>> Stashed changes
 astropy_helpers/CHANGES.rst
 astropy_helpers/LICENSE.rst
 astropy_helpers/README.rst
