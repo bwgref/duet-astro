@@ -1,0 +1,7 @@
+astropy
+matplotlib
+scipy
+pyfftw
+photutils
+jupyter
+
