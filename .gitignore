@@ -6,3 +6,5 @@ astroduet.egg-info/*
 astroduet/version.py
 build/*
 .cache/*
+.idea
+dist/*
