@@ -3,52 +3,76 @@ import numpy as np
 import matplotlib.pyplot as plt
 from astropy import units as u
 from scipy.signal import convolve2d
+from astroduet.config import Telescope
+from astropy.convolution import convolve
 
-def gaussian_psf(fwhm,patch_size,pixel_size):
-    '''
-    Return 2D array of a symmetric Gaussian PSF
-    
-    Required inputs:
-    fwhm = FWHM in arcsec (4 * u.arcsec)
-    patch_size = Axis sizes of returned PSF patch in pixels (15,15)
-    pixel_size = Angular size of pixel (6 * u.arcsec)
-    '''
-    x = np.linspace(-(patch_size[0] // 2), patch_size[0] // 2, patch_size[0])
-    y = np.linspace(-(patch_size[1] // 2), patch_size[1] // 2, patch_size[1])
-    x, y = np.meshgrid(x,y)
-    
-    sigma_pix = fwhm / (2. * np.sqrt(2 * np.log(2)) * pixel_size)
-    psf = np.exp(-(x**2 + y**2) / (2 * sigma_pix**2)) / (2 * np.pi * sigma_pix**2)
+# def gaussian_psf(fwhm,patch_size,pixel_size):
+#     '''
+#     Return 2D array of a symmetric Gaussian PSF
+#     
+#     Required inputs:
+#     fwhm = FWHM in arcsec (4 * u.arcsec)
+#     patch_size = Axis sizes of returned PSF patch in pixels (15,15)
+#     pixel_size = Angular size of pixel (6 * u.arcsec)
+#     '''
+#     x = np.linspace(-(patch_size[0] // 2), patch_size[0] // 2, patch_size[0])
+#     y = np.linspace(-(patch_size[1] // 2), patch_size[1] // 2, patch_size[1])
+#     x, y = np.meshgrid(x,y)
+#     
+#     sigma_pix = fwhm / (2. * np.sqrt(2 * np.log(2)) * pixel_size)
+#     psf = np.exp(-(x**2 + y**2) / (2 * sigma_pix**2)) / (2 * np.pi * sigma_pix**2)
+# 
+#     return psf
 
-    return psf
-
-def duet_psf(patch_size,pixel_size):
-    '''
-        Return 2D array of the double-Gaussian estimated DUET PSF
-        
-        Required inputs:
-        patch_size = Axis sizes of returned PSF patch in pixels (15,15)
-        pixel_size = Angular size of pixel (6 * u.arcsec)
-    '''
-    x = np.linspace(-(patch_size[0] // 2), patch_size[0] // 2, patch_size[0])
-    y = np.linspace(-(patch_size[1] // 2), patch_size[1] // 2, patch_size[1])
-    x, y = np.meshgrid(x,y)
-    
-    point_drift = 1 * u.arcsec # To be added to the PSF in quadrature
-    point_jitter = 5 * u.arcsec
-    
-    # Gaussian dimensions given are 3.25 and 6.5 microns.
-    # Assuming plate scale = 0.64 arcsec/micron, sigma = 2.08 and 4.26 arcsec
-    # Take plate scale as a parameter once that's possible
-    sigma = [2.08, 4.26] * u.arcsec
-    fwhm = np.sqrt((2. * np.sqrt(2 * np.log(2)) * sigma)**2 + point_drift**2 + point_jitter**2)
-    sigma_pix = fwhm / (2. * np.sqrt(2 * np.log(2)) * pixel_size)
-
-    gauss1 = np.exp(-(x**2 + y**2) / (2 * sigma_pix[0]**2)) / (2 * np.pi * sigma_pix[0]**2)
-    gauss2 = 0.1 * np.exp(-(x**2 + y**2) / (2 * sigma_pix[1]**2)) / (2 * np.pi * sigma_pix[1]**2)
-    psf = (gauss1 + gauss2) / np.sum(gauss1 + gauss2)
-    
-    return psf
+# def duet_psf(patch_size,pixel_size):
+#     '''
+#     Return 2D array of the double-Gaussian estimated DUET PSF
+#     
+#     Parameters
+#     ----------
+#     patch_size : list
+#         Axis sizes of returned PSF patch in pixels [15,15]
+# 
+#     pixel_size: float, astropy units
+#         Angular size of pixel (6 * u.arcsec)
+#  
+#     
+#     
+#     Examples
+#     --------
+#     >>> from config import Telescope
+#     >>> duet = Telescope()
+#     >>> patch_size = [15, 15]
+#     >>> psf = duet_psf(patch_size, duet.pixel)
+#     >>>    
+# 
+#     """
+#     '''
+#     
+#     assert type(patch_size) is list, 'patch_size input should be a list'
+# 
+#     x = np.linspace(-(patch_size[0] // 2), patch_size[0] // 2, patch_size[0])
+#     y = np.linspace(-(patch_size[1] // 2), patch_size[1] // 2, patch_size[1])
+#     x, y = np.meshgrid(x,y)
+#     
+#     
+#     
+#     
+#     point_drift = 1 * u.arcsec # To be added to the PSF in quadrature
+#     point_jitter = 5 * u.arcsec
+#     
+#     # Gaussian dimensions given are 3.25 and 6.5 microns.
+#     # Assuming plate scale = 0.64 arcsec/micron, sigma = 2.08 and 4.26 arcsec
+#     # Take plate scale as a parameter once that's possible
+#     sigma = [2.08, 4.26] * u.arcsec
+#     fwhm = np.sqrt((2. * np.sqrt(2 * np.log(2)) * sigma)**2 + point_drift**2 + point_jitter**2)
+#     sigma_pix = fwhm / (2. * np.sqrt(2 * np.log(2)) * pixel_size)
+# 
+#     gauss1 = np.exp(-(x**2 + y**2) / (2 * sigma_pix[0]**2)) / (2 * np.pi * sigma_pix[0]**2)
+#     gauss2 = 0.1 * np.exp(-(x**2 + y**2) / (2 * sigma_pix[1]**2)) / (2 * np.pi * sigma_pix[1]**2)
+#     psf = (gauss1 + gauss2) / np.sum(gauss1 + gauss2)
+#     
+#     return psf
 
 def sim_galaxy(patch_size,pixel_size,gal_type=None,gal_params=None):
     '''
@@ -113,14 +137,14 @@ def sim_galaxy(patch_size,pixel_size,gal_type=None,gal_params=None):
     
     return gal / u.s
 
-def construct_image(frame,pixel_size,exposure,psf_fwhm,read_noise,psf='gaussian',\
+def construct_image(frame,exposure,read_noise,
+                    psf='gaussian', duet=None,
                     gal_type=None,gal_params=None,source=None,sky_rate=None,n_exp=1):
     '''
         Return a simulated image with a background galaxy (optional), source (optional), and noise
         
         Required inputs:
         frame = Pixel dimensions of simulated image (30,30)
-        pixel_size = Angular size of pixel (6 * ur.arcsec)
         exposure = Integration time of the frame (300 * ur.s)
         psf_fwhm = FWHM in arcsec (4 * ur.arcsec)
         read_noise = Read noise in photons / pixel (unitless float)
@@ -132,18 +156,27 @@ def construct_image(frame,pixel_size,exposure,psf_fwhm,read_noise,psf='gaussian'
         source = Source photon count rate (100 / ur.s)
         n_exp = Number of exposures to be co-added
     '''
-    oversample = 6
-    pixel_size_init = pixel_size / oversample
     
-    # Make a PSF
-    if psf == 'duet':
-        psf = duet_psf((15,15),pixel_size_init)
-    elif psf == 'gaussian':
-        psf = gaussian_psf(psf_fwhm,(15,15),pixel_size_init)
+    # Load telescope parameters:
+    if duet is None:
+        duet = Telescope()
+
+    oversample = 6
+    pixel_size_init = duet.pixel / oversample
+ 
+    # Make a PSF kernel
+    psf_kernel = duet.psf_model(pixel_size = pixel_size_init)
+ 
+    
+#     
+#     if psf == 'duet':
+#         psf = duet_psf((15,15),pixel_size_init)
+#     elif psf == 'gaussian':
+#         psf = gaussian_psf(psf_fwhm,(15,15),pixel_size_init)
     
     # Initialise an image, oversampled by the oversample parameter to begin with
     im_array = np.zeros(frame * oversample) / u.s
-    
+
     # Add a galaxy?
     if gal_type is not None:
         # Get a patch with a simulated galaxy on it
@@ -154,9 +187,11 @@ def construct_image(frame,pixel_size,exposure,psf_fwhm,read_noise,psf='gaussian'
     if source is not None:
         # Place source as a delta function in the center of the frame
         im_array[im_array.shape[0] // 2 + 1, im_array.shape[1] // 2 + 1] += source
-    
+
     # Convolve with the PSF (need to re-apply units here as it's lost in convolution)
-    im_psf = convolve2d(im_array,psf,mode='same') / u.s
+
+    im_psf = convolve(im_array, psf_kernel)*im_array.unit
+#    im_psf = convolve2d(im_array,psf,mode='same') / u.s
 
     # Apply jitter at this stage? Shuffle everything around by a pixel or something
     
@@ -171,7 +206,6 @@ def construct_image(frame,pixel_size,exposure,psf_fwhm,read_noise,psf='gaussian'
     
     # Convert to counts
     im_counts = im_binned * exposure
-
     # Co-add a number of separate exposures
     im_final = np.zeros(frame)
     for i in range(n_exp):
@@ -265,11 +299,17 @@ def ap_phot(image,star_tbl,read_noise,exposure,r=1.5,r_in=1.5,r_out=3.):
 
     return result, apertures, annulus_apertures
 
-def run_daophot(image,threshold,fwhm,star_tbl,niters=1):
+def run_daophot(image,threshold,star_tbl,niters=1, duet=None):
     '''
         Given an image and a PSF, go run DAOPhot PSF-fitting algorithm
     '''
     from photutils.psf import DAOPhotPSFPhotometry, IntegratedGaussianPRF
+
+    
+    if duet is None:
+        duet = Telescope()
+    
+    fwhm = (duet.psf_fwhm / duet.pixel).to('').value
     
     # Fix star table columns
     star_tbl['x_0'] = star_tbl['x']
@@ -280,10 +320,15 @@ def run_daophot(image,threshold,fwhm,star_tbl,niters=1):
     # Simple Gaussian model to fit
     # to-do: add options to define DUET-like PSF, generate PSF from image etc.
     psf_model = IntegratedGaussianPRF(sigma=sigma)
+
+#    psf_model = duet.psf_model()
+#    fwhm = (duet.psf_fwhm / duet.pixel).to('').value
+#    print(fwhm)
     
     # Initialise a Photometry object
     # This object loops find, fit and subtract
-    photometry = DAOPhotPSFPhotometry(3.*fwhm,threshold,fwhm,psf_model,(5,5),niters=niters,sigma_radius=5)
+    photometry = DAOPhotPSFPhotometry(3.*fwhm,threshold,fwhm,psf_model,(5,5),
+        niters=niters,sigma_radius=5, aperture_radius=2.)
     
     # Problem with _recursive_lookup while fitting (needs latest version of astropy fix to modeling/utils.py)
     result = photometry(image=image, init_guesses=star_tbl)
