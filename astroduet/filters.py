@@ -293,7 +293,7 @@ def filter_parameters(*args, **kwargs):
     """
 
     from astropy.modeling import models
-    from astropy.modeling.blackbody import FLAM
+    from astropy.modeling.blackbody import FNU, FLAM
     from astropy import units as u
     import numpy as np
 
@@ -306,9 +306,12 @@ def filter_parameters(*args, **kwargs):
         bb = models.BlackBody1D(temperature=temp)
         flux = bb(wave).to(FLAM, u.spectral_density(wave))
     else:
-        flux = np.zeros_like(wave.value)
-        flux += 1
-        flux *= FLAM
+        flat_model =  np.zeros_like(wave.value)
+        flat_model += 1
+        flat_model *= FNU
+        flux = flat_model.to(FLAM, u.spectral_density(wave))
+        
+
 
     band1 = apply_filters(wave, flux, band=1)
     band2 = apply_filters(wave, flux, band=2)

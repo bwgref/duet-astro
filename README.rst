@@ -5,6 +5,16 @@ Dynamic Ultraviolet Explorer Telescope
     :target: http://www.astropy.org
     :alt: Powered by Astropy Badge
 
+Dependecies
+------------
+
+We require at least python 3.6 for this installation as well as the other dependencies
+listed in requirements.txt.
+
+To install these via conda, do:
+
+conda install --yes --file requirements.txt
+
 
 Installation
 ------------
@@ -23,6 +33,8 @@ the terms of the Other license. This package is based upon
 the `Astropy package template <https://github.com/astropy/package-template>`_
 which is licensed under the BSD 3-clause licence. See the licenses folder for
 more information.
+
+
 
 
 Contributing

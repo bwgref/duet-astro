@@ -84,6 +84,7 @@ def background_pixel_rate(duet, **kwargs):
     bgd_rate2 = eff_area * pixel_area * fluence2 * trans_eff
 
     if diag:
+        print('-----')
         print('Background Computation Integrating over Pixel Area')
         print('Telescope diameter: {}'.format(duet.EPD))
         print('Collecting Area: {}'.format(duet.eff_area))
@@ -97,6 +98,8 @@ def background_pixel_rate(duet, **kwargs):
         print('Zodi Level: {}'.format(zodi_level))
         print('Band1 Rate: {}'.format(bgd_rate1))
         print('Band2 Rate: {}'.format(bgd_rate2))
+        print('-----')
+
         
         
     return [bgd_rate1, bgd_rate2]
