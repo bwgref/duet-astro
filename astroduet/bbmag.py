@@ -248,7 +248,7 @@ def bb_abmag_fluence(val=False, **kwargs):
     from astropy.modeling import models
     from astropy.modeling.blackbody import FLAM
     import numpy as np
-    from .duet_telescope import apply_filters
+    from .filters import apply_filters
 
 
 
