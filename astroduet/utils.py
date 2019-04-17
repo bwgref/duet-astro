@@ -75,8 +75,28 @@ def get_neff(psf_size, pixel_size):
     """
     Determine the number of effective background pixels based on the PSF size and the
     pixel size. Assume these are given with astropy units:
-
-    ---
+    
+    Parameters
+    ----------
+    psf_size: float
+        PSF FWHM size
+        
+    pixel-size: float
+        Physical size of pixel (in the same units as psf_size)
+        
+    Returns
+    -------
+    The effective number of background pixels that will contribute. Note this is
+    fairly idealized, so it's really here as a legacy term.
+ 
+    
+     Example 
+    -------
+    >>> from astroduet.config import Telescope
+    >>> duet = Telescope()
+    >>> neff = get_neff(duet.psf_size, duet.pixel)
+    >>> np.isclose(neff, 8.019141843089937)
+    True
 
     """
     from numpy import interp
