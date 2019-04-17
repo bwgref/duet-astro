@@ -220,7 +220,6 @@ class Telescope():
         
         # Renorm so PSF == 1
         renorm = model.array.sum()
-        print(renorm)
         set = False
         for s, n in zip(self.psf_params['sig'], self.psf_params['amp']):
             if not set:
@@ -234,7 +233,6 @@ class Telescope():
                 model += (n / (temp_amp*renorm))*Gaussian2DKernel( (s / pixel_size).to('').value, **kwargs)
 
         norm = model.array.sum()
-        print(norm)
     
 
 
