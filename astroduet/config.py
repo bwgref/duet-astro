@@ -122,6 +122,7 @@ class Telescope():
 
         self.psf_params = {  
             'sig':[2.08, 4.26]*u.arcsec,
+            'amp':[1, 0.1],
             'norm':[0.505053538858156, 0.21185072119504136]
             }
 
@@ -156,10 +157,10 @@ class Telescope():
         Update paramters that are derived from other values
     
         '''      
-        self.psf_fwhm = self.calc_psf_fwhm()
-        self.update_psf()
+#        self.psf_fwhm = self.calc_psf_fwhm()
+#        self.update_psf()
         self.update_effarea()
-        self.neff = get_neff(self.psf_size, self.pixel)
+#        self.neff = get_neff(self.psf_size, self.pixel)
     
 
 
@@ -204,83 +205,101 @@ class Telescope():
 
         if pixel_size is None:
             pixel_size = self.pixel
+            force_renorm=False
+        else:
+            force_renorm = True
 
-        set = False
-        for s, n in zip(self.psf_params['sig'], self.psf_params['norm']):
-            if not set:
-                model = n*Gaussian2DKernel( (s / pixel_size).to('').value, **kwargs)
-                set=True
-            else:
-                model += n*Gaussian2DKernel( (s / pixel_size).to('').value, **kwargs)
-                
-        
+        if not force_renorm:
+            set = False
+            for s, n in zip(self.psf_params['sig'], self.psf_params['norm']):
+                if not set:
+                    model = n*Gaussian2DKernel( (s / pixel_size).to('').value, **kwargs)
+                    set=True
+                else:
+                    model += n*Gaussian2DKernel( (s / pixel_size).to('').value, **kwargs)
+        else:
+            norms = self.compute_psf_norms(pixel_size=pixel_size)
+            print(norms)
+            set= False
+            for s, n in zip(self.psf_params['sig'], norms):
+                if not set:
+                    model = n*Gaussian2DKernel( (s / pixel_size).to('').value, **kwargs)
+                    set=True
+                else:
+                    model += n*Gaussian2DKernel( (s / pixel_size).to('').value, **kwargs)
+
         return model
     
-def compute_psf_norms(pixel_size=None, **kwargs):
-    """
-    Helper script to convert PSF amplitudes to PSF normalizations    
     
-    Prints out the modified normalizations that you should copy up into
-    the Telescope class definition above.
+    
+    def compute_psf_norms(self, pixel_size=None, **kwargs):
+        """
+        Helper script to convert PSF amplitudes to PSF normalizations    
+    
+        Prints out the modified normalizations that you should copy up into
+        the Telescope class definition above.
 
-    Other Parameters
-    ----------------
+        Other Parameters
+        ----------------
     
-    Pixel size: float
-        Pixel size for the PSF kernel. Default is Telscope().pixel
+        Pixel size: float
+            Pixel size for the PSF kernel. Default is Telscope().pixel
  
-    Example 
-    -------
-    >>> galmags = [20,20]
-    >>> duetmags = galex_to_duet(galmags)
-    >>> np.allclose(duetmags, [20,20])
-    True
+        Returns
+        -------
+        
+        [norm1, norm2, ...] proper normalization of the Gaussian
+ 
+        Example 
+        -------
+        >>> galmags = [20,20]
+        >>> duetmags = galex_to_duet(galmags)
+        >>> np.allclose(duetmags, [20,20])
+        True
 
-    """
+        """
 
-    duet = Telescope()
-    if pixel_size is None:
-        pixel_size = duet.pixel
 
-    psf_params = {  
-        'sig':[2.08, 4.26]*u.arcsec,
-        'amp':[1., 0.1]
-    }
+        if pixel_size is None:
+            pixel_size = self.pixel
 
-    set = False
-    for s, n in zip(psf_params['sig'], psf_params['amp']):
-        if not set:
-            temp = Gaussian2DKernel( (s / pixel_size).to('').value)                
-            temp_amp = temp.array.max()
-            model = (n / temp_amp)*Gaussian2DKernel( (s / pixel_size).to('').value, **kwargs)                
-            set = True
-        else:
-            temp = Gaussian2DKernel( (s / pixel_size).to('').value)                
-            temp_amp = temp.array.max()
-            model += (n / temp_amp)*Gaussian2DKernel( (s / pixel_size).to('').value, **kwargs)
+        diag = kwargs.pop('diag', False)
+
+        set = False
+        for s, n in zip(self.psf_params['sig'], self.psf_params['amp']):
+            if not set:
+                temp = Gaussian2DKernel( (s / pixel_size).to('').value)                
+                temp_amp = temp.array.max()
+                model = (n / temp_amp)*Gaussian2DKernel( (s / pixel_size).to('').value, **kwargs)                
+                set = True
+            else:
+                temp = Gaussian2DKernel( (s / pixel_size).to('').value)                
+                temp_amp = temp.array.max()
+                model += (n / temp_amp)*Gaussian2DKernel( (s / pixel_size).to('').value, **kwargs)
         
 
-    # Renorm so PSF == 1
-    renorm = model.array.sum()
-#    print(renorm)
-    set = False
-    for ind, [s, n] in enumerate(zip(psf_params['sig'], psf_params['amp'])):
-        temp = Gaussian2DKernel( (s / pixel_size).to('').value)                
-        temp_amp = temp.array.max()
-        new_norm = (n / (renorm*temp_amp))
-        print('Gaussian {} normalization should be {}'.format(ind, new_norm))
+        # Renorm so PSF == 1
+        renorm = model.array.sum()
+        set = False
+        new_norms = []
+        for ind, [s, n] in enumerate(zip(self.psf_params['sig'], self.psf_params['amp'])):
+            temp = Gaussian2DKernel( (s / pixel_size).to('').value)                
+            temp_amp = temp.array.max()
+            new_norm = (n / (renorm*temp_amp))
+            new_norms.append(new_norm)
+            if not set:
+                model = new_norm*Gaussian2DKernel( (s / pixel_size).to('').value, **kwargs)     
+                set = True
+            else:
+                model += new_norm*Gaussian2DKernel( (s / pixel_size).to('').value, **kwargs)
 
-        if not set:
-            model = new_norm*Gaussian2DKernel( (s / pixel_size).to('').value, **kwargs)     
-            set = True
-        else:
-            model += new_norm*Gaussian2DKernel( (s / pixel_size).to('').value, **kwargs)
-
-    norm = model.array.sum()
-    print('Kernel normalization after PSFs renormalized {}'.format(norm)) 
+        norm = model.array.sum()
+        
+        if diag:
+            print('Kernel normalization after PSFs renormalized {}'.format(norm)) 
 
 
-    return
+        return new_norms
 
         
 
