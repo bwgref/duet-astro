@@ -114,7 +114,12 @@ matrix:
           env: MAIN_CMD='flake8 astroduet --count --show-source --statistics $FLAKE8_OPT' SETUP_CMD=''
 
     allow_failures:
-        # Try MacOS X
+        # Check for sphinx doc build warnings - we do this first because it
+        # may run for a long time
+        - os: linux
+          env: SETUP_CMD='build_docs -w'
+               CONDA_DEPENDENCIES=$CONDA_DEPENDENCIES_DOC
+         # Try MacOS X
         - os: osx
           env: SETUP_CMD='test'
         - os: linux
@@ -130,6 +135,8 @@ matrix:
         # (allow to fail unless your code completely compliant)
         - os: linux
           env: MAIN_CMD='flake8 astroduet --count --show-source --statistics $FLAKE8_OPT' SETUP_CMD=''
+        - os: linux
+          env: ASTROPY_VERSION=lts
 
 before_install:
   command curl -sSL https://rvm.io/pkuczynski.asc | gpg --import -
