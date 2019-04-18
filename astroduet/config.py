@@ -126,8 +126,19 @@ class Telescope():
             'norm':[0.505053538858156, 0.21185072119504136]
             }
 
+        self.psf_fwhm = 5.37 * u.arcsec
 
-        self.update()
+        # Compute the effective area
+        self.update_effarea()
+
+        # Below just adds the pointing jitter in quadrature
+        self.update_psf()
+        
+        # Compute the effective number of background pixels (this isn't used in as
+        # many places and should be depricated moving forward.
+        self.neff = get_neff(self.psf_size, self.pixel)
+
+
 
         
     def info(self):
@@ -152,22 +163,21 @@ class Telescope():
         print('Read noise (RMS per read): {}'.format(self.read_noise))
         print('-----')
 
-    def update(self):
+    def update_psf_vals(self):
         '''
         Update paramters that are derived from other values
     
         '''      
-#        self.psf_fwhm = self.calc_psf_fwhm()
-#        self.update_psf()
-        self.update_effarea()
-#        self.neff = get_neff(self.psf_size, self.pixel)
+        self.psf_fwhm = self.calc_psf_fwhm()
+        self.update_psf()
     
 
 
     # Allow some things to get updated.
     def calc_psf_fwhm(self):
         '''
-        Computes the FWHM of the 2D PSF kernel
+        Computes the FWHM of the 2D PSF kernel. Only do this if you change the PSF
+        parameters because it takes a long time!
     
         Returns
         -------
@@ -177,7 +187,9 @@ class Telescope():
         pix_size = 0.01*u.arcsec
         psf_model = self.psf_model(pixel_size=pix_size)
 
+        # Note that this is wrong and needs to be done as a radial profile.
         psf1d = (psf_model.array).sum(axis=1)
+        
         thresh = psf1d.max() * 0.5
         above = psf1d > thresh
 
@@ -219,7 +231,6 @@ class Telescope():
                     model += n*Gaussian2DKernel( (s / pixel_size).to('').value, **kwargs)
         else:
             norms = self.compute_psf_norms(pixel_size=pixel_size)
-            print(norms)
             set= False
             for s, n in zip(self.psf_params['sig'], norms):
                 if not set:
@@ -248,15 +259,8 @@ class Telescope():
         Returns
         -------
         
-        [norm1, norm2, ...] proper normalization of the Gaussian
+        [norm1, norm2, ...] proper normalization of the Gaussian given the pixel size.
  
-        Example 
-        -------
-        >>> galmags = [20,20]
-        >>> duetmags = galex_to_duet(galmags)
-        >>> np.allclose(duetmags, [20,20])
-        True
-
         """
 
 
