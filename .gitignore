@@ -8,3 +8,4 @@ build/*
 .cache/*
 .idea
 dist/*
+astroduet\.egg-info/
