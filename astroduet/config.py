@@ -214,24 +214,6 @@ class Telescope():
                 model += n*Gaussian2DKernel( (s / pixel_size).to('').value, **kwargs)
                 
         
-        # Renorm so PSF == 1
-        renorm = model.array.sum()
-        print(renorm)
-#         set = False
-#         for s, n in zip(self.psf_params['sig'], self.psf_params['amp']):
-#             if not set:
-#                 temp = Gaussian2DKernel( (s / pixel_size).to('').value)                
-#                 temp_amp = temp.array.max()
-#                 model = (n / (renorm*temp_amp))*Gaussian2DKernel( (s / pixel_size).to('').value, **kwargs)     
-#                 set = True
-#             else:
-#                 temp = Gaussian2DKernel( (s / pixel_size).to('').value)                
-#                 temp_amp = temp.array.max()
-#                 model += (n / (temp_amp*renorm))*Gaussian2DKernel( (s / pixel_size).to('').value, **kwargs)
-# 
-#     
-
-
         return model
     
 def compute_psf_norms(pixel_size=None, **kwargs):
