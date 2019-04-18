@@ -8,10 +8,12 @@ from astroduet.background import background_pixel_rate
 from astroduet.utils import duet_abmag_to_fluence
 from astropy.table import Table
 
-def limmags_diff_sb(**kwargs)
+def limmags_diff_sb(**kwargs):
     """
     Simulate difference imaging of new sources in galaxies with a range of surface brightnesses
     Warning! Takes several hours to run on a laptop!
+    
+    VERY MUCH WORK IN PROGRESS!! DO NOT USE!
     
     Parameters
     ----------    
@@ -52,7 +54,7 @@ def limmags_diff_sb(**kwargs)
     duet = Telescope()
     read_noise = duet.read_noise
     
-    [bgd_band1, bgd_band2] = background_pixel_rate(duet, low_zodi = low_zodi, med_zodi, diag=True)
+#    [bgd_band1, bgd_band2] = background_pixel_rate(duet, low_zodi = low_zodi, med_zodi, diag=True)
     
     
     
