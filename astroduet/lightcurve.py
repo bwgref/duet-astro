@@ -7,7 +7,7 @@ from astropy.table import Table, QTable
 import astropy.constants as c
 import astropy.units as u
 from .duet_sensitivity import calc_snr
-from .duet_neff import get_neff
+from .utils import get_neff
 from .bbmag import sigerr
 from .config import Telescope
 from .background import background_pixel_rate
@@ -305,7 +305,6 @@ def get_lightcurve(input_lc_file, distance=10*u.pc, observing_windows=None,
         model_lc_table['photflux_D2'] = _mlt['photonflux_D2'] * (1 / u.s)
     else:
         model_lc_table = QTable.read(input_lc_file)
-
     result_table = QTable()
 
     background = background_pixel_rate(duet, low_zodi=True)

@@ -286,7 +286,7 @@ def filter_parameters(*args, **kwargs):
     Examples
     --------
     >>> band1, band2 = filter_parameters()
-    >>> allclose(band1['eff_wave'].value, 213.6)
+    >>> allclose(band1['eff_wave'].value, 202.56878682)
     True
     
 
