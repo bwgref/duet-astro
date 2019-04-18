@@ -508,7 +508,7 @@ def compute_snr(band, ABmag, **kwargs):
     """
     import astropy.units as ur
     import numpy as np
-    from .duet_neff import get_neff
+    from .utils import get_neff
 
 
     diag = kwargs.pop('diag', False)
