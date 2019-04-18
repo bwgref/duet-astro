@@ -119,9 +119,6 @@ matrix:
         - os: linux
           env: SETUP_CMD='build_docs -w'
                CONDA_DEPENDENCIES=$CONDA_DEPENDENCIES_DOC
-         # Try MacOS X
-        - os: osx
-          env: SETUP_CMD='test'
         - os: linux
           env: PYTHON_VERSION=3.5 NUMPY_VERSION=1.12
         - os: linux
