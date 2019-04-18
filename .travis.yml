@@ -27,7 +27,7 @@ env:
         # The following versions are the 'default' for tests, unless
         # overridden underneath. They are defined here in order to save having
         # to repeat them for all configurations.
-        - PYTHON_VERSION=3.7
+        - PYTHON_VERSION=3.6
         - NUMPY_VERSION=stable
         - ASTROPY_VERSION=stable
         - MAIN_CMD='python setup.py'
@@ -42,7 +42,7 @@ env:
 
         # List other runtime dependencies for the package that are available as
         # pip packages here.
-        - PIP_DEPENDENCIES='scipy pyfftw'
+        - PIP_DEPENDENCIES='scipy pyfftw matplotlib'
 
         # Conda packages for affiliated packages are hosted in channel
         # "astropy" while builds for astropy LTS with recent numpy versions
@@ -114,10 +114,11 @@ matrix:
           env: MAIN_CMD='flake8 astroduet --count --show-source --statistics $FLAKE8_OPT' SETUP_CMD=''
 
     allow_failures:
+        # Try MacOS X
+        - os: osx
+          env: SETUP_CMD='test'
         - os: linux
           env: PYTHON_VERSION=3.5 NUMPY_VERSION=1.12
-        - os: linux
-          env: PYTHON_VERSION=3.6 NUMPY_VERSION=1.13
         - os: linux
           env: NUMPY_VERSION=1.14
 
@@ -130,6 +131,8 @@ matrix:
         - os: linux
           env: MAIN_CMD='flake8 astroduet --count --show-source --statistics $FLAKE8_OPT' SETUP_CMD=''
 
+before_install:
+  command curl -sSL https://rvm.io/pkuczynski.asc | gpg --import -
 install:
 
     # We now use the ci-helpers package to set up our testing environment.
