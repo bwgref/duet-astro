@@ -4,6 +4,7 @@ from numpy import pi, sqrt, allclose, count_nonzero
 
 from .filters import filter_parameters
 from .utils import get_neff
+from astropy.convolution import Gaussian2DKernel
 
 
 
@@ -121,11 +122,23 @@ class Telescope():
 
         self.psf_params = {  
             'sig':[2.08, 4.26]*u.arcsec,
-            'amp':[1., 0.1]
+            'amp':[1, 0.1],
+            'norm':[0.505053538858156, 0.21185072119504136]
             }
 
+        self.psf_fwhm = 5.37 * u.arcsec
 
-        self.update()
+        # Compute the effective area
+        self.update_effarea()
+
+        # Below just adds the pointing jitter in quadrature
+        self.update_psf()
+        
+        # Compute the effective number of background pixels (this isn't used in as
+        # many places and should be depricated moving forward.
+        self.neff = get_neff(self.psf_size, self.pixel)
+
+
 
         
     def info(self):
@@ -150,22 +163,21 @@ class Telescope():
         print('Read noise (RMS per read): {}'.format(self.read_noise))
         print('-----')
 
-    def update(self):
+    def update_psf_vals(self):
         '''
         Update paramters that are derived from other values
     
         '''      
         self.psf_fwhm = self.calc_psf_fwhm()
         self.update_psf()
-        self.update_effarea()
-        self.neff = get_neff(self.psf_size, self.pixel)
     
 
 
     # Allow some things to get updated.
     def calc_psf_fwhm(self):
         '''
-        Computes the FWHM of the 2D PSF kernel
+        Computes the FWHM of the 2D PSF kernel. Only do this if you change the PSF
+        parameters because it takes a long time!
     
         Returns
         -------
@@ -175,7 +187,9 @@ class Telescope():
         pix_size = 0.01*u.arcsec
         psf_model = self.psf_model(pixel_size=pix_size)
 
+        # Note that this is wrong and needs to be done as a radial profile.
         psf1d = (psf_model.array).sum(axis=1)
+        
         thresh = psf1d.max() * 0.5
         above = psf1d > thresh
 
@@ -200,10 +214,60 @@ class Telescope():
     
     
         '''        
-        from astropy.convolution import Gaussian2DKernel
 
         if pixel_size is None:
             pixel_size = self.pixel
+            force_renorm=False
+        else:
+            force_renorm = True
+
+        if not force_renorm:
+            set = False
+            for s, n in zip(self.psf_params['sig'], self.psf_params['norm']):
+                if not set:
+                    model = n*Gaussian2DKernel( (s / pixel_size).to('').value, **kwargs)
+                    set=True
+                else:
+                    model += n*Gaussian2DKernel( (s / pixel_size).to('').value, **kwargs)
+        else:
+            norms = self.compute_psf_norms(pixel_size=pixel_size)
+            set= False
+            for s, n in zip(self.psf_params['sig'], norms):
+                if not set:
+                    model = n*Gaussian2DKernel( (s / pixel_size).to('').value, **kwargs)
+                    set=True
+                else:
+                    model += n*Gaussian2DKernel( (s / pixel_size).to('').value, **kwargs)
+
+        return model
+    
+    
+    
+    def compute_psf_norms(self, pixel_size=None, **kwargs):
+        """
+        Helper script to convert PSF amplitudes to PSF normalizations    
+    
+        Prints out the modified normalizations that you should copy up into
+        the Telescope class definition above.
+
+        Other Parameters
+        ----------------
+    
+        Pixel size: float
+            Pixel size for the PSF kernel. Default is Telscope().pixel
+ 
+        Returns
+        -------
+        
+        [norm1, norm2, ...] proper normalization of the Gaussian given the pixel size.
+ 
+        """
+
+
+        if pixel_size is None:
+            pixel_size = self.pixel
+
+        diag = kwargs.pop('diag', False)
 
         set = False
         for s, n in zip(self.psf_params['sig'], self.psf_params['amp']):
@@ -216,27 +280,32 @@ class Telescope():
                 temp = Gaussian2DKernel( (s / pixel_size).to('').value)                
                 temp_amp = temp.array.max()
                 model += (n / temp_amp)*Gaussian2DKernel( (s / pixel_size).to('').value, **kwargs)
-                
         
+
         # Renorm so PSF == 1
         renorm = model.array.sum()
         set = False
-        for s, n in zip(self.psf_params['sig'], self.psf_params['amp']):
+        new_norms = []
+        for ind, [s, n] in enumerate(zip(self.psf_params['sig'], self.psf_params['amp'])):
+            temp = Gaussian2DKernel( (s / pixel_size).to('').value)                
+            temp_amp = temp.array.max()
+            new_norm = (n / (renorm*temp_amp))
+            new_norms.append(new_norm)
             if not set:
-                temp = Gaussian2DKernel( (s / pixel_size).to('').value)                
-                temp_amp = temp.array.max()
-                model = (n / (renorm*temp_amp))*Gaussian2DKernel( (s / pixel_size).to('').value, **kwargs)     
+                model = new_norm*Gaussian2DKernel( (s / pixel_size).to('').value, **kwargs)     
                 set = True
             else:
-                temp = Gaussian2DKernel( (s / pixel_size).to('').value)                
-                temp_amp = temp.array.max()
-                model += (n / (temp_amp*renorm))*Gaussian2DKernel( (s / pixel_size).to('').value, **kwargs)
+                model += new_norm*Gaussian2DKernel( (s / pixel_size).to('').value, **kwargs)
 
         norm = model.array.sum()
-    
+        
+        if diag:
+            print('Kernel normalization after PSFs renormalized {}'.format(norm)) 
 
 
-        return model
-    
-    
+        return new_norms
 
+        
+
+    
+    
