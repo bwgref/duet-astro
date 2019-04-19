@@ -4,4 +4,4 @@ scipy
 pyfftw
 photutils
 jupyter
-
+tqdm

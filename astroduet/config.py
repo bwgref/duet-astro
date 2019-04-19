@@ -29,12 +29,14 @@ class Telescope():
 
     psf_model
     
-    calc_psf_fwhm
+    calc_psf_hpd
+    
+    calc_radial_profile
     
     update_effarea
     
-    update_psf
-        
+    update_psf_vals
+    
         
     Attributes
     ----------
@@ -126,7 +128,9 @@ class Telescope():
             'norm':[0.505053538858156, 0.21185072119504136]
             }
 
-        self.psf_fwhm = 5.37 * u.arcsec
+
+        # Computed by calc_psf_hpd, but hardcoded here.
+        self.psf_fwhm = 5.0 * u.arcsec
 
         # Compute the effective area
         self.update_effarea()
@@ -165,12 +169,49 @@ class Telescope():
 
     def update_psf_vals(self):
         '''
-        Update paramters that are derived from other values
+        Update paramters that are derived from other values.
+        
+        This needs to still re-compute the PSF normalizations at some point, but
+        that's not implemented here.
     
-        '''      
-        self.psf_fwhm = self.calc_psf_fwhm()
+        '''
+        self.psf_params['norm'] = self.compute_psf_norms()
+        self.psf_fwhm = self.calc_psf_hpd()
         self.update_psf()
+        self.neff = get_neff(self.psf_size, self.pixel)
+
     
+    def calc_radial_profile(self):
+        '''
+        The python way, from Stack Overflow
+        https://stackoverflow.com/questions/21242011/most-efficient-way-to-calculate-radial-profile        
+
+        Returns the radial profile and the pixel size
+
+        '''
+        import numpy as np
+        pix_size = 0.1*u.arcsec
+        xsize = 1001
+        ysize = 1001
+        psf_model = self.psf_model(pixel_size=pix_size, x_size=xsize, y_size=ysize)
+        data = psf_model.array
+
+        center = [(xsize*0.5), (ysize*0.5)]
+        y,x = indices((data.shape)) # first determine radii of all pixels
+        r = np.sqrt((x-center[0])**2+(y-center[1])**2)
+        ind = np.argsort(r.flat) # get sorted indices
+        sr = r.flat[ind] # sorted radii
+        sim = data.flat[ind] # image values sorted by radii
+        ri = sr.astype(np.int32) # integer part of radii (bin size = 1)
+        # determining distance between changes
+        deltar = ri[1:] - ri[:-1] # assume all radii represented
+        rind = np.where(deltar)[0] # location of changed radius
+        nr = rind[1:] - rind[:-1] # number in radius bin
+        csim = np.cumsum(sim, dtype=np.float64) # cumulative sum to figure out sums for each radii bin
+        tbin = csim[rind[1:]] - csim[rind[:-1]] # sum for image values in radius bins
+        radialprofile = tbin/nr # the answer
+        
+        return pix_size, np.array(radialprofile)
 
 
     # Allow some things to get updated.
@@ -184,16 +225,12 @@ class Telescope():
         fwhm in astropy units
     
         '''
-        pix_size = 0.01*u.arcsec
-        psf_model = self.psf_model(pixel_size=pix_size)
 
-        # Note that this is wrong and needs to be done as a radial profile.
-        psf1d = (psf_model.array).sum(axis=1)
-        
-        thresh = psf1d.max() * 0.5
-        above = psf1d > thresh
-
-        return count_nonzero(above) *pix_size
+        pix_size, rad_profile = self.calc_radial_profile()
+        thresh = rad_profile.max() * 0.5
+        above = (rad_profile > thresh)
+        fwhm = 2.0*(count_nonzero(above)*pix_size)
+        return fwhm
     
     def update_psf(self):
         self.psf_size = sqrt(self.psf_fwhm**2 + self.psf_jitter**2)
@@ -213,8 +250,7 @@ class Telescope():
             Pixel size for the PSF kernel. Default is self.pixel
     
     
-        '''        
-
+        '''
         if pixel_size is None:
             pixel_size = self.pixel
             force_renorm=False
