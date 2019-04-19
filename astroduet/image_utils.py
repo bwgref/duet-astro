@@ -221,7 +221,7 @@ def construct_image(frame,exposure,read_noise,
     return im_final
 
 
-def find(image,fwhm,method='daophot',diag=False):
+def find(image,fwhm,method='daophot',background='2D',diag=False):
     '''
         Find all stars above the sky background level using DAOFind-like algorithm
         
@@ -231,16 +231,23 @@ def find(image,fwhm,method='daophot',diag=False):
         
         Optional inputs:
         method = Either 'daophot' or 'peaks' to select different finding algorithms
+        background = '2D' or 'sigclip' to select 2- or 1-D background estimators
     '''
     from photutils import Background2D, MedianBackground
     from photutils.detection import DAOStarFinder, find_peaks
+    from astropy.stats import sigma_clipped_stats
     
     # Create a background image
-    bkg_estimator = MedianBackground()
-    bkg = Background2D(image, (image.shape[0] // 8, image.shape[1] // 8), bkg_estimator=bkg_estimator)
-    sky = bkg.background_rms_median
-    bkg_image = bkg.background
-    
+    if background == '2D':
+        bkg_estimator = MedianBackground()
+        bkg = Background2D(image, (image.shape[0] // 8, image.shape[1] // 8), bkg_estimator=bkg_estimator)
+        sky = bkg.background_rms_median
+        bkg_image = bkg.background
+    elif background == 'sigclip':
+        mean, median, sky = sigma_clipped_stats(image, sigma=3.0)
+        bkg_image = image
+        bkg_image = median
+        
     # Look for five-sigma detections
     threshold = 5 * sky
     
@@ -250,7 +257,7 @@ def find(image,fwhm,method='daophot',diag=False):
         star_tbl = finder.find_stars(image)
         star_tbl['x'], star_tbl['y'] = star_tbl['xcentroid'], star_tbl['ycentroid']
     elif method == 'peaks':
-        star_tbl = find_peaks(image-bkg_image,threshold,box_size=3)
+        star_tbl = find_peaks(image,threshold,box_size=3)
         star_tbl['x'], star_tbl['y'] = star_tbl['x_peak'], star_tbl['y_peak']
 
     if diag:
@@ -329,6 +336,7 @@ def run_daophot(image,threshold,star_tbl,niters=1, duet=None):
     # This object loops find, fit and subtract
     photometry = DAOPhotPSFPhotometry(3.*fwhm,threshold,fwhm,psf_model,(5,5),
         niters=niters,sigma_radius=5, aperture_radius=2.)
+
     
     # Problem with _recursive_lookup while fitting (needs latest version of astropy fix to modeling/utils.py)
     result = photometry(image=image, init_guesses=star_tbl)

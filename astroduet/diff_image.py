@@ -43,10 +43,10 @@ def py_zogy(N, R, P_N, P_R, S_N, S_R, SN, SR, dx=0.25, dy=0.25):
     # Place PSF at center of image with same size as new / reference
     P_N = np.zeros(N.shape)
     P_R = np.zeros(R.shape)
-    idx = [slice(N.shape[0]//2 - P_N_small.shape[0]//2,
+    idx = (slice(N.shape[0]//2 - P_N_small.shape[0]//2,
                  N.shape[0]//2 + P_N_small.shape[0]//2 + 1),
            slice(N.shape[1]//2 - P_N_small.shape[1]//2,
-                 N.shape[1]//2 + P_N_small.shape[1]//2 + 1)]
+                 N.shape[1]//2 + P_N_small.shape[1]//2 + 1))
     P_N[idx] = P_N_small
     P_R[idx] = P_R_small
 
