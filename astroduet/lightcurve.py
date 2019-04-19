@@ -1,16 +1,19 @@
 import os
+import copy
 
 import numpy as np
+
 from scipy.interpolate import interp1d
 
 from astropy.table import Table, QTable
 import astropy.constants as c
 import astropy.units as u
 from .duet_sensitivity import calc_snr
-from .utils import get_neff
+from .utils import get_neff, suppress_stdout, tqdm
 from .bbmag import sigerr
 from .config import Telescope
 from .background import background_pixel_rate
+from .image_utils import construct_image, run_daophot
 
 
 def join_equal_gti_boundaries(gti):
@@ -323,10 +326,11 @@ def get_lightcurve(input_lc_file, distance=10*u.pc, observing_windows=None,
         if duet_no == 1:
             result_table['time'] = table_photflux['time']
 
-        result_table[f'photflux_{duet_label}'] = table_photflux['Light curve']
         distance_conversion = (10 * u.pc / distance.to(u.pc)) ** 2
-        band_fluence = \
+        result_table[f'photflux_{duet_label}'] = \
             table_photflux['Light curve'] * distance_conversion
+        band_fluence = \
+            table_photflux['Light curve']
         result_table[f'snr_{duet_label}'] = \
             calculate_snr(duet, band_fluence,
                           background=background[duet_no - 1])
@@ -345,3 +349,111 @@ def get_lightcurve(input_lc_file, distance=10*u.pc, observing_windows=None,
         result_table[f'ABmag_{duet_label}_err'] = abmag_err
 
     return result_table
+
+
+def lightcurve_through_image(lightcurve, exposure,
+                             frame=np.array([30, 30]),
+                             final_resolution=None,
+                             duet=None):
+    """Transform a theoretical light curve into a flux measurement.
+
+    1. Take the values of a light curve, optionally rebin it to a new time
+    resolution.
+    2. Then, create an image with a point source corresponding to each flux
+    measurement, and calculate the flux from the image with ``daophot``.
+    3. Return the ''realistic'' light curve
+
+    Parameters
+    ----------
+    lightcurve : ``astropy.table.Table``
+        The lightcurve has to contain the columns 'time', 'photflux_D1', and
+        'photflux_D2'. Photon fluxes are in counts/s.
+    exposure : ``astropy.units.Quantity``
+        Exposure time used for the light curve
+
+    Other parameters
+    ----------------
+    frame : [N, M]
+        Number of pixel along x and y axis
+    final_resolution : ``astropy.units.Quantity``, default None
+        Rebin the light curve to this time resolution before creating the light
+         curve. Must be > exposure
+    duet : ``astroduet.config.Telescope``
+        If None, a default one is created
+
+    Returns
+    -------
+    lightcurve : ``astropy.table.Table``
+        A light curve, rebinned to ``final_resolution``, and with four new
+        columns: 'photflux_D1_fit', 'photflux_D1_fiterr', 'photflux_D2_fit',
+        and 'photflux_D2_fiterr', containing the flux measurements from the
+        intermediate images and their errorbars.
+    """
+    from astropy.table import Table
+    lightcurve = copy.deepcopy(lightcurve)
+    with suppress_stdout():
+        if duet is None:
+            duet = Telescope()
+
+    good = (lightcurve['photflux_D1'] > 0) & (lightcurve['photflux_D2'] > 0)
+    lightcurve = lightcurve[good]
+    lightcurve['nbin'] = 1
+    if final_resolution is not None:
+        new_lightcurve = QTable()
+        plain_lc = Table(lightcurve)
+        time_bin = (plain_lc['time'] // final_resolution).to("").value
+        lc_group = plain_lc.group_by(time_bin)
+        plain_lc = lc_group.groups.aggregate(np.sum)
+        for col in 'time,photflux_D1,photflux_D2'.split(','):
+            new_lightcurve[col] = plain_lc[col] / plain_lc['nbin']
+        new_lightcurve['nbin'] = plain_lc['nbin']
+        lightcurve = new_lightcurve
+
+    with suppress_stdout():
+        [bgd_band1, bgd_band2] = background_pixel_rate(duet, low_zodi=True,
+                                                       diag=True)
+
+    psf_fwhm_pix = duet.psf_fwhm / duet.pixel
+
+    read_noise = duet.read_noise
+
+    lightcurve['photflux_D1_fit'] = 0
+    lightcurve['photflux_D1_fiterr'] = 0
+    lightcurve['photflux_D2_fit'] = 0
+    lightcurve['photflux_D2_fiterr'] = 0
+
+    for i, row in enumerate(tqdm(lightcurve)):
+        time = row['time']
+        if row['photflux_D1'] == 0 or row['photflux_D2'] == 0:
+            continue
+        fl1 = duet.trans_eff * duet.eff_area * row['photflux_D1']
+        fl2 = duet.trans_eff * duet.eff_area * row['photflux_D2']
+        nave = row['nbin']
+        with suppress_stdout():
+            image1 = construct_image(frame, exposure * nave, read_noise,
+                                     source=fl1,
+                                     sky_rate=bgd_band1)
+        star_tbl = Table(data=[[15], [15]], names=['x', 'y'])
+
+        image_rate1 = image1 / (exposure.value * nave)
+        with suppress_stdout():
+            result1, _ = run_daophot(image_rate1, 40,
+                                     star_tbl, niters=1)
+        fl1_fit, fl1_fite = result1['flux_fit'], result1['flux_unc']
+
+        with suppress_stdout():
+            image2 = construct_image(frame, exposure * nave, read_noise,
+                                     source=fl2,
+                                     sky_rate=bgd_band2)
+        image_rate2 = image2 / (exposure.value * nave)
+        with suppress_stdout():
+            result2, _ = run_daophot(image_rate2, 40,
+                                     star_tbl, niters=1)
+        fl2_fit, fl2_fite = result2['flux_fit'], result2['flux_unc']
+
+        lightcurve['photflux_D1_fit'][i] = fl1_fit
+        lightcurve['photflux_D1_fiterr'][i] = fl1_fite
+        lightcurve['photflux_D2_fit'][i] = fl2_fit
+        lightcurve['photflux_D2_fiterr'][i] = fl2_fite
+
+    return lightcurve

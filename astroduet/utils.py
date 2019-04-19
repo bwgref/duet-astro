@@ -2,6 +2,12 @@ import astropy.units as u
 import numpy as np
 import os
 
+try:
+    from tqdm import tqdm
+except ImportError:
+    def tqdm(x):
+        return x
+
 curdir = os.path.dirname(__file__)
 datadir = os.path.join(curdir, 'data')
 
