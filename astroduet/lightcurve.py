@@ -13,7 +13,7 @@ from .utils import get_neff, suppress_stdout, tqdm
 from .bbmag import sigerr
 from .config import Telescope
 from .background import background_pixel_rate
-from .image_utils import construct_image, run_daophot
+from .image_utils import construct_image, run_daophot, find
 
 
 def join_equal_gti_boundaries(gti):
@@ -351,6 +351,7 @@ def get_lightcurve(input_lc_file, distance=10*u.pc, observing_windows=None,
     return result_table
 
 
+def simulate_img_and_get_flux_measurement()
 def lightcurve_through_image(lightcurve, exposure,
                              frame=np.array([30, 30]),
                              final_resolution=None,
@@ -433,11 +434,17 @@ def lightcurve_through_image(lightcurve, exposure,
             image1 = construct_image(frame, exposure * nave, read_noise,
                                      source=fl1,
                                      sky_rate=bgd_band1)
-        star_tbl = Table(data=[[15], [15]], names=['x', 'y'])
-
         image_rate1 = image1 / (exposure.value * nave)
+        # star_tbl = Table(data=[[14], [14]], names=['x', 'y'])
+        star_tbl, bkg_image, threshold = find(image_rate1, psf_fwhm_pix.value,
+                                              method='daophot')
+        if len(star_tbl) < 1:
+            continue
+        star_tbl.sort('flux')
+        star_tbl = star_tbl[-1:]['x', 'y']
+
         with suppress_stdout():
-            result1, _ = run_daophot(image_rate1, 40,
+            result1, _ = run_daophot(image_rate1, threshold,
                                      star_tbl, niters=1)
         fl1_fit, fl1_fite = result1['flux_fit'], result1['flux_unc']
 
@@ -446,8 +453,14 @@ def lightcurve_through_image(lightcurve, exposure,
                                      source=fl2,
                                      sky_rate=bgd_band2)
         image_rate2 = image2 / (exposure.value * nave)
+        star_tbl, bkg_image, threshold = find(image_rate2, psf_fwhm_pix.value,
+                                              method='daophot')
+        if len(star_tbl) < 1:
+            continue
+        star_tbl.sort('flux')
+        star_tbl = star_tbl[-1:]['x', 'y']
         with suppress_stdout():
-            result2, _ = run_daophot(image_rate2, 40,
+            result2, _ = run_daophot(image_rate2, threshold,
                                      star_tbl, niters=1)
         fl2_fit, fl2_fite = result2['flux_fit'], result2['flux_unc']
 
