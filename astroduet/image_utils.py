@@ -257,8 +257,12 @@ def find(image,fwhm,method='daophot',background='2D',diag=False):
         star_tbl = finder.find_stars(image)
         star_tbl['x'], star_tbl['y'] = star_tbl['xcentroid'], star_tbl['ycentroid']
     elif method == 'peaks':
-        star_tbl = find_peaks(image,threshold,box_size=3)
-        star_tbl['x'], star_tbl['y'] = star_tbl['x_peak'], star_tbl['y_peak']
+        if background =='sigclip':
+            star_tbl = find_peaks(image,threshold,box_size=3)
+            star_tbl['x'], star_tbl['y'] = star_tbl['x_peak'], star_tbl['y_peak']
+        elif background =='2D':
+            star_tbl = find_peaks(image-bkg_image,threshold,box_size=3)
+            star_tbl['x'], star_tbl['y'] = star_tbl['x_peak'], star_tbl['y_peak']
 
     if diag:
         print("Sky background rms: {}".format(sky))
