@@ -76,7 +76,43 @@ def duet_abmag_to_fluence(ABmag, band, **kwargs):
 
     return fluence
 
+def duet_fluence_to_abmag(fluence, band, **kwargs):
+    """
+    Convert AB magnitude for a source into the number of source counts.
 
+
+    Parameters
+    ----------
+    fluence: float
+        fluence in the bandpass that you're using in units (ph / cm2 / sec)
+        
+    bandpass: array
+        DUET bandpass you're using
+        
+    Returns
+    -------
+    AB magnitude in the band (ABmag)
+
+
+    Example 
+    -------
+    >>> from astroduet.config import Telescope
+    >>> duet = Telescope()
+    >>> funit = u.ph / u.cm**2/u.s
+    >>> abmag = duet_fluence_to_abmag(0.01*funit, duet.bandpass1)
+    >>> np.isclose(abmag.value, 20.397819787367016)
+    True
+
+    """
+
+    bandpass = np.abs( (band[1] - band[0])).to(u.AA)
+    midband = np.mean( (band).to(u.AA) )
+
+    ABmag = (fluence / bandpass).to(u.ABmag, equivalencies=u.spectral_density(midband))
+
+    return ABmag
+    
+    
 def load_neff():
     """
     Load number of effective background pixels in the PSF from
