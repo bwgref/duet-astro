@@ -328,10 +328,13 @@ def get_lightcurve(input_lc_file, distance=10*u.pc, observing_windows=None,
             result_table['time'] = table_photflux['time']
 
         distance_conversion = (10 * u.pc / distance.to(u.pc)) ** 2
+        
         result_table[f'photflux_{duet_label}'] = \
             table_photflux['Light curve'] * distance_conversion
+            
         band_fluence = \
-            table_photflux['Light curve']
+            table_photflux['Light curve'] * distance_conversion
+            
         result_table[f'snr_{duet_label}'] = \
             calculate_snr(duet, band_fluence,
                           background=background[duet_no - 1])
@@ -410,6 +413,9 @@ def lightcurve_through_image(lightcurve, exposure,
             new_lightcurve[col] = plain_lc[col] / plain_lc['nbin']
         new_lightcurve['nbin'] = plain_lc['nbin']
         lightcurve = new_lightcurve
+    else:
+        final_resolution = exposure
+
 
     with suppress_stdout():
         [bgd_band1, bgd_band2] = background_pixel_rate(duet, low_zodi=True,
@@ -426,7 +432,9 @@ def lightcurve_through_image(lightcurve, exposure,
 
     # Directory for debugging purposes
     rand = np.random.randint(0, 99999999)
+    
     debugdir = f'debug_imgs_{final_resolution.to(u.s).value}s_{rand}'
+
     if debug:
         mkdir_p(debugdir)
 

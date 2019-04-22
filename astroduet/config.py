@@ -6,6 +6,9 @@ from .filters import filter_parameters
 from .utils import get_neff
 from astropy.convolution import Gaussian2DKernel
 
+import os
+curdir = os.path.dirname(__file__)
+datadir = os.path.join(curdir, 'data')+'/'
 
 
 class Telescope():
@@ -87,7 +90,7 @@ class Telescope():
 
     """
 
-    def __init__(self, on_axis=True):
+    def __init__(self, degraded = False, on_axis=True):
         self.EPD = 26*u.cm
         
         if on_axis:
@@ -111,16 +114,7 @@ class Telescope():
         # Pointing jitter:
         self.psf_jitter = 5*u.arcsec
 
-        [self.band1, self.band2] = filter_parameters()   
-
-        center_D1 = self.band1['eff_wave'].to(u.nm).value
-        width_D1 = self.band1['eff_width'].to(u.nm).value
-        self.bandpass1 =[center_D1 - 0.5*width_D1, center_D1+0.5*width_D1] * u.nm
-
-        center_D2 = self.band2['eff_wave'].to(u.nm).value
-        width_D2 = self.band2['eff_width'].to(u.nm).value
-        self.bandpass2 =[center_D2 - 0.5*width_D2, center_D2+0.5*width_D2] * u.nm
-        
+       
 
         self.psf_params = {  
             'sig':[2.08, 4.26]*u.arcsec,
@@ -142,8 +136,34 @@ class Telescope():
         # many places and should be depricated moving forward.
         self.neff = get_neff(self.psf_size, self.pixel)
 
+        
+        if not degraded :
+        
+            self.qe_files = {
+                'description' : ['DUET 1 CBE QE', 'DUET 2 CBE QE'],
+                'names' : [datadir+'detector_180_220nm.csv', datadir+'detector_260_300nm.csv']
+            }
+        
+            self.reflectivity_file = {
+                'description' : 'CBE Reflectivity',
+                'name' : datadir+'al_mgf2_mirror_coatings.csv'
+            }
+        
+            self.bandpass_files = {
+                'description' : ['CBE DUET 1 Bandpass', 'CBE DUET 2 Bandpass'],            
+                'names' : [datadir+'duet1_filter_light.csv', datadir+'duet2_filter_light.csv']
+            }
+
+        [self.band1, self.band2] = filter_parameters(duet=self)    
+        center_D1 = self.band1['eff_wave'].to(u.nm).value
+        width_D1 = self.band1['eff_width'].to(u.nm).value
+        self.bandpass1 =[center_D1 - 0.5*width_D1, center_D1+0.5*width_D1] * u.nm
 
 
+        center_D2 = self.band2['eff_wave'].to(u.nm).value
+        width_D2 = self.band2['eff_width'].to(u.nm).value
+        self.bandpass2 =[center_D2 - 0.5*width_D2, center_D2+0.5*width_D2] * u.nm
+  
         
     def info(self):
         print('-----')
@@ -166,6 +186,25 @@ class Telescope():
         print()
         print('Read noise (RMS per read): {}'.format(self.read_noise))
         print('-----')
+
+
+    def update_bandpass(self):
+        '''
+        Update bandpass values based on whatever set of files are stores in 
+        
+        
+        '''
+        
+        [self.band1, self.band2] = filter_parameters(duet=self)
+
+        center_D1 = self.band1['eff_wave'].to(u.nm).value
+        width_D1 = self.band1['eff_width'].to(u.nm).value
+        self.bandpass1 =[center_D1 - 0.5*width_D1, center_D1+0.5*width_D1] * u.nm
+
+        center_D2 = self.band2['eff_wave'].to(u.nm).value
+        width_D2 = self.band2['eff_width'].to(u.nm).value
+        self.bandpass2 =[center_D2 - 0.5*width_D2, center_D2+0.5*width_D2] * u.nm
+
 
     def update_psf_vals(self):
         '''
@@ -342,6 +381,69 @@ class Telescope():
         return new_norms
 
         
+    def apply_filters(self, wave, spec, band=1, **kwargs):
+        """
+    
+        Applies the reflectivity, QE, and red-filter based on the input files
+        in the data subdirectory. See the individual scripts or set diag=True
+        to see what filters are beign used.
+    
+        Parameters
+        ----------
+        wave : float array
+            The array containing the wavelengths of the spcetrum
+        
+        spec : float array
+            The spectrum that you want to filter.
+
+        Other parameters
+        ----------------
+        
+        band : int
+            Use band 1 (default) or band 2 files
+        
+         
+        Returns
+        -------
+        band_flux : float array
+            The spectrum after the filtering has been applied. Will have the
+            same length as "spec".
+
+    
+        Examples
+        --------
+        >>> from astroduet.config import Telescope
+        >>> duet = Telescope()
+        >>> wave = [190, 200]*u.nm
+        >>> spec = [1, 1]
+        >>> band_flux = duet.apply_filters(wave, spec, band=1)
+        >>> test = [0.20659143, 0.37176641]
+        >>> allclose(band_flux, test)
+        True
+ 
+        """
+
+        from astroduet.filters import load_reflectivity, load_qe, load_redfilter, apply_trans
+
+        # Shift to make band an index:
+        
+        band_ind = band - 1
+        qe_file = self.qe_files['names'][band_ind]
+        reflectivity_file = self.reflectivity_file['name']
+        bandpass_file = self.bandpass_files['names'][band_ind]
+        
+
+        # Load filters
+        ref_wave, reflectivity = load_reflectivity(infile = reflectivity_file, **kwargs)
+        qe_wave, qe = load_qe(infile = qe_file, **kwargs)
+        red_wave, red_trans = load_redfilter(infile = bandpass_file, **kwargs)
+
+        # Apply filters
+        ref_flux = apply_trans(wave, spec, ref_wave, reflectivity)
+        qe_flux = apply_trans(wave, ref_flux, qe_wave, qe)
+        band_flux = apply_trans(wave, qe_flux, red_wave, red_trans)
+
+        return band_flux
 
     
     
