@@ -1,5 +1,6 @@
 import os
 import copy
+import pickle
 
 import numpy as np
 
@@ -9,7 +10,7 @@ from astropy.table import Table, QTable
 import astropy.constants as c
 import astropy.units as u
 from .duet_sensitivity import calc_snr
-from .utils import get_neff, suppress_stdout, tqdm
+from .utils import get_neff, suppress_stdout, tqdm, mkdir_p
 from .bbmag import sigerr
 from .config import Telescope
 from .background import background_pixel_rate
@@ -354,7 +355,8 @@ def get_lightcurve(input_lc_file, distance=10*u.pc, observing_windows=None,
 def lightcurve_through_image(lightcurve, exposure,
                              frame=np.array([30, 30]),
                              final_resolution=None,
-                             duet=None):
+                             duet=None,
+                             debug=False):
     """Transform a theoretical light curve into a flux measurement.
 
     1. Take the values of a light curve, optionally rebin it to a new time
@@ -422,6 +424,12 @@ def lightcurve_through_image(lightcurve, exposure,
     lightcurve['photflux_D2_fit'] = 0
     lightcurve['photflux_D2_fiterr'] = 0
 
+    # Directory for debugging purposes
+    rand = np.random.randint(0, 99999999)
+    debugdir = f'debug_imgs_{final_resolution.to(u.s).value}s_{rand}'
+    if debug:
+        mkdir_p(debugdir)
+
     for i, row in enumerate(tqdm(lightcurve)):
         time = row['time']
         if row['photflux_D1'] == 0 or row['photflux_D2'] == 0:
@@ -467,5 +475,10 @@ def lightcurve_through_image(lightcurve, exposure,
         lightcurve['photflux_D1_fiterr'][i] = fl1_fite
         lightcurve['photflux_D2_fit'][i] = fl2_fit
         lightcurve['photflux_D2_fiterr'][i] = fl2_fite
+        if debug:
+            pickle.dump({'imgD1': image_rate1, 'imgD2': image_rate2},
+                        open(os.path.join(debugdir,
+                                          f'images_{time.to(u.s).value}.p'),
+                             'wb'))
 
     return lightcurve
