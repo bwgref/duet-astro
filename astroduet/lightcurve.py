@@ -351,7 +351,6 @@ def get_lightcurve(input_lc_file, distance=10*u.pc, observing_windows=None,
     return result_table
 
 
-def simulate_img_and_get_flux_measurement()
 def lightcurve_through_image(lightcurve, exposure,
                              frame=np.array([30, 30]),
                              final_resolution=None,
