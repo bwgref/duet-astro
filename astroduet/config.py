@@ -6,6 +6,9 @@ from .filters import filter_parameters
 from .utils import get_neff
 from astropy.convolution import Gaussian2DKernel
 
+import os
+curdir = os.path.dirname(__file__)
+datadir = os.path.join(curdir, 'data')+'/'
 
 
 class Telescope():
@@ -142,6 +145,21 @@ class Telescope():
         # many places and should be depricated moving forward.
         self.neff = get_neff(self.psf_size, self.pixel)
 
+        self.qe_files = {
+            'description' : ['DUET 1 CBE QE', 'DUET 2 CBE QE'],
+            'names' : [datadir+'detector_180_220nm.csv', datadir+'detector_260_300nm.csv']
+        }
+        
+        self.reflectivity_files = {
+            'description' : ['CBE Reflectivity'],
+            'names' : [datadir+'al_mgf2_mirror_coatings.csv']
+        }
+
+        
+        self.bandpass_filter_files = {
+            'description' : ['CBE DUET 1 Bandpass', 'CBE DUET 2 Bandpass'],            
+            'names' : [datadir+'duet1_filter_light.csv', datadir+'duet2_filter_light.csv']
+        }
 
 
         
