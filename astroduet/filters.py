@@ -401,18 +401,10 @@ def filter_parameters(duet=None, *args, **kwargs):
         
 
 
-    band1 = duet.apply_filters(wave, flux,
-        qe_file = duet.qe_files['names'][0],
-        reflectivity_file=duet.reflectivity_file['name'],
-        bandpass_file = duet.bandpass_files['names'][0])
-
-    band2 = duet.apply_filters(wave, flux,
-        qe_file = duet.qe_files['names'][1],
-        reflectivity_file=duet.reflectivity_file['name'],
-        bandpass_file = duet.bandpass_files['names'][1])
+    band1 = duet.apply_filters(wave, flux, band=1)
+    band2 = duet.apply_filters(wave, flux, band=2)
 
 
-    
     λ_eff1 = ((band1*wave).sum() / (band1.sum())).to(u.nm)
     λ_eff2 = ((band2*wave).sum() / (band2.sum())).to(u.nm)
 
