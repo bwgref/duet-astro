@@ -197,7 +197,7 @@ class Telescope():
         data = psf_model.array
 
         center = [(xsize*0.5), (ysize*0.5)]
-        y,x = indices((data.shape)) # first determine radii of all pixels
+        y,x = np.indices((data.shape)) # first determine radii of all pixels
         r = np.sqrt((x-center[0])**2+(y-center[1])**2)
         ind = np.argsort(r.flat) # get sorted indices
         sr = r.flat[ind] # sorted radii
