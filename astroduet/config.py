@@ -288,7 +288,7 @@ class Telescope():
         return rate
         
     
-    
+
     def psf_model(self, pixel_size=None, **kwargs):
         '''
         Return a astropy.convolution.Gaussian2DKernel that is the combination
@@ -456,6 +456,48 @@ class Telescope():
         band_flux = apply_trans(wave, qe_flux, red_wave, red_trans)
 
         return band_flux
+
+    
+    def calc_snr(self, texp, src_rate, bgd_rate, nint = 1.0):
+        """
+    
+        Compute the signal-to-noise ratio for a given exposure, source rate,
+        and background rate. Have this in Telescope() because this also depends on
+        the number of effective background pixels and the read noise, both of
+        which are attributes to duet.
+    
+        Parameters
+        ----------
+        texp : float 
+            Exposure time
+        
+        src_rate : float array
+            Source rate in photons per second.
+        
+        bgd_rate : float array
+            Background rate in photons per second
+
+        Other parameters
+        ----------------
+        
+        nint : int
+            How many exposures you want to stack (Default is 1).
+        
+         
+        Returns
+        -------
+        snr : float array
+            Same size as src_rate. SNR for each entry
+
+
+        """
+
+        
+        denom = (nint*src_rate*texp +
+            nint * self.neff * (bgd_rate*texp + self.read_noise**2))**0.5
+        nom = nint*src_rate * texp
+        snr = nom / denom
+        return snr
 
     
     
