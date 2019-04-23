@@ -75,12 +75,11 @@ def background_pixel_rate(duet, **kwargs):
     fluence2 = ph_flux2.sum()
 
     pixel_area = duet.pixel**2
-    eff_area =duet.eff_area
-    trans_eff = duet.trans_eff
 
-    # Apply telescope values    
-    bgd_rate1 = eff_area * pixel_area * fluence1 * trans_eff
-    bgd_rate2 = eff_area * pixel_area * fluence2 * trans_eff
+    bgd_rate1 = duet.fluence_to_rate(pixel_area * fluence1)
+    bgd_rate2 = duet.fluence_to_rate(pixel_area * fluence2)
+    
+
 
     if diag:
         print('-----')
