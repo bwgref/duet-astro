@@ -128,7 +128,7 @@ def convert_model(filename, name='NoName', duet=None):
         shock_lc[k]['mag_D1'] = band1_mag
         shock_lc[k]['mag_D2'] = band2_mag
         shock_lc[k]['fluence_D1'] = band1_fluence.value
-        shock_lc[k]['fluence_D1'] = band2_fluence.value
+        shock_lc[k]['fluence_D2'] = band2_fluence.value
         
     shock_lc['mag_D1'].unit = None
     shock_lc['mag_D2'].unit = None
@@ -169,8 +169,8 @@ def load_model_fluence(filename, dist=100*u.Mpc):
     distscale = (dist0.to(u.Mpc) / dist)**2
     
 
-    fluence1 = model_lc_table['fluence_D1'] *distscale
-    fluence2 = model_lc_table['fluence_D2'] *distscale
+    fluence1 = model_lc_table['fluence_D1'] * distscale
+    fluence2 = model_lc_table['fluence_D2'] * distscale
 
     return model_lc_table['time'], fluence1, fluence2
     
