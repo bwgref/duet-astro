@@ -20,8 +20,6 @@ def bb_abmag(diag=False, val=False, **kwargs):
 
     Returns ABmag1, ABmag2
 
-    Also still to do: Add background from galaxies.
-
     """
 
     import astropy.units as ur
@@ -216,30 +214,51 @@ def gettempbb(diag=False, val=False, **kwargs):
         return bbtemp, bbtemp_err
 
 
-def bb_abmag_fluence(val=False, **kwargs):
+def bb_abmag_fluence(val=False, duet=None, **kwargs):
     """
     Take a blackbody with a certain temperature and convert to photon rate in a band.
 
-    Now applies the various filters and returns *photon fluence* in the band
+    Other Parameters
+    ----------------
+    
+    val : boolean
+        Retrurns AB mags without units (False, default) or with Astropy units
+        
+    duet: ``astroduet.conifg.Telescope() object``
+        If you've already instanced a duet telecope object, feed it in here.
+        Currently allows the use of the default bandpasses.
+    
+    umag : float
+        Must have astropy AB units
+        Apparent U-band AB mag. Only used if other values not provided?
+        
+    siwftmag : float
+        Must have astropy AB units. Apparent Swift magnitude (default is 22*u.ABmag)
+    
+    ref : string
+        Band to use for reference magnitude; options are 'u', 'swift' ('swift')
+    
+    bbtemp : float
+        Blackbody temperature to use (20000*ur.K)
 
-    Now also accepts bolometric flux as input.
+    dist : float
+        Distance of the source. swiftmags are assumed to be given at a reference
+        distance of 10 pc (I think?)
 
-    Inputs (defaults):
-    umag = apparent u-band AB magnitude (22*ur.ABmag)
-    swiftmag = apparent Swift UVW2 magnitude (22*ur.ABmag)
-    ref = band to use for reference magnitude; options are 'u', 'swift' ('swift')
-    bandone = Bandpass 1st filter (180-220)*ur.nm
-    bandtwo = Bandpass 2nd filter (260-300)*ur.nm
-    bbtemp = Blackbody temperature (20000*ur.K)
-    dist = Distance (10*ur.pc)
-    val = Return values without unit if True (False)
-    bolflux = Bolometric flux; if not 1, refmag and distance are ignored (1*ur.erg/ur.cm**2/ur.s)
+    bolflux : float
+        Bolometric flux; if not 1, refmag and distance are ignored. Should have
+        units like (1*ur.erg/ur.cm**2/ur.s)
 
-    diag (False)
-
-    Returns ABmag1, ABmag2
-
-    Also still to do: Add background from galaxies.
+    diag : boolean
+        SHow diagnostic inforamtion
+    
+    Returns
+    -------
+    ABmag1, ABmag2
+    
+    
+    
+    
 
     """
 
@@ -248,13 +267,14 @@ def bb_abmag_fluence(val=False, **kwargs):
     from astropy.modeling import models
     from astropy.modeling.blackbody import FLAM
     import numpy as np
-    from .filters import apply_filters
+    from astroduet.config import Telescope
 
+
+    if duet is None:
+        duet=Telescope()
 
 
     bbtemp = kwargs.pop('bbtemp', 20000.*ur.K)
-#    bandone = kwargs.pop('bandone', [180,220]*ur.nm)
-#    bandtwo = kwargs.pop('bandtwo', [260,300]*ur.nm)
     umag = kwargs.pop('umag', 22*ur.ABmag)
     swiftmag = kwargs.pop('swiftmag', 22*ur.ABmag)
     dist = kwargs.pop('dist', 10*ur.pc)
@@ -299,8 +319,8 @@ def bb_abmag_fluence(val=False, **kwargs):
     ph_flux = flux_conv * dw / ph_energy
 
     # Apply filters, QE, etc.
-    band1_fluence = apply_filters(wav, ph_flux, diag=diag, **kwargs).sum().sum()
-    band2_fluence = apply_filters(wav, ph_flux, band = 2, diag=diag, **kwargs).sum()
+    band1_fluence = duet.apply_filters(wav, ph_flux, diag=diag, **kwargs).sum()
+    band2_fluence = duet.apply_filters(wav, ph_flux, band = 2, diag=diag, **kwargs).sum()
 
 
     if diag:

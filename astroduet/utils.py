@@ -85,16 +85,16 @@ def duet_fluence_to_abmag(fluence, band, **kwargs):
     ----------
     fluence: float
         fluence in the bandpass that you're using in units (ph / cm2 / sec)
-        
+
     bandpass: array
         DUET bandpass you're using
-        
+
     Returns
     -------
     AB magnitude in the band (ABmag)
 
 
-    Example 
+    Example
     -------
     >>> from astroduet.config import Telescope
     >>> duet = Telescope()
@@ -111,8 +111,8 @@ def duet_fluence_to_abmag(fluence, band, **kwargs):
     ABmag = (fluence / bandpass).to(u.ABmag, equivalencies=u.spectral_density(midband))
 
     return ABmag
-    
-    
+
+
 def load_neff():
     """
     Load number of effective background pixels in the PSF from
@@ -240,3 +240,27 @@ def galex_to_duet(galmags):
         duetmags = np.array([d1_mag.value, d2_mag.value]).transpose()
 
     return duetmags
+
+
+def mkdir_p(path):  # pragma: no cover
+    """Safe mkdir function.
+
+    Parameters
+    ----------
+    path : str
+        Name of the directory/ies to create
+
+    Notes
+    -----
+    Found at
+    http://stackoverflow.com/questions/600268/mkdir-p-functionality-in-python
+    """
+    import os
+    import errno
+    try:
+        os.makedirs(path)
+    except OSError as exc:  # Python >2.5
+        if exc.errno == errno.EEXIST and os.path.isdir(path):
+            pass
+        else:
+            raise

@@ -42,7 +42,6 @@ def background_pixel_rate(duet, **kwargs):
     """
     
     from astroduet.config import Telescope
-    from astroduet.filters import apply_filters
     assert isinstance(duet, Telescope), "First parameter needs to be a astroduet.config.Telescope class"
     import astropy.units as u
     from astroduet.zodi import load_zodi
@@ -62,8 +61,8 @@ def background_pixel_rate(duet, **kwargs):
     wave = zodi['wavelength'] 
     flux = zodi['flux']
     
-    band1_flux = apply_filters(zodi['wavelength'], zodi['flux'], band=1, **kwargs)
-    band2_flux = apply_filters(zodi['wavelength'], zodi['flux'], band=2, **kwargs)
+    band1_flux = duet.apply_filters(zodi['wavelength'], zodi['flux'], band=1, **kwargs)
+    band2_flux = duet.apply_filters(zodi['wavelength'], zodi['flux'], band=2, **kwargs)
     
 #     # Assume bins are the same size:
     de = wave[1] - wave[0]    
@@ -76,12 +75,11 @@ def background_pixel_rate(duet, **kwargs):
     fluence2 = ph_flux2.sum()
 
     pixel_area = duet.pixel**2
-    eff_area =duet.eff_area
-    trans_eff = duet.trans_eff
 
-    # Apply telescope values    
-    bgd_rate1 = eff_area * pixel_area * fluence1 * trans_eff
-    bgd_rate2 = eff_area * pixel_area * fluence2 * trans_eff
+    bgd_rate1 = duet.fluence_to_rate(pixel_area * fluence1)
+    bgd_rate2 = duet.fluence_to_rate(pixel_area * fluence2)
+    
+
 
     if diag:
         print('-----')
