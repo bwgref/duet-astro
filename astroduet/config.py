@@ -276,7 +276,19 @@ class Telescope():
     
     def update_effarea(self):
         self.eff_area = pi * (self.eff_epd*0.5)**2
+    
+    
+    def fluence_to_rate(self, fluence):
+        '''
+        Helper script to convert fluences to count rates
         
+        '''
+    
+        rate = self.eff_area * self.trans_eff * fluence
+        return rate
+        
+    
+    
     def psf_model(self, pixel_size=None, **kwargs):
         '''
         Return a astropy.convolution.Gaussian2DKernel that is the combination
