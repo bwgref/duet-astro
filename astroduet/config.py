@@ -492,7 +492,8 @@ class Telescope():
 
         """
 
-        
+        src_rate = src_rate.value * (1 /u.s)
+            
         denom = (nint*src_rate*texp +
             nint * self.neff * (bgd_rate*texp + self.read_noise**2))**0.5
         nom = nint*src_rate * texp
