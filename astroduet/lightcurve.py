@@ -15,6 +15,7 @@ from .bbmag import sigerr
 from .config import Telescope
 from .background import background_pixel_rate
 from .image_utils import construct_image, run_daophot, find
+from .models import load_model_fluence, load_model_ABmag
 
 
 def join_equal_gti_boundaries(gti):
@@ -186,7 +187,8 @@ def calculate_flux(time : float, flux : float):
     return np.sum(flux * dt) / (time[-1] - time[0])
 
 
-def calculate_lightcurve_from_model(model_time, model_lc, observing_windows=None,
+def calculate_lightcurve_from_model(model_time, model_lc,
+                                    observing_windows=None,
                                     visibility_windows=None,
                                     exposure_length=300 * u.s, **kwargs):
     """Calculate a light curve from the model lightcurve in ct/s.
@@ -210,23 +212,27 @@ def calculate_lightcurve_from_model(model_time, model_lc, observing_windows=None
         Additional keyword arguments to be passed to
         ``get_observing_windows``
     """
-    import collections
-    observing_windows = np.array([[model_time[0].to(u.s).value, model_time[-1].to(u.s).value]]) * u.s \
+    observing_windows = np.array([[model_time[0].to(u.s).value,
+                                   model_time[-1].to(u.s).value]]) * u.s \
         if observing_windows is None else observing_windows
 
     if visibility_windows is None:
         visibility_windows = \
             get_visibility_windows(observing_windows.min().to(u.s).value,
-                                   observing_windows.max().to(u.s).value, **kwargs) * u.s
+                                   observing_windows.max().to(u.s).value,
+                                   **kwargs) * u.s
 
-    observing_windows = cross_two_gtis(observing_windows, visibility_windows) * u.s
+    observing_windows = cross_two_gtis(observing_windows,
+                                       visibility_windows) * u.s
 
     interpolated_lc = interp1d(model_time.to(u.s).value,
-                               model_lc.value, fill_value=0, bounds_error=False)
+                               model_lc.value, fill_value=0,
+                               bounds_error=False)
     times = []
     lc = []
     for ow in observing_windows:
-        expo_times = np.arange(ow[0].value, ow[1].value, exposure_length.value) * u.s
+        expo_times = np.arange(ow[0].value, ow[1].value,
+                               exposure_length.value) * u.s
         for t in expo_times:
             times.append((t + exposure_length / 2).to(u.s).value)
             fine_times = np.linspace(t.value, (t + exposure_length).value, 10)
@@ -272,7 +278,8 @@ def calculate_snr(duet, band_fluence,
 
 
 def get_lightcurve(input_lc_file, distance=10*u.pc, observing_windows=None,
-                   duet=None, **kwargs):
+                   duet=None, low_zodi=True, exposure=300 * u.s,
+                   **kwargs):
     """Get a realistic light curve from a given theoretical light curve.
 
     Parameters
@@ -288,30 +295,30 @@ def get_lightcurve(input_lc_file, distance=10*u.pc, observing_windows=None,
         Observing times in seconds
     duet : ``astroduet.config.Telescope`` object
         The telescope config to be used. Default config if None.
+    low_zodi : bool, default True
+        Low zodiacal light?
+    exposure : ``astropy.units.s``, default 300 s
+        Exposure time
     """
     if duet is None:
         duet = Telescope()
 
-    print('Effective PSF size {}'.format(duet.psf_size))
-    # Get the number of effective background pixels
-    neff = get_neff(duet.psf_size, duet.pixel)
-    print('Number of effective bgd pixels: {}'.format(neff))
-    print()
+    model_lc_table_fl = QTable(load_model_fluence(input_lc_file,
+                                                  dist=distance))
+    abtime, ab1, ab2 = load_model_ABmag(input_lc_file,
+                                        dist=distance)
+    model_lc_table_ab = QTable({'time': abtime, 'mag_D1': ab1, 'mag_D2':ab2})
 
-    bands = [duet.bandpass1, duet.bandpass2]
+    assert np.allclose(model_lc_table_fl['time'].value,
+                       model_lc_table_ab['time'].value)
+    model_lc_table = model_lc_table_fl
+    for col in ['mag_D1', 'mag_D2']:
+        model_lc_table[col] = model_lc_table_ab[col]
 
-    fname, ext = os.path.splitext(input_lc_file)
-    if ext == '.asc':
-        model_lc_table = QTable()
-        _mlt = Table.read(input_lc_file, format='ascii')
-        model_lc_table['time'] = _mlt['time'] * u.s
-        model_lc_table['photflux_D1'] = _mlt['photonflux_D1'] * (1 / u.s)
-        model_lc_table['photflux_D2'] = _mlt['photonflux_D2'] * (1 / u.s)
-    else:
-        model_lc_table = QTable.read(input_lc_file)
     result_table = QTable()
 
-    background = background_pixel_rate(duet, low_zodi=True)
+    background = background_pixel_rate(duet, low_zodi=low_zodi)
+    background = {'bkg_D1': background[0], 'bkg_D2': background[1]}
 
     for duet_no in range(1, 3):
         duet_label = f'D{duet_no}'
@@ -319,39 +326,35 @@ def get_lightcurve(input_lc_file, distance=10*u.pc, observing_windows=None,
         table_photflux = \
             calculate_lightcurve_from_model(
                 model_lc_table['time'],
-                model_lc_table[f'photflux_{duet_label}'],
-                exposure_length=300 * u.s,
+                model_lc_table[f'fluence_{duet_label}'],
+                exposure_length=exposure,
                 observing_windows=observing_windows,
                 **kwargs)
 
         if duet_no == 1:
             result_table['time'] = table_photflux['time']
 
-        distance_conversion = (10 * u.pc / distance.to(u.pc)) ** 2
+        result_table[f'fluence_{duet_label}'] = \
+            table_photflux['Light curve'].to(u.ph / u.cm**2 / u.s)
 
-        result_table[f'photflux_{duet_label}'] = \
-            table_photflux['Light curve'] * distance_conversion
-
-        band_fluence = \
-            table_photflux['Light curve'] * distance_conversion
+        rate = duet.fluence_to_rate(result_table[f'fluence_{duet_label}'])
 
         result_table[f'snr_{duet_label}'] = \
-            calculate_snr(duet, band_fluence,
-                          background=background[duet_no - 1])
+            duet.calc_snr(exposure, rate, background[f'bkg_{duet_label}'])
 
-        band = bands[duet_no - 1]
-        flux = \
-            table_photflux['Light curve'] * c.h * c.c / np.mean(band)
-
-        flux_density = flux / (band[1] - band[0]) * distance_conversion
-        abmag = flux_density.to(
-            u.ABmag, equivalencies=u.spectral_density(np.mean(band)))
-
-        abmag_err = sigerr(abmag)
-
-        result_table[f'ABmag_{duet_label}'] = abmag
-        result_table[f'ABmag_{duet_label}_err'] = abmag_err
-
+        # abmag_err = sigerr(result_table[f'mag_{duet_label}'])
+        # band = bands[duet_no - 1]
+        # flux = \
+        #     table_photflux['Light curve'] * c.h * c.c / np.mean(band)
+        #
+        # flux_density = flux / (band[1] - band[0]) * distance_conversion
+        # abmag = flux_density.to(
+        #     u.ABmag, equivalencies=u.spectral_density(np.mean(band)))
+        #
+        # abmag_err = sigerr(abmag)
+        #
+        # result_table[f'ABmag_{duet_label}'] = abmag
+        # result_table[f'ABmag_{duet_label}_err'] = abmag_err
     return result_table
 
 
@@ -371,8 +374,8 @@ def lightcurve_through_image(lightcurve, exposure,
     Parameters
     ----------
     lightcurve : ``astropy.table.Table``
-        The lightcurve has to contain the columns 'time', 'photflux_D1', and
-        'photflux_D2'. Photon fluxes are in counts/s.
+        The lightcurve has to contain the columns 'time', 'fluence_D1', and
+        'fluence_D2'. Photon fluxes are in counts/s.
     exposure : ``astropy.units.Quantity``
         Exposure time used for the light curve
 
@@ -390,8 +393,8 @@ def lightcurve_through_image(lightcurve, exposure,
     -------
     lightcurve : ``astropy.table.Table``
         A light curve, rebinned to ``final_resolution``, and with four new
-        columns: 'photflux_D1_fit', 'photflux_D1_fiterr', 'photflux_D2_fit',
-        and 'photflux_D2_fiterr', containing the flux measurements from the
+        columns: 'fluence_D1_fit', 'fluence_D1_fiterr', 'fluence_D2_fit',
+        and 'fluence_D2_fiterr', containing the flux measurements from the
         intermediate images and their errorbars.
     """
     from astropy.table import Table
@@ -400,7 +403,7 @@ def lightcurve_through_image(lightcurve, exposure,
         if duet is None:
             duet = Telescope()
 
-    good = (lightcurve['photflux_D1'] > 0) & (lightcurve['photflux_D2'] > 0)
+    good = (lightcurve['fluence_D1'] > 0) & (lightcurve['fluence_D2'] > 0)
     lightcurve = lightcurve[good]
     lightcurve['nbin'] = 1
     if final_resolution is not None:
@@ -409,7 +412,7 @@ def lightcurve_through_image(lightcurve, exposure,
         time_bin = (plain_lc['time'] // final_resolution).to("").value
         lc_group = plain_lc.group_by(time_bin)
         plain_lc = lc_group.groups.aggregate(np.sum)
-        for col in 'time,photflux_D1,photflux_D2'.split(','):
+        for col in 'time,fluence_D1,fluence_D2'.split(','):
             new_lightcurve[col] = plain_lc[col] / plain_lc['nbin']
         new_lightcurve['nbin'] = plain_lc['nbin']
         lightcurve = new_lightcurve
@@ -421,14 +424,21 @@ def lightcurve_through_image(lightcurve, exposure,
         [bgd_band1, bgd_band2] = background_pixel_rate(duet, low_zodi=True,
                                                        diag=True)
 
+    # Temporary fix
+    try:
+        bgd_band1.to('u.ph/s')
+    except:
+        bgd_band1 = bgd_band1.value * u.ph * bgd_band1.unit
+        bgd_band2 = bgd_band2.value * u.ph * bgd_band2.unit
+
     psf_fwhm_pix = duet.psf_fwhm / duet.pixel
 
     read_noise = duet.read_noise
 
-    lightcurve['photflux_D1_fit'] = 0.
-    lightcurve['photflux_D1_fiterr'] = 0.
-    lightcurve['photflux_D2_fit'] = 0.
-    lightcurve['photflux_D2_fiterr'] = 0.
+    lightcurve['fluence_D1_fit'] = 0.
+    lightcurve['fluence_D1_fiterr'] = 0.
+    lightcurve['fluence_D2_fit'] = 0.
+    lightcurve['fluence_D2_fiterr'] = 0.
 
     # Directory for debugging purposes
     rand = np.random.randint(0, 99999999)
@@ -440,11 +450,13 @@ def lightcurve_through_image(lightcurve, exposure,
 
     for i, row in enumerate(tqdm(lightcurve)):
         time = row['time']
-        if row['photflux_D1'] == 0 or row['photflux_D2'] == 0:
+        if row['fluence_D1'] == 0 or row['fluence_D2'] == 0:
             continue
-        fl1 = duet.trans_eff * duet.eff_area * row['photflux_D1']
-        fl2 = duet.trans_eff * duet.eff_area * row['photflux_D2']
+        fl1 = duet.fluence_to_rate(row['fluence_D1'])
+        fl2 = duet.fluence_to_rate(row['fluence_D2'])
+
         nave = row['nbin']
+
         with suppress_stdout():
             image1 = construct_image(frame, exposure * nave, read_noise,
                                      source=fl1,
@@ -480,10 +492,10 @@ def lightcurve_through_image(lightcurve, exposure,
                                      star_tbl, niters=1)
         fl2_fit, fl2_fite = result2['flux_fit'], result2['flux_unc']
 
-        lightcurve['photflux_D1_fit'][i] = fl1_fit
-        lightcurve['photflux_D1_fiterr'][i] = fl1_fite
-        lightcurve['photflux_D2_fit'][i] = fl2_fit
-        lightcurve['photflux_D2_fiterr'][i] = fl2_fite
+        lightcurve['fluence_D1_fit'][i] = fl1_fit
+        lightcurve['fluence_D1_fiterr'][i] = fl1_fite
+        lightcurve['fluence_D2_fit'][i] = fl2_fit
+        lightcurve['fluence_D2_fiterr'][i] = fl2_fite
         if debug:
             outfile = os.path.join(debugdir, f'images_{time.to(u.s).value}.p')
             with open(outfile, 'wb') as fobj:
