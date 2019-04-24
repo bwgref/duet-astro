@@ -33,7 +33,7 @@ def load_qe(infile = None, **kwargs):
     >>> duet = Telescope()
     >>> band = 1
     >>> wave, qe = load_qe(infile=duet.qe_files['names'][band])
-    >>> allclose(qe[50], 0.602565)
+    >>> allclose(qe[120], 0.736837)
     True
     
 
