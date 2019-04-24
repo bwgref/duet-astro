@@ -331,6 +331,14 @@ def get_lightcurve(input_lc_file, distance=10*u.pc, observing_windows=None,
                 observing_windows=observing_windows,
                 **kwargs)
 
+        table_ab = \
+            calculate_lightcurve_from_model(
+                model_lc_table['time'],
+                model_lc_table[f'mag_{duet_label}'],
+                exposure_length=exposure,
+                observing_windows=observing_windows,
+                **kwargs)
+
         if duet_no == 1:
             result_table['time'] = table_photflux['time']
 
@@ -342,6 +350,10 @@ def get_lightcurve(input_lc_file, distance=10*u.pc, observing_windows=None,
         result_table[f'snr_{duet_label}'] = \
             duet.calc_snr(exposure, rate, background[f'bkg_{duet_label}'])
 
+        abmag = table_ab['Light curve']
+        abmag_err = sigerr(abmag)
+        result_table[f'mag_{duet_label}'] = abmag
+        result_table[f'mag_{duet_label}_err'] = abmag_err
         # abmag_err = sigerr(result_table[f'mag_{duet_label}'])
         # band = bands[duet_no - 1]
         # flux = \
