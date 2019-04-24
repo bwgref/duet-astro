@@ -426,7 +426,7 @@ def lightcurve_through_image(lightcurve, exposure,
 
     # Temporary fix
     try:
-        bgd_band1.to('u.ph/s')
+        bgd_band1.to('u.ph/u.s')
     except:
         bgd_band1 = bgd_band1.value * u.ph * bgd_band1.unit
         bgd_band2 = bgd_band2.value * u.ph * bgd_band2.unit

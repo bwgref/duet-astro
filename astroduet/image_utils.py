@@ -174,7 +174,7 @@ def construct_image(frame,exposure,read_noise,
 #         psf = gaussian_psf(psf_fwhm,(15,15),pixel_size_init)
 
     # Initialise an image, oversampled by the oversample parameter to begin with
-    im_array = np.zeros(frame * oversample) * source.unit
+    im_array = np.zeros(frame * oversample) * u.ph / u.s
 
     # Add a galaxy?
     if gal_type is not None:
@@ -269,8 +269,6 @@ def estimate_background(image, diag=False):
         print("Image shape:", image.shape)
         print("Boxes per axis: {}, {}".format(boxes0,boxes1))
         print("Box size: {}, {}".format(image.shape[0] // boxes0, image.shape[1] // boxes1))
-        print(bkg_image)
-        print(bkg_rms_median)
 
     return bkg_image, bkg_rms_median
 
@@ -347,12 +345,14 @@ def ap_phot(image,star_tbl,read_noise,exposure,r=1.5,r_in=1.5,r_out=3.):
         annulus_data = mask.multiply(image)
         annulus_data_1d = annulus_data[mask.data > 0]
         _, median_sigclip, _ = sigma_clipped_stats(annulus_data_1d)
-        bkg_median.append(median_sigclip)
-    bkg_median = np.array(bkg_median)
+        bkg_median.append(median_sigclip.value)
+    bkg_median = np.array(bkg_median) * image.unit
 
     # Set error
-    error = calc_total_error(image, read_noise / exposure, exposure)
-
+    error = calc_total_error(image.value,
+                             read_noise / exposure.value,
+                             exposure.value)
+    error *= image.unit
     # Perform aperture photometry
     result = aperture_photometry(image, apertures, error=error)
     result['annulus_median'] = bkg_median

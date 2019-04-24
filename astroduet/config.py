@@ -14,11 +14,11 @@ datadir = os.path.join(curdir, 'data')+'/'
 class Telescope():
     """
     Make a Telescope object containing various instrument parameters
-    
+
     Parameters
     ----------
     on_axis : conditional, default True
-        Use the on-axis effective area and PSF sizes or use the 
+        Use the on-axis effective area and PSF sizes or use the
         edge of the field of view values.
 
 
@@ -26,21 +26,21 @@ class Telescope():
     ----------
     An initialized instance of the Telescope class.
 
-    
+
     Methods
     ----------
 
     psf_model
-    
+
     calc_psf_hpd
-    
+
     calc_radial_profile
-    
+
     update_effarea
-    
+
     update_psf_vals
-    
-        
+
+
     Attributes
     ----------
     epd: float
@@ -52,14 +52,14 @@ class Telescope():
 
     psf_fwhm: float
         The FWHM of the PSF, with Astropy units.
-                
+
     psf_jitter: float
         The contribution of the PSF to be added in quadrature with the psf_fwhm
         due to spacecraft pointing jitter.
-        
+
     psf_size: float
         psf_fwhm and psf_jitter added in quadrature with Astropy units.
-        
+
     pixel: float
         Angular pixel size with Astropy units
 
@@ -71,28 +71,28 @@ class Telescope():
 
     bandpass1: 1-d float array
         ``[eff_wave - eff_width*0.5, eff_wave+eff_width*0.5]``
-    
+
     bandpass2: 1-d float array
         ``[eff_wave - eff_width*0.5, eff_wave+eff_width*0.5]``
-    
+
     eff_area: float
         Effective area computed using the eff_epd size.
-    
+
     read_noise: float
         RMS noise in the detetors per frame read
-    
+
     Examples
     --------
     >>> duet = Telescope()
     >>> allclose(duet.eff_epd.value, 24.2)
     True
-    
+
 
     """
 
     def __init__(self, degraded = False, on_axis=True):
         self.EPD = 26*u.cm
-        
+
         if on_axis:
             self.eff_epd = 24.2*u.cm
             psf_fwhm_um = 6.7*u.micron
@@ -100,23 +100,23 @@ class Telescope():
             self.eff_epd = 23.1*u.cm
             psf_fwhm_um = 10*u.micron
 
-        
+
         pixel = 10*u.micron
         plate_scale = 6.4*u.arcsec / pixel  # arcsec per micron
-        
+
         self.pixel = plate_scale * pixel
-        
+
         # Transmission through the Schmidt plates
-        self.trans_eff = (0.975)**8 # from Jim. 
-    
+        self.trans_eff = (0.975)**8 # from Jim.
+
         self.read_noise = 3
-    
+
         # Pointing jitter:
         self.psf_jitter = 5*u.arcsec
 
-       
 
-        self.psf_params = {  
+
+        self.psf_params = {
             'sig':[2.08, 4.26]*u.arcsec,
             'amp':[1, 0.1],
             'norm':[0.505053538858156, 0.21185072119504136]
@@ -131,30 +131,30 @@ class Telescope():
 
         # Below just adds the pointing jitter in quadrature
         self.update_psf()
-        
+
         # Compute the effective number of background pixels (this isn't used in as
         # many places and should be depricated moving forward.
         self.neff = get_neff(self.psf_size, self.pixel)
 
-        
+
         if not degraded :
-        
+
             self.qe_files = {
                 'description' : ['DUET 1 CBE QE', 'DUET 2 CBE QE'],
                 'names' : [datadir+'detector_180_220nm.csv', datadir+'detector_260_300nm.csv']
             }
-        
+
             self.reflectivity_file = {
                 'description' : 'CBE Reflectivity',
                 'name' : datadir+'al_mgf2_mirror_coatings.csv'
             }
-        
+
             self.bandpass_files = {
-                'description' : ['CBE DUET 1 Bandpass', 'CBE DUET 2 Bandpass'],            
+                'description' : ['CBE DUET 1 Bandpass', 'CBE DUET 2 Bandpass'],
                 'names' : [datadir+'duet1_filter_light.csv', datadir+'duet2_filter_light.csv']
             }
 
-        [self.band1, self.band2] = filter_parameters(duet=self)    
+        [self.band1, self.band2] = filter_parameters(duet=self)
         center_D1 = self.band1['eff_wave'].to(u.nm).value
         width_D1 = self.band1['eff_width'].to(u.nm).value
         self.bandpass1 =[center_D1 - 0.5*width_D1, center_D1+0.5*width_D1] * u.nm
@@ -163,14 +163,14 @@ class Telescope():
         center_D2 = self.band2['eff_wave'].to(u.nm).value
         width_D2 = self.band2['eff_width'].to(u.nm).value
         self.bandpass2 =[center_D2 - 0.5*width_D2, center_D2+0.5*width_D2] * u.nm
-  
-        
+
+
     def info(self):
         print('-----')
         print('DUET Telescope State:')
         print('Physical Entrance Pupil: {}'.format(self.EPD))
         print('Effective EPD: {}'.format(self.eff_epd))
-        print('Effective Area: {}'.format(self.eff_area))        
+        print('Effective Area: {}'.format(self.eff_area))
         print('Transmission Efficiency: {}'.format(self.trans_eff))
         print()
         print('Pixel size: {}'.format(self.pixel))
@@ -190,11 +190,11 @@ class Telescope():
 
     def update_bandpass(self):
         '''
-        Update bandpass values based on whatever set of files are stores in 
-        
-        
+        Update bandpass values based on whatever set of files are stores in
+
+
         '''
-        
+
         [self.band1, self.band2] = filter_parameters(duet=self)
 
         center_D1 = self.band1['eff_wave'].to(u.nm).value
@@ -209,21 +209,21 @@ class Telescope():
     def update_psf_vals(self):
         '''
         Update paramters that are derived from other values.
-        
+
         This needs to still re-compute the PSF normalizations at some point, but
         that's not implemented here.
-    
+
         '''
         self.psf_params['norm'] = self.compute_psf_norms()
         self.psf_fwhm = self.calc_psf_hpd()
         self.update_psf()
         self.neff = get_neff(self.psf_size, self.pixel)
 
-    
+
     def calc_radial_profile(self):
         '''
         The python way, from Stack Overflow
-        https://stackoverflow.com/questions/21242011/most-efficient-way-to-calculate-radial-profile        
+        https://stackoverflow.com/questions/21242011/most-efficient-way-to-calculate-radial-profile
 
         Returns the radial profile and the pixel size
 
@@ -249,7 +249,7 @@ class Telescope():
         csim = np.cumsum(sim, dtype=np.float64) # cumulative sum to figure out sums for each radii bin
         tbin = csim[rind[1:]] - csim[rind[:-1]] # sum for image values in radius bins
         radialprofile = tbin/nr # the answer
-        
+
         return pix_size, np.array(radialprofile)
 
 
@@ -258,11 +258,11 @@ class Telescope():
         '''
         Computes the FWHM of the 2D PSF kernel. Only do this if you change the PSF
         parameters because it takes a long time!
-    
+
         Returns
         -------
         fwhm in astropy units
-    
+
         '''
 
         pix_size, rad_profile = self.calc_radial_profile()
@@ -270,24 +270,24 @@ class Telescope():
         above = (rad_profile > thresh)
         fwhm = 2.0*(count_nonzero(above)*pix_size)
         return fwhm
-    
+
     def update_psf(self):
         self.psf_size = sqrt(self.psf_fwhm**2 + self.psf_jitter**2)
-    
+
     def update_effarea(self):
         self.eff_area = pi * (self.eff_epd*0.5)**2
-    
-    
+
+
     def fluence_to_rate(self, fluence):
         '''
         Helper script to convert fluences to count rates
-        
+
         '''
-    
+
         rate = self.eff_area * self.trans_eff * fluence
         return rate
-        
-    
+
+
 
     def psf_model(self, pixel_size=None, **kwargs):
         '''
@@ -299,8 +299,8 @@ class Telescope():
         ----------------
         Pixel size: float
             Pixel size for the PSF kernel. Default is self.pixel
-    
-    
+
+
         '''
         if pixel_size is None:
             pixel_size = self.pixel
@@ -327,27 +327,27 @@ class Telescope():
                     model += n*Gaussian2DKernel( (s / pixel_size).to('').value, **kwargs)
 
         return model
-    
-    
-    
+
+
+
     def compute_psf_norms(self, pixel_size=None, **kwargs):
         """
-        Helper script to convert PSF amplitudes to PSF normalizations    
-    
+        Helper script to convert PSF amplitudes to PSF normalizations
+
         Prints out the modified normalizations that you should copy up into
         the Telescope class definition above.
 
         Other Parameters
         ----------------
-    
+
         Pixel size: float
             Pixel size for the PSF kernel. Default is Telscope().pixel
- 
+
         Returns
         -------
-        
+
         [norm1, norm2, ...] proper normalization of the Gaussian given the pixel size.
- 
+
         """
 
 
@@ -359,69 +359,69 @@ class Telescope():
         set = False
         for s, n in zip(self.psf_params['sig'], self.psf_params['amp']):
             if not set:
-                temp = Gaussian2DKernel( (s / pixel_size).to('').value)                
+                temp = Gaussian2DKernel( (s / pixel_size).to('').value)
                 temp_amp = temp.array.max()
-                model = (n / temp_amp)*Gaussian2DKernel( (s / pixel_size).to('').value, **kwargs)                
+                model = (n / temp_amp)*Gaussian2DKernel( (s / pixel_size).to('').value, **kwargs)
                 set = True
             else:
-                temp = Gaussian2DKernel( (s / pixel_size).to('').value)                
+                temp = Gaussian2DKernel( (s / pixel_size).to('').value)
                 temp_amp = temp.array.max()
                 model += (n / temp_amp)*Gaussian2DKernel( (s / pixel_size).to('').value, **kwargs)
-        
+
 
         # Renorm so PSF == 1
         renorm = model.array.sum()
         set = False
         new_norms = []
         for ind, [s, n] in enumerate(zip(self.psf_params['sig'], self.psf_params['amp'])):
-            temp = Gaussian2DKernel( (s / pixel_size).to('').value)                
+            temp = Gaussian2DKernel( (s / pixel_size).to('').value)
             temp_amp = temp.array.max()
             new_norm = (n / (renorm*temp_amp))
             new_norms.append(new_norm)
             if not set:
-                model = new_norm*Gaussian2DKernel( (s / pixel_size).to('').value, **kwargs)     
+                model = new_norm*Gaussian2DKernel( (s / pixel_size).to('').value, **kwargs)
                 set = True
             else:
                 model += new_norm*Gaussian2DKernel( (s / pixel_size).to('').value, **kwargs)
 
         norm = model.array.sum()
-        
+
         if diag:
-            print('Kernel normalization after PSFs renormalized {}'.format(norm)) 
+            print('Kernel normalization after PSFs renormalized {}'.format(norm))
 
 
         return new_norms
 
-        
+
     def apply_filters(self, wave, spec, band=1, **kwargs):
         """
-    
+
         Applies the reflectivity, QE, and red-filter based on the input files
         in the data subdirectory. See the individual scripts or set diag=True
         to see what filters are beign used.
-    
+
         Parameters
         ----------
         wave : float array
             The array containing the wavelengths of the spcetrum
-        
+
         spec : float array
             The spectrum that you want to filter.
 
         Other parameters
         ----------------
-        
+
         band : int
             Use band 1 (default) or band 2 files
-        
-         
+
+
         Returns
         -------
         band_flux : float array
             The spectrum after the filtering has been applied. Will have the
             same length as "spec".
 
-    
+
         Examples
         --------
         >>> from astroduet.config import Telescope
@@ -432,18 +432,18 @@ class Telescope():
         >>> test = [0.20659143, 0.37176641]
         >>> allclose(band_flux, test)
         True
- 
+
         """
 
         from astroduet.filters import load_reflectivity, load_qe, load_redfilter, apply_trans
 
         # Shift to make band an index:
-        
+
         band_ind = band - 1
         qe_file = self.qe_files['names'][band_ind]
         reflectivity_file = self.reflectivity_file['name']
         bandpass_file = self.bandpass_files['names'][band_ind]
-        
+
 
         # Load filters
         ref_wave, reflectivity = load_reflectivity(infile = reflectivity_file, **kwargs)
@@ -457,33 +457,33 @@ class Telescope():
 
         return band_flux
 
-    
+
     def calc_snr(self, texp, src_rate, bgd_rate, nint = 1.0):
         """
-    
+
         Compute the signal-to-noise ratio for a given exposure, source rate,
         and background rate. Have this in Telescope() because this also depends on
         the number of effective background pixels and the read noise, both of
         which are attributes to duet.
-    
+
         Parameters
         ----------
-        texp : float 
+        texp : float
             Exposure time
-        
+
         src_rate : float array
             Source rate in photons per second.
-        
+
         bgd_rate : float array
             Background rate in photons per second
 
         Other parameters
         ----------------
-        
+
         nint : int
             How many exposures you want to stack (Default is 1).
-        
-         
+
+
         Returns
         -------
         snr : float array
@@ -491,14 +491,14 @@ class Telescope():
 
 
         """
-
-        src_rate = src_rate.value * (1 /u.s)
-            
+        src_rate = src_rate.to(u.ph/u.s).value
+        bgd_rate = bgd_rate.to(u.ph/u.s).value
+        texp = texp.to(u.s).value
         denom = (nint*src_rate*texp +
             nint * self.neff * (bgd_rate*texp + self.read_noise**2))**0.5
         nom = nint*src_rate * texp
         snr = nom / denom
         return snr
 
-    
-    
+
+
