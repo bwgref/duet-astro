@@ -328,13 +328,13 @@ def get_lightcurve(input_lc_file, distance=10*u.pc, observing_windows=None,
             result_table['time'] = table_photflux['time']
 
         distance_conversion = (10 * u.pc / distance.to(u.pc)) ** 2
-        
+
         result_table[f'photflux_{duet_label}'] = \
             table_photflux['Light curve'] * distance_conversion
-            
+
         band_fluence = \
             table_photflux['Light curve'] * distance_conversion
-            
+
         result_table[f'snr_{duet_label}'] = \
             calculate_snr(duet, band_fluence,
                           background=background[duet_no - 1])
@@ -425,14 +425,14 @@ def lightcurve_through_image(lightcurve, exposure,
 
     read_noise = duet.read_noise
 
-    lightcurve['photflux_D1_fit'] = 0
-    lightcurve['photflux_D1_fiterr'] = 0
-    lightcurve['photflux_D2_fit'] = 0
-    lightcurve['photflux_D2_fiterr'] = 0
+    lightcurve['photflux_D1_fit'] = 0.
+    lightcurve['photflux_D1_fiterr'] = 0.
+    lightcurve['photflux_D2_fit'] = 0.
+    lightcurve['photflux_D2_fiterr'] = 0.
 
     # Directory for debugging purposes
     rand = np.random.randint(0, 99999999)
-    
+
     debugdir = f'debug_imgs_{final_resolution.to(u.s).value}s_{rand}'
 
     if debug:
@@ -461,6 +461,7 @@ def lightcurve_through_image(lightcurve, exposure,
         with suppress_stdout():
             result1, _ = run_daophot(image_rate1, threshold,
                                      star_tbl, niters=1)
+
         fl1_fit, fl1_fite = result1['flux_fit'], result1['flux_unc']
 
         with suppress_stdout():
@@ -484,9 +485,9 @@ def lightcurve_through_image(lightcurve, exposure,
         lightcurve['photflux_D2_fit'][i] = fl2_fit
         lightcurve['photflux_D2_fiterr'][i] = fl2_fite
         if debug:
-            pickle.dump({'imgD1': image_rate1, 'imgD2': image_rate2},
-                        open(os.path.join(debugdir,
-                                          f'images_{time.to(u.s).value}.p'),
-                             'wb'))
+            outfile = os.path.join(debugdir, f'images_{time.to(u.s).value}.p')
+            with open(outfile, 'wb') as fobj:
+                pickle.dump({'imgD1': image_rate1, 'imgD2': image_rate2},
+                            fobj)
 
     return lightcurve
