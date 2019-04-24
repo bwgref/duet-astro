@@ -9,3 +9,6 @@ build/*
 .idea
 dist/*
 *egg-info
+*.p
+.pytest_cache/*
+astroduet/cython_version.py
