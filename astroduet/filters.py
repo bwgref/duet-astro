@@ -33,7 +33,7 @@ def load_qe(infile = None, **kwargs):
     >>> duet = Telescope()
     >>> band = 1
     >>> wave, qe = load_qe(infile=duet.qe_files['names'][band])
-    >>> allclose(qe[50], 0.602565)
+    >>> allclose(qe[120], 0.736837)
     True
     
 
@@ -45,15 +45,15 @@ def load_qe(infile = None, **kwargs):
 
     assert infile is not None, 'load_qe: Provide an input QE file'
 
-
-    if band == 1:
-        infile = os.path.join(datadir, 'detector_180_220nm.csv')
-    elif band == 2:
-        infile = os.path.join(datadir, 'detector_260_300nm.csv')
-    elif band == 3:
-        infile = os.path.join(datadir, 'detector_340_380nm.csv')
-    else:
-        raise ValueError('band number not recognized')
+# 
+#     if band == 1:
+#         infile = os.path.join(datadir, 'detector_180_220nm.csv')
+#     elif band == 2:
+#         infile = os.path.join(datadir, 'detector_260_300nm.csv')
+#     elif band == 3:
+#         infile = os.path.join(datadir, 'detector_340_380nm.csv')
+#     else:
+#         raise ValueError('band number not recognized')
 
     f = open(infile, 'r')
     header = True
