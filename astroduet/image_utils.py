@@ -220,6 +220,57 @@ def construct_image(frame,exposure,read_noise,
     # Return image 
     return im_final
 
+def estimate_background(image, diag=False):
+    '''
+        Generate an estimated background image and median background rms from a given input image.
+        
+        Parameters
+        ----------
+        image: array
+            2D array containing the image values, no units
+            
+        Returns
+        -------
+        bkg_image: array
+            2D array the same size as image of the estimated background
+        
+        bkg_rms: float
+            rms median of the background
+        
+        Example
+        -------
+        >>> np.random.seed(0)
+        >>> im = np.ones((10,10)) + np.random.uniform(size=(10,10))
+        >>> im[5,5] += 5
+        >>> bkg_im, bkg_med = estimate_background(im)
+        >>> np.allclose([bkg_im[0,0],bkg_med],[1.45771779,0.288040735])
+        True
+    '''
+    
+    from photutils import Background2D, SExtractorBackground
+    
+    # Define estimator (we're using the default SExtractorBackground estimator from photutils)
+    bkg_estimator = SExtractorBackground()
+    
+    # Want the box size to be ~10 pixels or thereabouts
+    boxes0 = np.int(1 if image.shape[0] <= 5 else np.round(image.shape[0] / 10))
+    boxes1 = np.int(1 if image.shape[1] <= 5 else np.round(image.shape[1] / 10))
+    
+    # Estimate the background
+    bkg = Background2D(image, (image.shape[0] // boxes0, image.shape[1] // boxes1), bkg_estimator=bkg_estimator)
+     
+    bkg_image = bkg.background
+    bkg_rms_median = bkg.background_rms_median
+    
+    if diag:
+        print("Image shape:", image.shape)
+        print("Boxes per axis: {}, {}".format(boxes0,boxes1))
+        print("Box size: {}, {}".format(image.shape[0] // boxes0, image.shape[1] // boxes1))
+        print(bkg_image)
+        print(bkg_rms_median)
+        
+    return bkg_image, bkg_rms_median
+
 
 def find(image,fwhm,method='daophot',background='2D',diag=False):
     '''
@@ -233,19 +284,14 @@ def find(image,fwhm,method='daophot',background='2D',diag=False):
         method = Either 'daophot' or 'peaks' to select different finding algorithms
         background = '2D' or 'sigclip' to select 2- or 1-D background estimators
     '''
-    from photutils import Background2D, MedianBackground
     from photutils.detection import DAOStarFinder, find_peaks
     from astropy.stats import sigma_clipped_stats
     
     # Create a background image
     if background == '2D':
-        bkg_estimator = MedianBackground()
-        bkg = Background2D(image, (image.shape[0] // 8, image.shape[1] // 8), bkg_estimator=bkg_estimator)
-        sky = bkg.background_rms_median
-        bkg_image = bkg.background
+        bkg_image, sky = estimate_background(image, diag)
     elif background == 'sigclip':
         mean, median, sky = sigma_clipped_stats(image, sigma=3.0)
-        bkg_image = image
         bkg_image = median
         
     # Look for five-sigma detections
@@ -269,6 +315,7 @@ def find(image,fwhm,method='daophot',background='2D',diag=False):
         print("Found {} stars".format(len(star_tbl)))
     
     return star_tbl, bkg_image, threshold
+
 
 def ap_phot(image,star_tbl,read_noise,exposure,r=1.5,r_in=1.5,r_out=3.):
     '''
@@ -335,16 +382,23 @@ def run_daophot(image,threshold,star_tbl,niters=1, duet=None):
 #    psf_model = duet.psf_model()
 #    fwhm = (duet.psf_fwhm / duet.pixel).to('').value
 #    print(fwhm)
+
+    # Temporarily turn off Astropy warnings
+    import warnings
+    from astropy.utils.exceptions import AstropyWarning
+    warnings.simplefilter('ignore', category=AstropyWarning)
     
     # Initialise a Photometry object
     # This object loops find, fit and subtract
     photometry = DAOPhotPSFPhotometry(3.*fwhm,threshold,fwhm,psf_model,(5,5),
         niters=niters,sigma_radius=5, aperture_radius=2.)
-
     
     # Problem with _recursive_lookup while fitting (needs latest version of astropy fix to modeling/utils.py)
     result = photometry(image=image, init_guesses=star_tbl)
     residual_image = photometry.get_residual_image()
     print("PSF-fitting complete")
+    
+    # Turn warnings back on again
+    warnings.simplefilter('default')
 
     return result, residual_image
