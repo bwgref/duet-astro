@@ -382,6 +382,11 @@ def run_daophot(image,threshold,star_tbl,niters=1, duet=None):
 #    psf_model = duet.psf_model()
 #    fwhm = (duet.psf_fwhm / duet.pixel).to('').value
 #    print(fwhm)
+
+    # Temporarily turn off Astropy warnings
+    import warnings
+    from astropy.utils.exceptions import AstropyWarning
+    warnings.simplefilter('ignore', category=AstropyWarning)
     
     # Initialise a Photometry object
     # This object loops find, fit and subtract
@@ -392,5 +397,8 @@ def run_daophot(image,threshold,star_tbl,niters=1, duet=None):
     result = photometry(image=image, init_guesses=star_tbl)
     residual_image = photometry.get_residual_image()
     print("PSF-fitting complete")
+    
+    # Turn warnings back on again
+    warnings.simplefilter('default')
 
     return result, residual_image
