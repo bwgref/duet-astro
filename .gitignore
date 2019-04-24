@@ -12,3 +12,5 @@ dist/*
 *.p
 .pytest_cache/*
 astroduet/cython_version.py
+
+htmlcov/
