@@ -137,82 +137,133 @@ def sim_galaxy(patch_size,pixel_size,gal_type=None,gal_params=None):
 
     return gal * u.ph / u.s
 
-def construct_image(frame,exposure,read_noise,
-                    psf='gaussian', duet=None,
+def construct_image(frame,exposure,
+                    duet=None,
                     gal_type=None,gal_params=None,source=None,sky_rate=None,n_exp=1):
-    '''
-        Return a simulated image with a background galaxy (optional), source (optional), and noise
 
-        Required inputs:
-        frame = Pixel dimensions of simulated image (30,30)
-        exposure = Integration time of the frame (300 * ur.s)
-        psf_fwhm = FWHM in arcsec (4 * ur.arcsec)
-        read_noise = Read noise in photons / pixel (unitless float)
+    """Construct a simualted image with an optional background galaxy and source.
+    
+    1. Generate the empty image
+    2. Add galaxy (see sim_galaxy)
+    3. Add source (Poisson draw based on source*expossure)
+    4. Convolve with PSF
+    5. Rebin to the DUET pixel size.
+    6. Add in expected background rates per pixel and dark current.
+    7. Draw Poisson values and add read noise.
+    
+    Parameters
+    ----------
+    frame : ``numpy.array``
+        Number of pixel along x and y axis.
+        i.e., frame = np.array([30, 30])
+        
+    exposure : ``astropy.units.Quantity``
+        Exposure time used for the light curve
 
-        Optional inputs:
-        psf = "gaussian" or "duet", defaults to "gaussian"
-        gal_type = Default galaxy string ("spiral"/"elliptical") or "custom" w/ Sersic parameters in gal_params
-        gal_params = Dictionary of parameters for Sersic model (see sim_galaxy)
-        source = Source photon count rate (100 / ur.s)
-        n_exp = Number of exposures to be co-added
-    '''
+    Other parameters
+    ----------------
+
+    duet : ``astroduet.config.Telescope``
+        If None, a default one is created
+
+    gal_type : string
+        Default galaxy string ("spiral"/"elliptical") or "custom" w/ Sersic parameters
+        in gal_params
+
+    gal_params : dict
+        Dictionary of parameters for Sersic model (see sim_galaxy)
+    
+    source : ``astropy.units.Quantity``
+        Source photon rate in ph / s
+
+    sky_rate : ``astropy.units.Quantity``
+        Background photon rate in ph / s / pixel
+    
+    n_exp : int
+        Number of simualted frames to co-add.
+        NB: I don't like this here!
+
+    Returns
+    -------
+    
+    image : array with astropy.units
+        NxM image array with integer number of counts observed per pixel.
+    
+    """
+
+    assert type(frame) is np.ndarray, 'construct_image: Please enter frame as a numpy array'
+    
+
 
     # Load telescope parameters:
     if duet is None:
         duet = Telescope()
 
+    read_noise = duet.read_noise
+
     oversample = 6
     pixel_size_init = duet.pixel / oversample
 
-    # Make a PSF kernel
+    # Load the PSF kernel. Note that this does NOT HAVE POINTING JITTER!
     psf_kernel = duet.psf_model(pixel_size = pixel_size_init)
 
-#
-#     if psf == 'duet':
-#         psf = duet_psf((15,15),pixel_size_init)
-#     elif psf == 'gaussian':
-#         psf = gaussian_psf(psf_fwhm,(15,15),pixel_size_init)
-
+    # 1. Generate the empty image
     # Initialise an image, oversampled by the oversample parameter to begin with
+    
+
     im_array = np.zeros(frame * oversample) * u.ph / u.s
 
-    # Add a galaxy?
+    # 2. Add a galaxy?
     if gal_type is not None:
         # Get a patch with a simulated galaxy on it
         gal = sim_galaxy(frame * oversample,pixel_size_init,gal_type=gal_type,gal_params=gal_params)
         im_array += gal
 
-    # Add a source?
+    # 3. Add a source?
     if source is not None:
         # Place source as a delta function in the center of the frame
         im_array[im_array.shape[0] // 2 + 1, im_array.shape[1] // 2 + 1] += source
 
-    # Convolve with the PSF (need to re-apply units here as it's lost in convolution)
+    # Result should now be (floats) expected number of photons per pixel per second
+    # in the oversampled imae
 
+    # 4. Convolve with the PSF (need to re-apply units here as it's lost in convolution)
     im_psf = convolve(im_array, psf_kernel)*im_array.unit
 
-#    im_psf = convolve2d(im_array,psf,mode='same') / u.s
-
+    #
+    #
+    #
+    # NEEDS TO BE ADDED HERE OR THOUGHT ABOUT!
     # Apply jitter at this stage? Shuffle everything around by a pixel or something
-
-    # Bin up the image by oversample parameter to the correct pixel size
+    #
+    #
+    #
+    
+    
+    # 5. Bin up the image by oversample parameter to the correct pixel size
     shape = (frame[0], oversample, frame[1], oversample)
     im_binned = im_psf.reshape(shape).sum(-1).sum(1)
 
-    # Now add sky background
+    # 6. Add sky background (these are both given in ph / pix / s)
     if sky_rate is not None:
         # Add sky rate per pixel across the whole image
         im_binned += sky_rate
+        
+    # 6b: Add dark current:
+    im_binned += duet.dark_current
 
-    # Convert to counts -- TEMPORARY: .value transform photons in a number
+    # Convert to expected counts -- TEMPORARY: .value transform photons in a number
     im_counts = (im_binned * exposure)
+
     # Co-add a number of separate exposures
     im_final = np.zeros(frame)
     for i in range(n_exp):
-        # Apply Poisson noise and instrument noise
-        im_noise = np.random.poisson(im_counts.value) + np.random.normal(loc=0,scale=read_noise,size=im_counts.shape)
+        # Apply Poisson noise and instrument read noise. Note that read noise here
+        # is 
+        im_noise = np.random.poisson(im_counts.value) + \
+            np.random.normal(loc=0, scale=read_noise,size=im_counts.shape)
         im_noise = np.floor(im_noise)
-        im_noise[im_noise < 0] = 0
+        im_noise[im_noise < 0] = 0 
 
         # Add to the co-add
         im_final += im_noise

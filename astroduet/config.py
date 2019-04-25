@@ -109,7 +109,12 @@ class Telescope():
         # Transmission through the Schmidt plates
         self.trans_eff = (0.975)**8 # from Jim.
 
-        self.read_noise = 3
+        # Dark current given in e- per pixel per sec
+        self.dark_current_downscale = 4
+        self.dark_current = (0.046 / self.dark_current_downscale) * u.ph / u.s
+
+        # RMS value
+        self.read_noise = 7
 
         # Pointing jitter:
         self.psf_jitter = 5*u.arcsec
