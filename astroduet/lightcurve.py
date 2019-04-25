@@ -445,8 +445,6 @@ def lightcurve_through_image(lightcurve, exposure,
 
     psf_fwhm_pix = duet.psf_fwhm / duet.pixel
 
-    read_noise = duet.read_noise
-
     lightcurve['fluence_D1_fit'] = 0.
     lightcurve['fluence_D1_fiterr'] = 0.
     lightcurve['fluence_D2_fit'] = 0.
@@ -470,7 +468,7 @@ def lightcurve_through_image(lightcurve, exposure,
         nave = row['nbin']
 
         with suppress_stdout():
-            image1 = construct_image(frame, exposure * nave, read_noise,
+            image1 = construct_image(frame, exposure * nave, duet=duet,
                                      source=fl1,
                                      sky_rate=bgd_band1)
         image_rate1 = image1 / (exposure.value * nave)
@@ -489,7 +487,7 @@ def lightcurve_through_image(lightcurve, exposure,
         fl1_fit, fl1_fite = result1['flux_fit'], result1['flux_unc']
 
         with suppress_stdout():
-            image2 = construct_image(frame, exposure * nave, read_noise,
+            image2 = construct_image(frame, exposure * nave, duet=duet,
                                      source=fl2,
                                      sky_rate=bgd_band2)
         image_rate2 = image2 / (exposure.value * nave)
