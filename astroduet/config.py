@@ -1,5 +1,5 @@
 from astropy import units as u
-
+import numpy as np
 from numpy import pi, sqrt, allclose, count_nonzero
 
 from .filters import filter_parameters
@@ -294,7 +294,11 @@ class Telescope():
         rate = self.eff_area * self.trans_eff * fluence
         return rate
 
+    def rate_to_fluence(self, rate):
+        '''Convert count rates to fluences.'''
 
+        fluence = rate / (self.eff_area * self.trans_eff)
+        return fluence
 
     def psf_model(self, pixel_size=None, **kwargs):
         '''

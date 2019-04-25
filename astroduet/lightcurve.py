@@ -182,9 +182,17 @@ def get_visibility_windows(observation_start : float, observation_end : float,
 
 
 def calculate_flux(time : float, flux : float):
-    """This is unit-agnostic, by choice."""
+    """This is unit-agnostic, by choice.
+
+    Examples
+    --------
+    >>> time = np.arange(10)
+    >>> flux = np.ones(10) * 30
+    >>> np.isclose(calculate_flux(time, flux), 30)
+    True
+    """
     dt = np.mean(np.diff(time))
-    return np.sum(flux * dt) / (time[-1] - time[0])
+    return np.sum(flux * dt) / (time[-1] - time[0] + dt)
 
 
 def calculate_lightcurve_from_model(model_time, model_lc,
@@ -348,25 +356,14 @@ def get_lightcurve(input_lc_file, distance=10*u.pc, observing_windows=None,
         rate = duet.fluence_to_rate(result_table[f'fluence_{duet_label}'])
 
         result_table[f'snr_{duet_label}'] = \
-            duet.calc_snr(exposure, rate, background[f'bkg_{duet_label}'])
+            duet.calc_snr(exposure,  rate, background[f'bkg_{duet_label}']) \
+                * u.dimensionless_unscaled
 
         abmag = table_ab['Light curve']
         abmag_err = sigerr(abmag)
         result_table[f'mag_{duet_label}'] = abmag
-        result_table[f'mag_{duet_label}_err'] = abmag_err
-        # abmag_err = sigerr(result_table[f'mag_{duet_label}'])
-        # band = bands[duet_no - 1]
-        # flux = \
-        #     table_photflux['Light curve'] * c.h * c.c / np.mean(band)
-        #
-        # flux_density = flux / (band[1] - band[0]) * distance_conversion
-        # abmag = flux_density.to(
-        #     u.ABmag, equivalencies=u.spectral_density(np.mean(band)))
-        #
-        # abmag_err = sigerr(abmag)
-        #
-        # result_table[f'ABmag_{duet_label}'] = abmag
-        # result_table[f'ABmag_{duet_label}_err'] = abmag_err
+        result_table[f'mag_{duet_label}_err'] =  abmag_err
+
     return result_table
 
 
@@ -431,7 +428,6 @@ def lightcurve_through_image(lightcurve, exposure,
     else:
         final_resolution = exposure
 
-
     with suppress_stdout():
         [bgd_band1, bgd_band2] = background_pixel_rate(duet, low_zodi=True,
                                                        diag=True)
@@ -445,10 +441,13 @@ def lightcurve_through_image(lightcurve, exposure,
 
     psf_fwhm_pix = duet.psf_fwhm / duet.pixel
 
-    lightcurve['fluence_D1_fit'] = 0.
-    lightcurve['fluence_D1_fiterr'] = 0.
-    lightcurve['fluence_D2_fit'] = 0.
-    lightcurve['fluence_D2_fiterr'] = 0.
+    read_noise = duet.read_noise
+
+    for duet_no in [1, 2]:
+        for suffix in ['', 'err']:
+            colname = f'fluence_D{duet_no}_fit{suffix}'
+            lightcurve[colname] = 0.
+            lightcurve[colname].unit = u.ph / (u.cm**2 * u.s)
 
     # Directory for debugging purposes
     rand = np.random.randint(0, 99999999)
@@ -471,10 +470,12 @@ def lightcurve_through_image(lightcurve, exposure,
             image1 = construct_image(frame, exposure * nave, duet=duet,
                                      source=fl1,
                                      sky_rate=bgd_band1)
-        image_rate1 = image1 / (exposure.value * nave)
+        image_rate1 = image1 / (exposure * nave)
         # star_tbl = Table(data=[[14], [14]], names=['x', 'y'])
-        star_tbl, bkg_image, threshold = find(image_rate1, psf_fwhm_pix.value,
-                                              method='daophot')
+        with suppress_stdout():
+            star_tbl, bkg_image, threshold = find(image_rate1,
+                                                  psf_fwhm_pix.value,
+                                                  method='daophot')
         if len(star_tbl) < 1:
             continue
         star_tbl.sort('flux')
@@ -484,15 +485,18 @@ def lightcurve_through_image(lightcurve, exposure,
             result1, _ = run_daophot(image_rate1, threshold,
                                      star_tbl, niters=1)
 
-        fl1_fit, fl1_fite = result1['flux_fit'], result1['flux_unc']
+        fl1_fit = result1['flux_fit'][0] * image_rate1.unit
+        fl1_fite = result1['flux_unc'][0] * image_rate1.unit
 
         with suppress_stdout():
             image2 = construct_image(frame, exposure * nave, duet=duet,
                                      source=fl2,
                                      sky_rate=bgd_band2)
-        image_rate2 = image2 / (exposure.value * nave)
-        star_tbl, bkg_image, threshold = find(image_rate2, psf_fwhm_pix.value,
-                                              method='daophot')
+        image_rate2 = image2 / (exposure * nave)
+        with suppress_stdout():
+            star_tbl, bkg_image, threshold = find(image_rate2,
+                                                  psf_fwhm_pix.value,
+                                                  method='daophot')
         if len(star_tbl) < 1:
             continue
         star_tbl.sort('flux')
@@ -500,12 +504,13 @@ def lightcurve_through_image(lightcurve, exposure,
         with suppress_stdout():
             result2, _ = run_daophot(image_rate2, threshold,
                                      star_tbl, niters=1)
-        fl2_fit, fl2_fite = result2['flux_fit'], result2['flux_unc']
+        fl2_fit = result2['flux_fit'][0] * image_rate2.unit
+        fl2_fite = result2['flux_unc'][0] * image_rate2.unit
 
-        lightcurve['fluence_D1_fit'][i] = fl1_fit
-        lightcurve['fluence_D1_fiterr'][i] = fl1_fite
-        lightcurve['fluence_D2_fit'][i] = fl2_fit
-        lightcurve['fluence_D2_fiterr'][i] = fl2_fite
+        lightcurve['fluence_D1_fit'][i] = duet.rate_to_fluence(fl1_fit)
+        lightcurve['fluence_D1_fiterr'][i] = duet.rate_to_fluence(fl1_fite)
+        lightcurve['fluence_D2_fit'][i] = duet.rate_to_fluence(fl2_fit)
+        lightcurve['fluence_D2_fiterr'][i] = duet.rate_to_fluence(fl2_fite)
         if debug:
             outfile = os.path.join(debugdir, f'images_{time.to(u.s).value}.p')
             with open(outfile, 'wb') as fobj:

@@ -2,7 +2,7 @@ import os
 import glob
 import shutil
 from astroduet.lightcurve import get_lightcurve, lightcurve_through_image
-from astropy.table import Table
+from astropy.table import Table, QTable
 import astropy.units as u
 
 curdir = os.path.dirname(__file__)
@@ -40,3 +40,24 @@ def test_realistic_lightcurve():
     assert len(lc_out['time']) == 1
 
     shutil.rmtree(debug_img_dir[0])
+
+
+def test_numerically_realistic_lightcurve():
+    import numpy as np
+    ntrial=10
+
+    ref_fluence = 1. * (u.ph / u.cm**2 / u.s)
+    ref_lc = ref_fluence * np.ones(ntrial)
+
+    lc = QTable({'time': np.arange(len(ref_lc)) * 300 * u.s,
+                'fluence_D1': ref_lc,
+                'fluence_D2': ref_lc})
+    lc_out = lightcurve_through_image(lc, 300 * u.s,
+                                      final_resolution=600 * u.s,
+                                      frame=np.array([30, 30]))
+
+    fl1_out = lc_out['fluence_D1_fit'].value
+    fl2_out = lc_out['fluence_D2_fit'].value
+
+    assert np.allclose(np.mean(fl1_out), ref_fluence.value, rtol=0.1)
+    assert np.allclose(np.mean(fl2_out), ref_fluence.value, rtol=0.1)
