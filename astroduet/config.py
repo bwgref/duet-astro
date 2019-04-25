@@ -189,6 +189,8 @@ class Telescope():
         print('Band 2: {}'.format(self.band2))
         print('Bandpass 2: {}'.format(self.bandpass2))
         print()
+        print()
+        print('Dark current: {}'.format(self.dark_current))
         print('Read noise (RMS per read): {}'.format(self.read_noise))
         print('-----')
 
