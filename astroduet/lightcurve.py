@@ -467,7 +467,7 @@ def lightcurve_through_image(lightcurve, exposure,
         nave = row['nbin']
 
         with suppress_stdout():
-            image1 = construct_image(frame, exposure * nave, read_noise,
+            image1 = construct_image(frame, exposure * nave, duet=duet,
                                      source=fl1,
                                      sky_rate=bgd_band1)
         image_rate1 = image1 / (exposure * nave)
@@ -489,7 +489,7 @@ def lightcurve_through_image(lightcurve, exposure,
         fl1_fite = result1['flux_unc'][0] * image_rate1.unit
 
         with suppress_stdout():
-            image2 = construct_image(frame, exposure * nave, read_noise,
+            image2 = construct_image(frame, exposure * nave, duet=duet,
                                      source=fl2,
                                      sky_rate=bgd_band2)
         image_rate2 = image2 / (exposure * nave)
