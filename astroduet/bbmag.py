@@ -220,24 +220,24 @@ def bb_abmag_fluence(val=False, duet=None, **kwargs):
 
     Other Parameters
     ----------------
-    
+
     val : boolean
         Retrurns AB mags without units (False, default) or with Astropy units
-        
+
     duet: ``astroduet.conifg.Telescope() object``
         If you've already instanced a duet telecope object, feed it in here.
         Currently allows the use of the default bandpasses.
-    
+
     umag : float
         Must have astropy AB units
         Apparent U-band AB mag. Only used if other values not provided?
-        
+
     siwftmag : float
         Must have astropy AB units. Apparent Swift magnitude (default is 22*u.ABmag)
-    
+
     ref : string
         Band to use for reference magnitude; options are 'u', 'swift' ('swift')
-    
+
     bbtemp : float
         Blackbody temperature to use (20000*ur.K)
 
@@ -251,14 +251,14 @@ def bb_abmag_fluence(val=False, duet=None, **kwargs):
 
     diag : boolean
         SHow diagnostic inforamtion
-    
+
     Returns
     -------
     ABmag1, ABmag2
-    
-    
-    
-    
+
+
+
+
 
     """
 
@@ -313,7 +313,7 @@ def bb_abmag_fluence(val=False, duet=None, **kwargs):
     # Convert back to flux
     flux_conv = flux_mag.to(FLAM, equivalencies=ur.spectral_density(wav))
     dw = 1*ur.AA
-    ph_energy = (cr.h.cgs * cr.c.cgs / wav.cgs)
+    ph_energy = (cr.h.cgs * cr.c.cgs / wav.cgs) / ur.ph
 
     # Convert to photon flux.
     ph_flux = flux_conv * dw / ph_energy

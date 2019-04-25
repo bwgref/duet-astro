@@ -52,7 +52,7 @@ def load_airglow(airglow_spec, bin_width=1):
 
     # Need to work around Astropy bug with units
 #    new_flux = new_flux[good] * photon_to_power / ur.Angstrom / ur.cm ** 2 / ur.sr
-    new_flux = new_flux[good] * (1.0 / (ur.Angstrom * ur.cm**2 * ur.sr * ur.s))
+    new_flux = new_flux[good] * (ur.ph / (ur.Angstrom * ur.cm**2 * ur.sr * ur.s))
 
 
 
@@ -93,7 +93,7 @@ def load_zodi(**kwargs):
     bin_width = kwargs.pop('bin_width', 1)
     return_wl_units = kwargs.pop('return_wl_units', True)
 
-    ftab_unit = 1.0 /(ur.cm**2 * ur.Angstrom * ur.sr * ur.s) # ph / m2 / micron / sr
+    ftab_unit = ur.ph /(ur.cm**2 * ur.Angstrom * ur.sr * ur.s) # ph / m2 / micron / sr
 
     scale_norm = False
     wave, flux = np.genfromtxt(os.path.join(datadir,
