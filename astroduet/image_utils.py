@@ -74,7 +74,7 @@ from astropy.convolution import convolve
 #
 #     return psf
 
-def sim_galaxy(patch_size,pixel_size,gal_type=None,gal_params=None):
+def sim_galaxy(patch_size,pixel_size,gal_type=None,gal_params=None,duet=None,band=None):
     '''
         Return 2D array of a Sersic profile to simulate a galaxy
 
@@ -87,8 +87,12 @@ def sim_galaxy(patch_size,pixel_size,gal_type=None,gal_params=None):
         gal_params = Dictionary of parameters for Sersic model: ...
     '''
     from astropy.modeling.models import Sersic2D
-    from astroduet.bbmag import bb_abmag_fluence
-    from astroduet.duet_telescope import load_telescope_parameters
+    from astroduet.utils import duet_abmag_to_fluence
+    
+    if duet is None:
+        duet = Telescope()
+    if band is None:
+        band = duet.bandpass1
 
     x = np.linspace(-(patch_size[0] // 2), patch_size[0] // 2, patch_size[0])
     y = np.linspace(-(patch_size[1] // 2), patch_size[1] // 2, patch_size[1])
@@ -99,7 +103,9 @@ def sim_galaxy(patch_size,pixel_size,gal_type=None,gal_params=None):
     # Hardcoded for now, to-do: take distance as an input
     if gal_type == 'spiral':
         # A typical spiral galaxy at 100 Mpc
-        amplitude = 0.006 # surface count rate at r_eff
+        surface_mag = 26.2 * u.ABmag # surface brightness (per arcsec**2)
+        surface_rate = duet.fluence_to_rate(duet_abmag_to_fluence(surface_mag,band)) # surface count rate at r_eff
+        amplitude = surface_rate * duet.pixel.value**2 # surface brightness (per pixel)
         r_eff = 16.5 / pixel_size.value
         n = 1
         theta = 0
@@ -107,7 +113,9 @@ def sim_galaxy(patch_size,pixel_size,gal_type=None,gal_params=None):
         x_0, y_0 = r_eff, 0
     elif gal_type == 'elliptical':
         # A typical elliptical galaxy at 100 Mpc
-        amplitude = 0.02
+        surface_mag = 25.0 * u.ABmag
+        surface_rate = duet.fluence_to_rate(duet_abmag_to_fluence(surface_mag,band)) # surface count rate at r_eff
+        amplitude = surface_rate * duet.pixel.value**2 # surface brightness (per pixel)
         r_eff = 12.5 / pixel_size.value
         n = 4
         theta = 0
@@ -115,7 +123,9 @@ def sim_galaxy(patch_size,pixel_size,gal_type=None,gal_params=None):
         x_0, y_0 = r_eff, 0
     elif gal_type == 'dwarf':
         # A typical dwarf galaxy at 10 Mpc
-        amplitude = 0.009
+        surface_mag = 25.8 * u.ABmag
+        surface_rate = duet.fluence_to_rate(duet_abmag_to_fluence(surface_mag,band)) # surface count rate at r_eff
+        amplitude = surface_rate * duet.pixel.value**2 # surface brightness (per pixel)
         r_eff = 70 / pixel_size
         r_eff = r_eff.value
         n = 4
@@ -124,7 +134,7 @@ def sim_galaxy(patch_size,pixel_size,gal_type=None,gal_params=None):
         x_0, y_0 = r_eff, 0
     elif (gal_type == 'custom') | (gal_type == None):
         # Get args from gal_params, default to spiral values
-        amplitude = gal_params.get('amplitude', 0.006)
+        amplitude = gal_params.get('amplitude', 0.006) * u.ph / u.s
         r_eff = gal_params.get('r_eff', 16.5 / pixel_size.value)
         n = gal_params.get('n', 1)
         theta = gal_params.get('theta', 0)
@@ -135,10 +145,10 @@ def sim_galaxy(patch_size,pixel_size,gal_type=None,gal_params=None):
     mod = Sersic2D(amplitude=amplitude, r_eff=r_eff, n=n, x_0=x_0, y_0=y_0, ellip=ellip, theta=theta)
     gal = mod(x, y)
 
-    return gal * u.ph / u.s
+    return gal
 
 def construct_image(frame,exposure,
-                    duet=None,
+                    duet=None,band=None,
                     gal_type=None,gal_params=None,source=None,sky_rate=None,n_exp=1):
 
     """Construct a simualted image with an optional background galaxy and source.
@@ -216,7 +226,7 @@ def construct_image(frame,exposure,
     # 2. Add a galaxy?
     if gal_type is not None:
         # Get a patch with a simulated galaxy on it
-        gal = sim_galaxy(frame * oversample,pixel_size_init,gal_type=gal_type,gal_params=gal_params)
+        gal = sim_galaxy(frame * oversample,pixel_size_init,gal_type=gal_type,gal_params=gal_params,band=band)
         im_array += gal
 
     # 3. Add a source?
