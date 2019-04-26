@@ -149,7 +149,7 @@ def sim_galaxy(patch_size,pixel_size,gal_type=None,gal_params=None,duet=None,ban
 
 def construct_image(frame,exposure,
                     duet=None,band=None,
-                    gal_type=None,gal_params=None,source=None,sky_rate=None,n_exp=1):
+                    gal_type=None,gal_params=None,source=None,source_loc=None,sky_rate=None,n_exp=1):
 
     """Construct a simualted image with an optional background galaxy and source.
 
@@ -184,8 +184,12 @@ def construct_image(frame,exposure,
         Dictionary of parameters for Sersic model (see sim_galaxy)
 
     source : ``astropy.units.Quantity``
-        Source photon rate in ph / s
-
+        Source photon rate in ph / s; can be array for multiple sources
+        
+    source_loc : ``numpy.array``
+        Coordinates of source(s) relative to frame (values between 0 and 1). If source is an array, source_loc must be the same length.
+        format: np.array([[X1,X2,X3,...,Xn],[Y1,Y2,Y3,...,Yn]])
+        
     sky_rate : ``astropy.units.Quantity``
         Background photon rate in ph / s / pixel
 
@@ -230,9 +234,15 @@ def construct_image(frame,exposure,
 
     # 3. Add a source?
     if source is not None:
-        # Place source as a delta function in the center of the frame
-        im_array[im_array.shape[0] // 2 + 1, im_array.shape[1] // 2 + 1] += source
-
+        # Place source as a delta function at the center of the frame
+        if source_loc is None:
+            im_array[im_array.shape[0] // 2 + 1, im_array.shape[1] // 2 + 1] += source
+        # Otherwise place sources at given source locations in frame
+        else:
+            source_inv = np.array([source_loc[1],source_loc[0]]) # Invert axes because python is weird that way
+            source_pix = (source_inv.transpose() * np.array(im_array.shape)).transpose().astype(int)
+            im_array[tuple(source_pix)] += source
+            
     # Result should now be (floats) expected number of photons per pixel per second
     # in the oversampled imae
 
