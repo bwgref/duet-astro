@@ -14,8 +14,9 @@ from .utils import get_neff, suppress_stdout, tqdm, mkdir_p
 from .bbmag import sigerr
 from .config import Telescope
 from .background import background_pixel_rate
-from .image_utils import construct_image, run_daophot, find
+from .image_utils import construct_image, run_daophot, find, estimate_background
 from .models import load_model_fluence, load_model_ABmag
+from .diff_image import py_zogy
 
 
 def join_equal_gti_boundaries(gti):
@@ -371,6 +372,7 @@ def lightcurve_through_image(lightcurve, exposure,
                              frame=np.array([30, 30]),
                              final_resolution=None,
                              duet=None,
+                             gal_type=None, gal_params=None,
                              debug=False):
     """Transform a theoretical light curve into a flux measurement.
 
@@ -456,7 +458,24 @@ def lightcurve_through_image(lightcurve, exposure,
 
     if debug:
         mkdir_p(debugdir)
-
+        
+    # Make reference images (5 exposures)
+    nexp = 5
+    ref_image1 = construct_image(frame, exposure, duet=duet, band=duet.bandpass1,
+                                 gal_type=gal_type, gal_params=gal_params, sky_rate=bgd_band1, n_exp=nexp)
+    ref_image_rate1 = ref_image1 / (exposure * nexp)
+    ref_bkg1, ref_bkg_rms_median1 = estimate_background(ref_image_rate1)
+    ref_rate_bkgsub1 = ref_image_rate1 - ref_bkg1
+    
+    ref_image2 = construct_image(frame, exposure, duet=duet, band=duet.bandpass2,
+                                 gal_type=gal_type, gal_params=gal_params, sky_rate=bgd_band2, n_exp=nexp)
+    ref_image_rate2 = ref_image2 / (exposure * nexp)
+    ref_bkg2, ref_bkg_rms_median2 = estimate_background(ref_image_rate2)
+    ref_rate_bkgsub2 = ref_image_rate2 - ref_bkg2
+    
+    psf_array = duet.psf_model(x_size=5,y_size=5).array
+        
+    # Generate light curve
     for i, row in enumerate(tqdm(lightcurve)):
         time = row['time']
         if row['fluence_D1'] == 0 or row['fluence_D2'] == 0:
@@ -467,13 +486,27 @@ def lightcurve_through_image(lightcurve, exposure,
         nave = row['nbin']
 
         with suppress_stdout():
-            image1 = construct_image(frame, exposure * nave, duet=duet,
-                                     source=fl1,
+            image1 = construct_image(frame, exposure * nave, duet=duet, band=duet.bandpass1,
+                                     source=fl1, gal_type=gal_type, gal_params=gal_params,
                                      sky_rate=bgd_band1)
         image_rate1 = image1 / (exposure * nave)
         # star_tbl = Table(data=[[14], [14]], names=['x', 'y'])
+        
+        # Estimate background
+        image_bkg1, image_bkg_rms_median1 = estimate_background(image_rate1)
+        image_rate_bkgsub1 = image_rate1 - image_bkg1
+    
+        # Generate difference image
+        s_n, s_r = np.sqrt(image_rate1), np.sqrt(ref_image_rate1)
+        sn, sr = np.mean(s_n), np.mean(s_r)
+        dx, dy = 1,1
+        diff_image1, d_psf, s_corr = py_zogy(image_rate_bkgsub1.value,ref_rate_bkgsub1.value,
+                                        psf_array,psf_array,
+                                        s_n.value,s_r.value,sn.value,sr.value,dx,dy)
+        diff_image1 *= image_rate1.unit
+        
         with suppress_stdout():
-            star_tbl, bkg_image, threshold = find(image_rate1,
+            star_tbl, bkg_image, threshold = find(diff_image1,
                                                   psf_fwhm_pix.value,
                                                   method='daophot')
         if len(star_tbl) < 1:
@@ -482,19 +515,34 @@ def lightcurve_through_image(lightcurve, exposure,
         star_tbl = star_tbl[-1:]['x', 'y']
 
         with suppress_stdout():
-            result1, _ = run_daophot(image_rate1, threshold,
+            result1, _ = run_daophot(diff_image1, threshold,
                                      star_tbl, niters=1)
 
         fl1_fit = result1['flux_fit'][0] * image_rate1.unit
         fl1_fite = result1['flux_unc'][0] * image_rate1.unit
 
         with suppress_stdout():
-            image2 = construct_image(frame, exposure * nave, duet=duet,
-                                     source=fl2,
+            image2 = construct_image(frame, exposure * nave, duet=duet, band=duet.bandpass2,
+                                     source=fl2, gal_type=gal_type, gal_params=gal_params,
                                      sky_rate=bgd_band2)
         image_rate2 = image2 / (exposure * nave)
+        
+        # Estimate background
+        image_bkg2, image_bkg_rms_median2 = estimate_background(image_rate2)
+        image_rate_bkgsub2 = image_rate2 - image_bkg2
+    
+        # Generate difference image
+        s_n, s_r = np.sqrt(image_rate2), np.sqrt(ref_image_rate2)
+        sn, sr = np.mean(s_n), np.mean(s_r)
+        dx, dy = 1,1
+        diff_image2, d_psf, s_corr = py_zogy(image_rate_bkgsub2.value,ref_rate_bkgsub2.value,
+                                        psf_array,psf_array,
+                                        s_n.value,s_r.value,sn.value,sr.value,dx,dy)
+        diff_image2 *= image_rate2.unit
+        
+        
         with suppress_stdout():
-            star_tbl, bkg_image, threshold = find(image_rate2,
+            star_tbl, bkg_image, threshold = find(diff_image2,
                                                   psf_fwhm_pix.value,
                                                   method='daophot')
         if len(star_tbl) < 1:
@@ -502,7 +550,7 @@ def lightcurve_through_image(lightcurve, exposure,
         star_tbl.sort('flux')
         star_tbl = star_tbl[-1:]['x', 'y']
         with suppress_stdout():
-            result2, _ = run_daophot(image_rate2, threshold,
+            result2, _ = run_daophot(diff_image2, threshold,
                                      star_tbl, niters=1)
         fl2_fit = result2['flux_fit'][0] * image_rate2.unit
         fl2_fite = result2['flux_unc'][0] * image_rate2.unit
