@@ -7,6 +7,7 @@ import numpy as np
 from scipy.interpolate import interp1d
 
 from astropy.table import Table, QTable
+from astropy import log
 import astropy.constants as c
 import astropy.units as u
 from .duet_sensitivity import calc_snr
@@ -368,6 +369,27 @@ def get_lightcurve(input_lc_file, distance=10*u.pc, observing_windows=None,
     return result_table
 
 
+def calculate_diff_image(image_rate, image_rate_bkgsub,
+                         ref_rate, ref_rate_bkgsub, duet=None):
+    """Calculate difference image."""
+    if duet is None:
+        duet = Telescope()
+    psf_array = duet.psf_model(x_size=5,y_size=5).array
+
+    # Generate difference image
+    s_n, s_r = np.sqrt(image_rate), np.sqrt(ref_rate)
+    sn, sr = np.mean(s_n), np.mean(s_r)
+    dx, dy = 1, 1
+
+    diff_image, d_psf, s_corr = py_zogy(image_rate_bkgsub.value,
+                                        ref_rate_bkgsub.value,
+                                        psf_array, psf_array,
+                                        s_n.value, s_r.value, sn.value,
+                                        sr.value, dx, dy)
+    diff_image *= image_rate.unit
+    return diff_image
+
+
 def lightcurve_through_image(lightcurve, exposure,
                              frame=np.array([30, 30]),
                              final_resolution=None,
@@ -399,6 +421,11 @@ def lightcurve_through_image(lightcurve, exposure,
          curve. Must be > exposure
     duet : ``astroduet.config.Telescope``
         If None, a default one is created
+    gal_type : string
+        Default galaxy string ("spiral"/"elliptical") or "custom" w/ Sersic parameters
+        in gal_params
+    gal_params : dict
+        Dictionary of parameters for Sersic model (see sim_galaxy)
 
     Returns
     -------
@@ -414,8 +441,46 @@ def lightcurve_through_image(lightcurve, exposure,
         if duet is None:
             duet = Telescope()
 
+    with suppress_stdout():
+        [bgd_band1, bgd_band2] = background_pixel_rate(duet, low_zodi=True,
+                                                       diag=True)
+
     good = (lightcurve['fluence_D1'] > 0) & (lightcurve['fluence_D2'] > 0)
+    if not np.any(good):
+        log.warn("Light curve has no points with fluence > 0")
+        return
     lightcurve = lightcurve[good]
+
+    total_image_rate = np.zeros(frame) * u.ph / u.s
+    total_image_rate_bkgsub = np.zeros(frame) * u.ph / u.s
+    total_exposure = exposure * len(lightcurve)
+
+    total_images_rate_list = []
+    for duet_no, bandpass, bgd_band in zip([1, 2],
+                                           [duet.bandpass1, duet.bandpass2],
+                                           [bgd_band1, bgd_band2]):
+        mean_fluence = \
+            lightcurve[f'fluence_D{duet_no}'].mean()
+
+        photons = \
+            duet.fluence_to_rate(mean_fluence)
+
+        image = \
+            construct_image(frame, total_exposure, duet=duet,
+                            band=bandpass,
+                            source=photons, gal_type=gal_type,
+                            gal_params=gal_params,
+                            sky_rate=bgd_band)
+
+        image_rate = image / total_exposure
+        image_bkg, image_bkg_rms_median = \
+            estimate_background(image_rate)
+        image_rate_bkgsub = image_rate - image_bkg
+        total_image_rate += image_rate
+        total_image_rate_bkgsub += image_rate_bkgsub
+
+        total_images_rate_list.append(image_rate)
+
     lightcurve['nbin'] = 1
     if final_resolution is not None:
         new_lightcurve = QTable()
@@ -429,10 +494,6 @@ def lightcurve_through_image(lightcurve, exposure,
         lightcurve = new_lightcurve
     else:
         final_resolution = exposure
-
-    with suppress_stdout():
-        [bgd_band1, bgd_band2] = background_pixel_rate(duet, low_zodi=True,
-                                                       diag=True)
 
     # Temporary fix
     try:
@@ -458,7 +519,7 @@ def lightcurve_through_image(lightcurve, exposure,
 
     if debug:
         mkdir_p(debugdir)
-        
+
     # Make reference images (5 exposures)
     nexp = 5
     ref_image1 = construct_image(frame, exposure, duet=duet, band=duet.bandpass1,
@@ -466,53 +527,76 @@ def lightcurve_through_image(lightcurve, exposure,
     ref_image_rate1 = ref_image1 / (exposure * nexp)
     ref_bkg1, ref_bkg_rms_median1 = estimate_background(ref_image_rate1)
     ref_rate_bkgsub1 = ref_image_rate1 - ref_bkg1
-    
+
     ref_image2 = construct_image(frame, exposure, duet=duet, band=duet.bandpass2,
                                  gal_type=gal_type, gal_params=gal_params, sky_rate=bgd_band2, n_exp=nexp)
     ref_image_rate2 = ref_image2 / (exposure * nexp)
     ref_bkg2, ref_bkg_rms_median2 = estimate_background(ref_image_rate2)
     ref_rate_bkgsub2 = ref_image_rate2 - ref_bkg2
-    
-    psf_array = duet.psf_model(x_size=5,y_size=5).array
-        
+
+    # psf_array = duet.psf_model(x_size=5,y_size=5).array
+
+    total_ref_img_rate = ref_image_rate1 + ref_image_rate2
+    total_ref_img_rate_bkgsub = \
+        ref_rate_bkgsub1 + ref_rate_bkgsub2
+
+    diff_total_image = \
+        calculate_diff_image(total_image_rate, total_image_rate_bkgsub,
+                             total_ref_img_rate,
+                             total_ref_img_rate_bkgsub,
+                             duet)
+
+    with suppress_stdout():
+        star_tbl, bkg_image, threshold = find(diff_total_image,
+                                              psf_fwhm_pix.value,
+                                              method='daophot')
+    if len(star_tbl) < 1:
+        log.warn("No good detections in this field")
+        return
+
+    if debug:
+        outfile = os.path.join(debugdir, f'images_total.p')
+        with open(outfile, 'wb') as fobj:
+            pickle.dump({'imgD1': total_images_rate_list[0],
+                         'imgD2': total_images_rate_list[1]},
+                        fobj)
+        outfile = os.path.join(debugdir, f'images_ref.p')
+        with open(outfile, 'wb') as fobj:
+            pickle.dump({'imgD1': ref_image_rate1, 'imgD2': ref_image_rate2},
+                        fobj)
+
+        outfile = os.path.join(debugdir, f'images_diff.p')
+        with open(outfile, 'wb') as fobj:
+            pickle.dump({'imgD1': diff_total_image},
+                        fobj)
+
+    star_tbl.sort('flux')
+    star_tbl = star_tbl[-1:]['x', 'y']
+
     # Generate light curve
     for i, row in enumerate(tqdm(lightcurve)):
         time = row['time']
-        if row['fluence_D1'] == 0 or row['fluence_D2'] == 0:
-            continue
+
         fl1 = duet.fluence_to_rate(row['fluence_D1'])
         fl2 = duet.fluence_to_rate(row['fluence_D2'])
 
         nave = row['nbin']
 
         with suppress_stdout():
-            image1 = construct_image(frame, exposure * nave, duet=duet, band=duet.bandpass1,
-                                     source=fl1, gal_type=gal_type, gal_params=gal_params,
+            image1 = construct_image(frame, exposure * nave, duet=duet,
+                                     band=duet.bandpass1,
+                                     source=fl1, gal_type=gal_type,
+                                     gal_params=gal_params,
                                      sky_rate=bgd_band1)
         image_rate1 = image1 / (exposure * nave)
         # star_tbl = Table(data=[[14], [14]], names=['x', 'y'])
-        
         # Estimate background
         image_bkg1, image_bkg_rms_median1 = estimate_background(image_rate1)
         image_rate_bkgsub1 = image_rate1 - image_bkg1
-    
-        # Generate difference image
-        s_n, s_r = np.sqrt(image_rate1), np.sqrt(ref_image_rate1)
-        sn, sr = np.mean(s_n), np.mean(s_r)
-        dx, dy = 1,1
-        diff_image1, d_psf, s_corr = py_zogy(image_rate_bkgsub1.value,ref_rate_bkgsub1.value,
-                                        psf_array,psf_array,
-                                        s_n.value,s_r.value,sn.value,sr.value,dx,dy)
-        diff_image1 *= image_rate1.unit
-        
-        with suppress_stdout():
-            star_tbl, bkg_image, threshold = find(diff_image1,
-                                                  psf_fwhm_pix.value,
-                                                  method='daophot')
-        if len(star_tbl) < 1:
-            continue
-        star_tbl.sort('flux')
-        star_tbl = star_tbl[-1:]['x', 'y']
+
+        diff_image1 = calculate_diff_image(image_rate1, image_rate_bkgsub1,
+                                           ref_image_rate1, ref_rate_bkgsub1,
+                                           duet=duet)
 
         with suppress_stdout():
             result1, _ = run_daophot(diff_image1, threshold,
@@ -526,29 +610,15 @@ def lightcurve_through_image(lightcurve, exposure,
                                      source=fl2, gal_type=gal_type, gal_params=gal_params,
                                      sky_rate=bgd_band2)
         image_rate2 = image2 / (exposure * nave)
-        
+
         # Estimate background
         image_bkg2, image_bkg_rms_median2 = estimate_background(image_rate2)
         image_rate_bkgsub2 = image_rate2 - image_bkg2
-    
-        # Generate difference image
-        s_n, s_r = np.sqrt(image_rate2), np.sqrt(ref_image_rate2)
-        sn, sr = np.mean(s_n), np.mean(s_r)
-        dx, dy = 1,1
-        diff_image2, d_psf, s_corr = py_zogy(image_rate_bkgsub2.value,ref_rate_bkgsub2.value,
-                                        psf_array,psf_array,
-                                        s_n.value,s_r.value,sn.value,sr.value,dx,dy)
-        diff_image2 *= image_rate2.unit
-        
-        
-        with suppress_stdout():
-            star_tbl, bkg_image, threshold = find(diff_image2,
-                                                  psf_fwhm_pix.value,
-                                                  method='daophot')
-        if len(star_tbl) < 1:
-            continue
-        star_tbl.sort('flux')
-        star_tbl = star_tbl[-1:]['x', 'y']
+
+        diff_image2 = calculate_diff_image(image_rate2, image_rate_bkgsub2,
+                                           ref_image_rate2, ref_rate_bkgsub2,
+                                           duet=duet)
+
         with suppress_stdout():
             result2, _ = run_daophot(diff_image2, threshold,
                                      star_tbl, niters=1)
