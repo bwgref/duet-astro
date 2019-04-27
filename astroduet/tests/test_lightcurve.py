@@ -22,7 +22,7 @@ def test_realistic_lightcurve():
         for d in debug_img_dir:
             shutil.rmtree(d)
 
-    lc = Table({'time': [150, 450] * u.s,
+    lc = QTable({'time': [150, 450] * u.s,
                 'fluence_D1':  [4, 6] * (u.ph / u.cm**2 / u.s),
                 'fluence_D2': [3, 1] * (u.ph / u.cm**2 / u.s)})
     lc_out = lightcurve_through_image(lc, 300 * u.s,
@@ -46,7 +46,7 @@ def test_numerically_realistic_lightcurve():
     import numpy as np
     ntrial=10
 
-    ref_fluence = 1. * (u.ph / u.cm**2 / u.s)
+    ref_fluence = 10. * (u.ph / u.cm**2 / u.s)
     ref_lc = ref_fluence * np.ones(ntrial)
 
     lc = QTable({'time': np.arange(len(ref_lc)) * 300 * u.s,
@@ -54,7 +54,8 @@ def test_numerically_realistic_lightcurve():
                 'fluence_D2': ref_lc})
     lc_out = lightcurve_through_image(lc, 300 * u.s,
                                       final_resolution=600 * u.s,
-                                      frame=np.array([30, 30]))
+                                      frame=np.array([30, 30]),
+                                      gal_type="elliptical")
 
     fl1_out = lc_out['fluence_D1_fit'].value
     fl2_out = lc_out['fluence_D2_fit'].value

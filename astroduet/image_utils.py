@@ -88,7 +88,7 @@ def sim_galaxy(patch_size,pixel_size,gal_type=None,gal_params=None,duet=None,ban
     '''
     from astropy.modeling.models import Sersic2D
     from astroduet.utils import duet_abmag_to_fluence
-    
+
     if duet is None:
         duet = Telescope()
     if band is None:
@@ -152,7 +152,7 @@ def construct_image(frame,exposure,
                     gal_type=None,gal_params=None,source=None,source_loc=None,sky_rate=None,n_exp=1):
 
     """Construct a simualted image with an optional background galaxy and source.
-    
+
     1. Generate the empty image
     2. Add galaxy (see sim_galaxy)
     3. Add source (Poisson draw based on source*expossure)
@@ -160,13 +160,13 @@ def construct_image(frame,exposure,
     5. Rebin to the DUET pixel size.
     6. Add in expected background rates per pixel and dark current.
     7. Draw Poisson values and add read noise.
-    
+
     Parameters
     ----------
     frame : ``numpy.array``
         Number of pixel along x and y axis.
         i.e., frame = np.array([30, 30])
-        
+
     exposure : ``astropy.units.Quantity``
         Exposure time used for the light curve
 
@@ -182,7 +182,7 @@ def construct_image(frame,exposure,
 
     gal_params : dict
         Dictionary of parameters for Sersic model (see sim_galaxy)
-    
+
     source : ``astropy.units.Quantity``
         Source photon rate in ph / s; can be array for multiple sources
         
@@ -192,21 +192,21 @@ def construct_image(frame,exposure,
         
     sky_rate : ``astropy.units.Quantity``
         Background photon rate in ph / s / pixel
-    
+
     n_exp : int
         Number of simualted frames to co-add.
         NB: I don't like this here!
 
     Returns
     -------
-    
+
     image : array with astropy.units
         NxM image array with integer number of counts observed per pixel.
-    
+
     """
 
     assert type(frame) is np.ndarray, 'construct_image: Please enter frame as a numpy array'
-    
+
 
 
     # Load telescope parameters:
@@ -223,7 +223,6 @@ def construct_image(frame,exposure,
 
     # 1. Generate the empty image
     # Initialise an image, oversampled by the oversample parameter to begin with
-    
 
     im_array = np.zeros(frame * oversample) * u.ph / u.s
 
@@ -258,8 +257,8 @@ def construct_image(frame,exposure,
     #
     #
     #
-    
-    
+
+
     # 5. Bin up the image by oversample parameter to the correct pixel size
     shape = (frame[0], oversample, frame[1], oversample)
     im_binned = im_psf.reshape(shape).sum(-1).sum(1)
@@ -268,7 +267,7 @@ def construct_image(frame,exposure,
     if sky_rate is not None:
         # Add sky rate per pixel across the whole image
         im_binned += sky_rate
-        
+
     # 6b: Add dark current:
     im_binned += duet.dark_current
 
@@ -279,11 +278,11 @@ def construct_image(frame,exposure,
     im_final = np.zeros(frame)
     for i in range(n_exp):
         # Apply Poisson noise and instrument read noise. Note that read noise here
-        # is 
+        # is
         im_noise = np.random.poisson(im_counts.value) + \
             np.random.normal(loc=0, scale=read_noise,size=im_counts.shape)
         im_noise = np.floor(im_noise)
-        im_noise[im_noise < 0] = 0 
+        im_noise[im_noise < 0] = 0
 
         # Add to the co-add
         im_final += im_noise
@@ -322,6 +321,7 @@ def estimate_background(image, diag=False):
     '''
 
     from photutils import Background2D, SExtractorBackground
+    from astropy.stats import SigmaClip
 
     # Define estimator (we're using the default SExtractorBackground estimator from photutils)
     bkg_estimator = SExtractorBackground()
@@ -330,8 +330,9 @@ def estimate_background(image, diag=False):
     boxes0 = np.int(1 if image.shape[0] <= 5 else np.round(image.shape[0] / 10))
     boxes1 = np.int(1 if image.shape[1] <= 5 else np.round(image.shape[1] / 10))
 
-    # Estimate the background
-    bkg = Background2D(image.value, (image.shape[0] // boxes0, image.shape[1] // boxes1), bkg_estimator=bkg_estimator)
+    bkg = Background2D(image.value,
+                       (image.shape[0] // boxes0, image.shape[1] // boxes1),
+                       bkg_estimator=bkg_estimator, sigma_clip=SigmaClip(sigma=4.))
 
     bkg_image = bkg.background * image.unit
     bkg_rms_median = bkg.background_rms_median * image.unit
