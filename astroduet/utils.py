@@ -264,3 +264,86 @@ def mkdir_p(path):  # pragma: no cover
             pass
         else:
             raise
+
+
+def contiguous_regions(condition):
+    """Find contiguous ``True`` regions of the boolean array ``condition``.
+
+    Return a 2D array where the first column is the start index of the region
+    and the second column is the end index, found on [so-contiguous]_.
+
+    Parameters
+    ----------
+    condition : bool array
+
+    Returns
+    -------
+    idx : ``[[i0_0, i0_1], [i1_0, i1_1], ...]``
+        A list of integer couples, with the start and end of each ``True`` blocks
+        in the original array
+
+    Notes
+    -----
+    .. [so-contiguous] http://stackoverflow.com/questions/4494404/find-large-number-of-consecutive-values-fulfilling-condition-in-a-numpy-array
+    """
+    # Find the indices of changes in "condition"
+    diff = np.logical_xor(condition[1:], condition[:-1])
+    idx, = diff.nonzero()
+    # We need to start things after the change in "condition". Therefore,
+    # we'll shift the index by 1 to the right.
+    idx += 1
+    if condition[0]:
+        # If the start of condition is True prepend a 0
+        idx = np.r_[0, idx]
+    if condition[-1]:
+        # If the end of condition is True, append the length of the array
+        idx = np.r_[idx, condition.size]
+    # Reshape the result into two columns
+    idx.shape = (-1, 2)
+    return idx
+
+
+def time_intervals_from_gtis(gtis, chunk_length, fraction_step=1,
+                             epsilon=1e-5):
+    """Compute start/stop times of equal time intervals, compatible with GTIs.
+
+    Used to start each FFT/PDS/cospectrum from the start of a GTI,
+    and stop before the next gap in data (end of GTI).
+
+    Parameters
+    ----------
+    gtis : 2-d float array
+        List of GTIs of the form ``[[gti0_0, gti0_1], [gti1_0, gti1_1], ...]``
+
+    chunk_length : float
+        Length of the time segments
+
+    fraction_step : float
+        If the step is not a full ``chunk_length`` but less (e.g. a moving window),
+        this indicates the ratio between step step and ``chunk_length`` (e.g.
+        0.5 means that the window shifts of half ``chunk_length``)
+
+    Returns
+    -------
+    spectrum_start_times : array-like
+        List of starting times to use in the spectral calculations.
+
+    spectrum_stop_times : array-like
+        List of end times to use in the spectral calculations.
+
+    """
+    spectrum_start_times = np.array([], dtype=np.longdouble)
+    for g in gtis:
+        if g[1] - g[0] + epsilon < chunk_length:
+            continue
+
+        newtimes = np.arange(g[0], g[1] - chunk_length + epsilon,
+                             np.longdouble(chunk_length) * fraction_step,
+                             dtype=np.longdouble)
+        spectrum_start_times = \
+            np.append(spectrum_start_times,
+                      newtimes)
+
+    assert len(spectrum_start_times) > 0, \
+        ("No GTIs are equal to or longer than chunk_length.")
+    return spectrum_start_times, spectrum_start_times + chunk_length

@@ -12,6 +12,7 @@ import astropy.constants as c
 import astropy.units as u
 from .duet_sensitivity import calc_snr
 from .utils import get_neff, suppress_stdout, tqdm, mkdir_p
+from .utils import time_intervals_from_gtis, contiguous_regions
 from .bbmag import sigerr
 from .config import Telescope
 from .background import background_pixel_rate
@@ -390,6 +391,106 @@ def calculate_diff_image(image_rate, image_rate_bkgsub,
     return diff_image
 
 
+def continuous_time_intervals(lightcurve, dt=None, tolerance=None):
+    """Find points in the lightcurve with two or more contiguous measurements.
+
+    Examples
+    --------
+    >>> times = np.array([0, 1, 2, 4, 5, 6, 7, 8, 9, 10])
+    >>> lightcurve = QTable({'time': times * u.s})
+    >>> intvs = continuous_time_intervals(lightcurve)
+    >>> np.allclose(intvs.value, np.array([[-0.5, 2.5], [3.5, 10.5]]))
+    True
+    >>> times = np.array([0, 2, 4, 5, 6, 7, 8, 9, 10])
+    >>> lightcurve = QTable({'time': times * u.s})
+    >>> intvs = continuous_time_intervals(lightcurve)
+    >>> np.allclose(intvs.value,
+    ...             np.array([[3.5, 10.5]]))
+    True
+    """
+    times = lightcurve['time']
+    diff = np.diff(times)
+    if dt is None:
+        dt = np.median(diff)
+    if tolerance is None:
+        tolerance = dt
+
+    good = np.abs(diff - dt < tolerance)
+    good_bins = contiguous_regions(good)
+    good_time_bins = times[good_bins]
+    good_time_bins[:, 0] -= dt
+    good_time_bins += dt / 2
+    return good_time_bins
+
+
+def _decide_bins_to_group(lightcurve, exposure, final_resolution,
+                          tolerance=None):
+    """
+    Examples
+    --------
+    >>> times = np.array([0, 1, 2, 4, 5, 6, 7, 8, 9, 10])
+    >>> lightcurve = QTable({'time': times * u.s})
+    >>> time_bins = _decide_bins_to_group(lightcurve, 1 * u.s, 4 * u.s)
+    >>> np.allclose(time_bins, [0, 0, 0, 1, 1, 1, 1, 2, 2, 2])
+    True
+    """
+    gti = continuous_time_intervals(lightcurve, exposure, tolerance=tolerance)
+
+    start = gti[:, 0]
+    end = gti[:, 1]
+    current_start_bin = 0
+    current_time_bin = 0
+    plain_lc = copy.deepcopy(lightcurve)
+    plain_lc['time_bin'] = -10
+
+    last_interval_bin = 0
+    for i, t in enumerate(plain_lc['time']):
+        if t < np.min(start):
+            continue
+        if t > np.max(end):
+            continue
+        start_bin = np.searchsorted(start, t) - 1
+        if start_bin > current_start_bin:
+            current_time_bin += 1
+            current_start_bin = start_bin
+            last_interval_bin = current_time_bin
+        current_time_bin = last_interval_bin + ((t - start[start_bin]) // final_resolution).to("").value
+        plain_lc['time_bin'][i] = current_time_bin
+
+    return plain_lc['time_bin']
+
+
+def rebin_lightcurve(lightcurve, exposure, final_resolution):
+    """
+    Examples
+    --------
+    >>> times = np.array([0, 1, 2, 4, 5, 6, 7, 8, 9, 10])
+    >>> lightcurve = QTable({'time': times * u.s,
+    ...                      'fluence_D1': np.ones(len(times)),
+    ...                      'fluence_D2': np.ones(len(times))})
+    >>> newlc = rebin_lightcurve(lightcurve, 1 * u.s, 4 * u.s)
+    >>> np.allclose(newlc['time'].value, np.array([1, 5.5, 9]))
+    True
+    >>> np.allclose(newlc['fluence_D1'], np.array([1, 1, 1]))
+    True
+    """
+    new_lightcurve = QTable()
+    time_bin = \
+        _decide_bins_to_group(lightcurve, exposure,
+                              final_resolution,
+                              tolerance=final_resolution)
+    good = time_bin >= 0
+    plain_lc = Table(copy.deepcopy(lightcurve[good]))
+    plain_lc['nbin'] = 1
+    # time_bin = (plain_lc['time'] // final_resolution).to("").value
+    lc_group = plain_lc.group_by(time_bin)
+    plain_lc = lc_group.groups.aggregate(np.sum)
+    for col in 'time,fluence_D1,fluence_D2'.split(','):
+        new_lightcurve[col] = plain_lc[col] / plain_lc['nbin']
+    new_lightcurve['nbin'] = plain_lc['nbin']
+    return new_lightcurve
+
+
 def lightcurve_through_image(lightcurve, exposure,
                              frame=np.array([30, 30]),
                              final_resolution=None,
@@ -455,6 +556,7 @@ def lightcurve_through_image(lightcurve, exposure,
     total_image_rate_bkgsub = np.zeros(frame) * u.ph / u.s
     total_exposure = exposure * len(lightcurve)
 
+    # Construct total images, to get a good detection of the source
     total_images_rate_list = []
     for duet_no, bandpass, bgd_band in zip([1, 2],
                                            [duet.bandpass1, duet.bandpass2],
@@ -483,15 +585,8 @@ def lightcurve_through_image(lightcurve, exposure,
 
     lightcurve['nbin'] = 1
     if final_resolution is not None:
-        new_lightcurve = QTable()
-        plain_lc = Table(lightcurve)
-        time_bin = (plain_lc['time'] // final_resolution).to("").value
-        lc_group = plain_lc.group_by(time_bin)
-        plain_lc = lc_group.groups.aggregate(np.sum)
-        for col in 'time,fluence_D1,fluence_D2'.split(','):
-            new_lightcurve[col] = plain_lc[col] / plain_lc['nbin']
-        new_lightcurve['nbin'] = plain_lc['nbin']
-        lightcurve = new_lightcurve
+        lightcurve = \
+            rebin_lightcurve(lightcurve, exposure, final_resolution)
     else:
         final_resolution = exposure
 

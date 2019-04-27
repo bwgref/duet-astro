@@ -311,6 +311,7 @@ def estimate_background(image, diag=False):
     '''
 
     from photutils import Background2D, SExtractorBackground
+    from astropy.stats import SigmaClip
 
     # Define estimator (we're using the default SExtractorBackground estimator from photutils)
     bkg_estimator = SExtractorBackground()
@@ -319,8 +320,9 @@ def estimate_background(image, diag=False):
     boxes0 = np.int(1 if image.shape[0] <= 5 else np.round(image.shape[0] / 10))
     boxes1 = np.int(1 if image.shape[1] <= 5 else np.round(image.shape[1] / 10))
 
-    # Estimate the background
-    bkg = Background2D(image.value, (image.shape[0] // boxes0, image.shape[1] // boxes1), bkg_estimator=bkg_estimator)
+    bkg = Background2D(image.value,
+                       (image.shape[0] // boxes0, image.shape[1] // boxes1),
+                       bkg_estimator=bkg_estimator, sigma_clip=SigmaClip(sigma=4.))
 
     bkg_image = bkg.background * image.unit
     bkg_rms_median = bkg.background_rms_median * image.unit
