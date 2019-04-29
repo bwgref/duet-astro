@@ -17,7 +17,7 @@ from .config import Telescope
 from .background import background_pixel_rate
 from .image_utils import construct_image, run_daophot, find, estimate_background
 from .models import load_model_fluence, load_model_ABmag
-from .diff_image import py_zogy
+from .diff_image import calculate_diff_image
 
 
 def join_equal_gti_boundaries(gti):
@@ -367,27 +367,6 @@ def get_lightcurve(input_lc_file, distance=10*u.pc, observing_windows=None,
         result_table[f'mag_{duet_label}_err'] =  abmag_err
 
     return result_table
-
-
-def calculate_diff_image(image_rate, image_rate_bkgsub,
-                         ref_rate, ref_rate_bkgsub, duet=None):
-    """Calculate difference image."""
-    if duet is None:
-        duet = Telescope()
-    psf_array = duet.psf_model(x_size=5,y_size=5).array
-
-    # Generate difference image
-    s_n, s_r = np.sqrt(image_rate), np.sqrt(ref_rate)
-    sn, sr = np.mean(s_n), np.mean(s_r)
-    dx, dy = 1, 1
-
-    diff_image, d_psf, s_corr = py_zogy(image_rate_bkgsub.value,
-                                        ref_rate_bkgsub.value,
-                                        psf_array, psf_array,
-                                        s_n.value, s_r.value, sn.value,
-                                        sr.value, dx, dy)
-    diff_image *= image_rate.unit
-    return diff_image
 
 
 def continuous_time_intervals(lightcurve, dt=None, tolerance=None):
