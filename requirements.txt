@@ -5,3 +5,4 @@ pyfftw
 photutils
 jupyter
 tqdm
+h5py

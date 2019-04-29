@@ -4,9 +4,16 @@ import shutil
 from astroduet.lightcurve import get_lightcurve, lightcurve_through_image
 from astropy.table import Table, QTable
 import astropy.units as u
+import pytest
 
 curdir = os.path.dirname(__file__)
 datadir = os.path.join(curdir, '..', 'data')
+
+try:
+    import h5py
+    HAS_H5PY = True
+except:
+    HAS_H5PY = False
 
 
 def test_load_lightcurve():
@@ -15,6 +22,7 @@ def test_load_lightcurve():
     assert 'time' in lc.colnames
 
 
+@pytest.mark.skipif('not HAS_H5PY')
 def test_realistic_lightcurve():
     # Dummy test
     debug_img_dir = glob.glob('debug_imgs_*')
