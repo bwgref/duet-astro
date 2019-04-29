@@ -81,8 +81,8 @@ matrix:
 
         # Do a coverage test without HDF5.
         - os: linux
-          PIP_DEPENDENCIES='scipy pyfftw matplotlib photutils'
           env: SETUP_CMD='test --coverage'
+               PIP_DEPENDENCIES='scipy pyfftw matplotlib photutils'
 
         # Check for sphinx doc build warnings - we do this first because it
         # may run for a long time
