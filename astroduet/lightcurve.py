@@ -460,7 +460,7 @@ def _decide_bins_to_group(lightcurve, exposure, final_resolution,
     return plain_lc
 
 
-def rebin_lightcurve(lightcurve, exposure, final_resolution, debug=True):
+def rebin_lightcurve(lightcurve, exposure, final_resolution, debug=False):
     """
     Examples
     --------
@@ -520,7 +520,7 @@ def construct_images_from_lightcurve(lightcurve, exposure, duet=None,
                                      gal_type=None,
                                      gal_params=None,
                                      frame=np.array([30, 30]),
-                                     debug=True,
+                                     debug=False,
                                      debugfilename='lightcurve.hdf5',
                                      low_zodi=True):
     """
@@ -751,7 +751,8 @@ def lightcurve_through_image(lightcurve, exposure,
     # decide light curve bins before image generation, for speed.
     lightcurve['nbin'] = 1
     if final_resolution is not None:
-        lightcurve = rebin_lightcurve(lightcurve, exposure, final_resolution)
+        lightcurve = rebin_lightcurve(lightcurve, exposure, final_resolution,
+                                      debug=debug)
 
     for duet_no in [1, 2]:
         for suffix in ['', 'err']:
