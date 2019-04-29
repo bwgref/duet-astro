@@ -22,7 +22,7 @@ def test_load_lightcurve():
     assert 'time' in lc.colnames
 
 
-pytest.mark.skipif('not HAS_H5PY')
+@pytest.mark.skipif('not HAS_H5PY')
 def test_realistic_lightcurve():
     # Dummy test
     debug_img_dir = glob.glob('debug_imgs_*')
