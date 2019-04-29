@@ -105,7 +105,7 @@ def sim_galaxy(patch_size,pixel_size,gal_type=None,gal_params=None,duet=None,ban
         # A typical spiral galaxy at 100 Mpc
         surface_mag = 26.2 * u.ABmag # surface brightness (per arcsec**2)
         surface_rate = duet.fluence_to_rate(duet_abmag_to_fluence(surface_mag,band)) # surface count rate at r_eff
-        amplitude = surface_rate * duet.pixel.value**2 # surface brightness (per pixel)
+        amplitude = surface_rate * pixel_size.value**2 # surface brightness (per pixel)
         r_eff = 16.5 / pixel_size.value
         n = 1
         theta = 0
@@ -115,7 +115,7 @@ def sim_galaxy(patch_size,pixel_size,gal_type=None,gal_params=None,duet=None,ban
         # A typical elliptical galaxy at 100 Mpc
         surface_mag = 25.0 * u.ABmag
         surface_rate = duet.fluence_to_rate(duet_abmag_to_fluence(surface_mag,band)) # surface count rate at r_eff
-        amplitude = surface_rate * duet.pixel.value**2 # surface brightness (per pixel)
+        amplitude = surface_rate * pixel_size.value**2 # surface brightness (per pixel)
         r_eff = 12.5 / pixel_size.value
         n = 4
         theta = 0
@@ -125,7 +125,7 @@ def sim_galaxy(patch_size,pixel_size,gal_type=None,gal_params=None,duet=None,ban
         # A typical dwarf galaxy at 10 Mpc
         surface_mag = 25.8 * u.ABmag
         surface_rate = duet.fluence_to_rate(duet_abmag_to_fluence(surface_mag,band)) # surface count rate at r_eff
-        amplitude = surface_rate * duet.pixel.value**2 # surface brightness (per pixel)
+        amplitude = surface_rate * pixel_size.value**2 # surface brightness (per pixel)
         r_eff = 70 / pixel_size
         r_eff = r_eff.value
         n = 4
