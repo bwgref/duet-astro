@@ -1,10 +1,7 @@
 import numpy as np
-import scipy.signal as sig
-
-import astropy.io.fits as fits
-from astropy import units as ur
 
 # import IMAGE SIMULATION
+from .config import Telescope
 
 import pyfftw
 import pyfftw.interfaces.numpy_fft as fft
@@ -62,7 +59,7 @@ def py_zogy(N, R, P_N, P_R, S_N, S_R, SN, SR, dx=0.25, dy=0.25):
     P_R_hat = fft.fft2(P_R)
 
     # Fourier Transform of Difference Image (Equation 13)
-    D_hat_num = (P_R_hat * N_hat - P_N_hat * R_hat) 
+    D_hat_num = (P_R_hat * N_hat - P_N_hat * R_hat)
     D_hat_den = np.sqrt(SN**2 * np.abs(P_R_hat**2) + SR**2 * np.abs(P_N_hat**2))
     D_hat = D_hat_num / D_hat_den
 
@@ -78,7 +75,7 @@ def py_zogy(N, R, P_N, P_R, S_N, S_R, SN, SR, dx=0.25, dy=0.25):
 
     # PSF of Subtraction Image
     P_D = np.real(fft.ifft2(P_D_hat))
-    P_D = fft.ifftshift(P_D)	
+    P_D = fft.ifftshift(P_D)
     P_D = P_D[idx]
 
     # Fourier Transform of Score Image (Equation 17)
@@ -136,4 +133,23 @@ def py_zogy(N, R, P_N, P_R, S_N, S_R, SN, SR, dx=0.25, dy=0.25):
     return D, P_D, S_corr
 
 
+def calculate_diff_image(image_rate, image_rate_bkgsub,
+                         ref_rate, ref_rate_bkgsub, duet=None):
+    """Calculate difference image."""
+    if duet is None:
+        duet = Telescope()
+    psf_array = duet.psf_model(x_size=5,y_size=5).array
+
+    # Generate difference image
+    s_n, s_r = np.sqrt(image_rate), np.sqrt(ref_rate)
+    sn, sr = np.mean(s_n), np.mean(s_r)
+    dx, dy = 1, 1
+
+    diff_image, d_psf, s_corr = py_zogy(image_rate_bkgsub.value,
+                                        ref_rate_bkgsub.value,
+                                        psf_array, psf_array,
+                                        s_n.value, s_r.value, sn.value,
+                                        sr.value, dx, dy)
+    diff_image *= image_rate.unit
+    return diff_image
 
