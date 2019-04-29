@@ -134,7 +134,9 @@ def sim_galaxy(patch_size,pixel_size,gal_type=None,gal_params=None,duet=None,ban
         x_0, y_0 = r_eff, 0
     elif (gal_type == 'custom') | (gal_type == None):
         # Get args from gal_params, default to spiral values
-        amplitude = gal_params.get('amplitude', 0.006) * u.ph / u.s
+        surface_mag = gal_params.get('magnitude', 26) * u.ABmag
+        surface_rate = duet.fluence_to_rate(duet_abmag_to_fluence(surface_mag,band)) # surface count rate at r_eff
+        amplitude = surface_rate * pixel_size.value**2 # surface brightness (per pixel)
         r_eff = gal_params.get('r_eff', 16.5 / pixel_size.value)
         n = gal_params.get('n', 1)
         theta = gal_params.get('theta', 0)
