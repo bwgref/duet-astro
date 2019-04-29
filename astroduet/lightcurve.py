@@ -11,13 +11,13 @@ from astropy import log
 import astropy.units as u
 from .duet_sensitivity import calc_snr
 from .utils import get_neff, suppress_stdout, tqdm, mkdir_p
-from .utils import time_intervals_from_gtis, contiguous_regions
+from .utils import contiguous_regions
 from .bbmag import sigerr
 from .config import Telescope
 from .background import background_pixel_rate
 from .image_utils import construct_image, run_daophot, find, estimate_background
 from .models import load_model_fluence, load_model_ABmag
-from .diff_image import py_zogy
+from .diff_image import calculate_diff_image
 
 
 def join_equal_gti_boundaries(gti):
@@ -369,27 +369,6 @@ def get_lightcurve(input_lc_file, distance=10*u.pc, observing_windows=None,
     return result_table
 
 
-def calculate_diff_image(image_rate, image_rate_bkgsub,
-                         ref_rate, ref_rate_bkgsub, duet=None):
-    """Calculate difference image."""
-    if duet is None:
-        duet = Telescope()
-    psf_array = duet.psf_model(x_size=5,y_size=5).array
-
-    # Generate difference image
-    s_n, s_r = np.sqrt(image_rate), np.sqrt(ref_rate)
-    sn, sr = np.mean(s_n), np.mean(s_r)
-    dx, dy = 1, 1
-
-    diff_image, d_psf, s_corr = py_zogy(image_rate_bkgsub.value,
-                                        ref_rate_bkgsub.value,
-                                        psf_array, psf_array,
-                                        s_n.value, s_r.value, sn.value,
-                                        sr.value, dx, dy)
-    diff_image *= image_rate.unit
-    return diff_image
-
-
 def continuous_time_intervals(lightcurve, dt=None, tolerance=None):
     """Find points in the lightcurve with two or more contiguous measurements.
 
@@ -653,6 +632,13 @@ def lightcurve_through_image(lightcurve, exposure,
     with suppress_stdout():
         [bgd_band1, bgd_band2] = background_pixel_rate(duet, low_zodi=True,
                                                        diag=True)
+    # Directory for debugging purposes
+    rand = np.random.randint(0, 99999999)
+
+    debugdir = f'debug_imgs_{rand}'
+
+    if debug:
+        mkdir_p(debugdir)
 
     good = (lightcurve['fluence_D1'] > 0) & (lightcurve['fluence_D2'] > 0)
     if not np.any(good):
@@ -664,7 +650,8 @@ def lightcurve_through_image(lightcurve, exposure,
         construct_images_from_lightcurve(
             lightcurve, exposure, duet=duet, gal_type=gal_type,
             gal_params=gal_params, frame=frame, debug=debug,
-            debugfilename='lightcurve.hdf5', low_zodi=True)
+            debugfilename=os.path.join(debugdir, 'lightcurve.hdf5'),
+            low_zodi=True)
 
     total_image_rate1 = np.sum(lightcurve['imgs_D1'], axis=0)
     total_image_rate2 = np.sum(lightcurve['imgs_D2'], axis=0)
@@ -680,14 +667,6 @@ def lightcurve_through_image(lightcurve, exposure,
     total_images_rate_list = [total_image_rate1, total_image_rate2]
 
     psf_fwhm_pix = duet.psf_fwhm / duet.pixel
-
-    # Directory for debugging purposes
-    rand = np.random.randint(0, 99999999)
-
-    debugdir = f'debug_imgs_{rand}'
-
-    if debug:
-        mkdir_p(debugdir)
 
     log.info('Constructing reference images')
     # Make reference images (5 exposures)
@@ -796,10 +775,5 @@ def lightcurve_through_image(lightcurve, exposure,
         lightcurve['fluence_D1_fiterr'][i] = duet.rate_to_fluence(fl1_fite)
         lightcurve['fluence_D2_fit'][i] = duet.rate_to_fluence(fl2_fit)
         lightcurve['fluence_D2_fiterr'][i] = duet.rate_to_fluence(fl2_fite)
-        if debug:
-            outfile = os.path.join(debugdir, f'images_{time.to(u.s).value}.p')
-            with open(outfile, 'wb') as fobj:
-                pickle.dump({'imgD1': image_rate1, 'imgD2': image_rate2},
-                            fobj)
 
     return lightcurve
