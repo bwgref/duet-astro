@@ -8,7 +8,6 @@ from scipy.interpolate import interp1d
 
 from astropy.table import Table, QTable
 from astropy import log
-import astropy.constants as c
 import astropy.units as u
 from .duet_sensitivity import calc_snr
 from .utils import get_neff, suppress_stdout, tqdm, mkdir_p
@@ -430,7 +429,8 @@ def _decide_bins_to_group(lightcurve, exposure, final_resolution,
     --------
     >>> times = np.array([0, 1, 2, 4, 5, 6, 7, 8, 9, 10])
     >>> lightcurve = QTable({'time': times * u.s})
-    >>> time_bins = _decide_bins_to_group(lightcurve, 1 * u.s, 4 * u.s)
+    >>> newlc = _decide_bins_to_group(lightcurve, 1 * u.s, 4 * u.s)
+    >>> time_bins = newlc['time_bin']
     >>> np.allclose(time_bins, [0, 0, 0, 1, 1, 1, 1, 2, 2, 2])
     True
     """
@@ -457,38 +457,145 @@ def _decide_bins_to_group(lightcurve, exposure, final_resolution,
         current_time_bin = last_interval_bin + ((t - start[start_bin]) // final_resolution).to("").value
         plain_lc['time_bin'][i] = current_time_bin
 
-    return plain_lc['time_bin']
+    return plain_lc
 
 
-def rebin_lightcurve(lightcurve, exposure, final_resolution):
+def rebin_lightcurve(lightcurve, exposure, final_resolution, debug=False):
     """
     Examples
     --------
     >>> times = np.array([0, 1, 2, 4, 5, 6, 7, 8, 9, 10])
+    >>> flu_units = u.ph / u.s / u.cm**2
     >>> lightcurve = QTable({'time': times * u.s,
-    ...                      'fluence_D1': np.ones(len(times)),
-    ...                      'fluence_D2': np.ones(len(times))})
+    ...                      'fluence_D1': np.ones(len(times)) * flu_units,
+    ...                      'fluence_D2': np.ones(len(times)) * flu_units})
+    >>> frame = [30, 30]
+    >>> lightcurve['imgs_D1'] = np.ones(
+    ...     (len(lightcurve), frame[0], frame[1])) * u.ph / u.s
+    >>> lightcurve['imgs_D2'] = np.zeros(
+    ...     (len(lightcurve), frame[0], frame[1])) * u.ph / u.s
+    >>> lightcurve['imgs_D1_bkgsub'] = np.zeros(
+    ...     (len(lightcurve), frame[0], frame[1])) * u.ph / u.s
+    >>> lightcurve['imgs_D2_bkgsub'] = np.zeros(
+    ...     (len(lightcurve), frame[0], frame[1])) * u.ph / u.s
     >>> newlc = rebin_lightcurve(lightcurve, 1 * u.s, 4 * u.s)
     >>> np.allclose(newlc['time'].value, np.array([1, 5.5, 9]))
     True
-    >>> np.allclose(newlc['fluence_D1'], np.array([1, 1, 1]))
+    >>> np.allclose(newlc['fluence_D1'].value, np.array([1, 1, 1]))
+    True
+    >>> np.allclose(newlc['imgs_D1'].value.sum(axis=(1,2)) / 900,
+    ...             np.array([1, 1, 1]))
+    True
+    >>> np.allclose(newlc['imgs_D2'].value.sum(axis=(1,2)),
+    ...             np.array([0, 0, 0]))
     True
     """
     new_lightcurve = QTable()
-    time_bin = \
+    lightcurve = \
         _decide_bins_to_group(lightcurve, exposure,
                               final_resolution,
                               tolerance=final_resolution)
+    time_bin = lightcurve['time_bin']
     good = time_bin >= 0
     plain_lc = Table(copy.deepcopy(lightcurve[good]))
     plain_lc['nbin'] = 1
     # time_bin = (plain_lc['time'] // final_resolution).to("").value
     lc_group = plain_lc.group_by(time_bin)
     plain_lc = lc_group.groups.aggregate(np.sum)
-    for col in 'time,fluence_D1,fluence_D2'.split(','):
-        new_lightcurve[col] = plain_lc[col] / plain_lc['nbin']
+    cols = 'time,fluence_D1,fluence_D2'.split(',')
+    if 'imgs_D1' in plain_lc.colnames:
+        cols += 'imgs_D1,imgs_D2,imgs_D1_bkgsub,imgs_D2_bkgsub'.split(',')
+    for col in cols:
+        new_lightcurve[col] = [value / nb
+                               for value, nb in zip(plain_lc[col],
+                                                    plain_lc['nbin'])] * lightcurve[col].unit
     new_lightcurve['nbin'] = plain_lc['nbin']
+    if debug:
+        new_lightcurve.write('lightcurve_rebin.hdf5', path='default',
+                             overwrite=True)
     return new_lightcurve
+
+
+def construct_images_from_lightcurve(lightcurve, exposure, duet=None,
+                                     gal_type=None,
+                                     gal_params=None,
+                                     frame=np.array([30, 30]),
+                                     debug=False,
+                                     debugfilename='lightcurve.hdf5',
+                                     low_zodi=True):
+    """
+    Examples
+    --------
+    >>> import doctest
+    >>> doctest.ELLIPSIS_MARKER = '-etc-'
+    >>> times = np.array([0, 1, 2, 4, 5, 6, 7, 8, 9, 10])
+    >>> flu_units = u.ph / u.s / u.cm**2
+    >>> lightcurve = QTable({'time': times * u.s,
+    ...                      'fluence_D1': np.ones(len(times)) * flu_units,
+    ...                      'fluence_D2': np.ones(len(times)) * flu_units})
+    >>> lc_new = construct_images_from_lightcurve(lightcurve, 1 * u.s) # doctest:+ELLIPSIS
+    -etc-
+    >>> np.allclose(lc_new['time'].value, lightcurve['time'].value)
+    True
+    >>> 'imgs_D1' in lightcurve.colnames
+    True
+    """
+    if duet is None:
+        with suppress_stdout():
+            duet = Telescope()
+    with suppress_stdout():
+        [bgd_band1, bgd_band2] = background_pixel_rate(duet, low_zodi=low_zodi,
+                                                       diag=True)
+
+    lightcurve['imgs_D1'] = \
+        np.zeros((len(lightcurve), frame[0], frame[1])) * u.ph / u.s
+    lightcurve['imgs_D2'] = \
+        np.zeros((len(lightcurve), frame[0], frame[1])) * u.ph / u.s
+
+    lightcurve['imgs_D1_bkgsub'] = \
+        np.zeros((len(lightcurve), frame[0], frame[1])) * u.ph / u.s
+    lightcurve['imgs_D2_bkgsub'] = \
+        np.zeros((len(lightcurve), frame[0], frame[1])) * u.ph / u.s
+
+    log.info('Creating images')
+    for i, row in enumerate(tqdm(lightcurve)):
+        fl1 = duet.fluence_to_rate(row['fluence_D1'])
+        fl2 = duet.fluence_to_rate(row['fluence_D2'])
+
+        with suppress_stdout():
+            image1 = construct_image(frame, exposure, duet=duet,
+                                     band=duet.bandpass1,
+                                     source=fl1, gal_type=gal_type,
+                                     gal_params=gal_params,
+                                     sky_rate=bgd_band1)
+        image_rate1 = image1 / exposure
+        image_bkg, image_bkg_rms_median = \
+            estimate_background(image_rate1)
+        image_rate_bkgsub = image_rate1 - image_bkg
+
+        lightcurve['imgs_D1'][i] = image_rate1
+        lightcurve['imgs_D1_bkgsub'][i] = image_rate_bkgsub
+
+        with suppress_stdout():
+            image2 = construct_image(frame, exposure, duet=duet, band=duet.bandpass2,
+                                     source=fl2, gal_type=gal_type, gal_params=gal_params,
+                                     sky_rate=bgd_band2)
+        image_rate2 = image2 / exposure
+        image_bkg, image_bkg_rms_median = \
+            estimate_background(image_rate2)
+        image_rate_bkgsub = image_rate2 - image_bkg
+
+        lightcurve['imgs_D2'][i] = image_rate2
+        lightcurve['imgs_D2_bkgsub'][i] = image_rate_bkgsub
+
+    if debug:
+        outfile = debugfilename
+        if outfile.endswith('.hdf5'):
+            lightcurve.write(outfile, overwrite=True, path='default')
+        else:
+            lightcurve.write(outfile, overwrite=True)
+
+    return lightcurve
 
 
 def lightcurve_through_image(lightcurve, exposure,
@@ -538,6 +645,7 @@ def lightcurve_through_image(lightcurve, exposure,
     """
     from astropy.table import Table
     lightcurve = copy.deepcopy(lightcurve)
+
     with suppress_stdout():
         if duet is None:
             duet = Telescope()
@@ -552,79 +660,50 @@ def lightcurve_through_image(lightcurve, exposure,
         return
     lightcurve = lightcurve[good]
 
-    total_image_rate = np.zeros(frame) * u.ph / u.s
-    total_image_rate_bkgsub = np.zeros(frame) * u.ph / u.s
-    total_exposure = exposure * len(lightcurve)
+    lightcurve = \
+        construct_images_from_lightcurve(
+            lightcurve, exposure, duet=duet, gal_type=gal_type,
+            gal_params=gal_params, frame=frame, debug=debug,
+            debugfilename='lightcurve.hdf5', low_zodi=True)
 
-    # Construct total images, to get a good detection of the source
-    total_images_rate_list = []
-    for duet_no, bandpass, bgd_band in zip([1, 2],
-                                           [duet.bandpass1, duet.bandpass2],
-                                           [bgd_band1, bgd_band2]):
-        mean_fluence = \
-            lightcurve[f'fluence_D{duet_no}'].mean()
+    total_image_rate1 = np.sum(lightcurve['imgs_D1'], axis=0)
+    total_image_rate2 = np.sum(lightcurve['imgs_D2'], axis=0)
 
-        photons = \
-            duet.fluence_to_rate(mean_fluence)
+    total_image_rate = total_image_rate1 + total_image_rate2
 
-        image = \
-            construct_image(frame, total_exposure, duet=duet,
-                            band=bandpass,
-                            source=photons, gal_type=gal_type,
-                            gal_params=gal_params,
-                            sky_rate=bgd_band)
+    total_image_rate_bkgsub1 = np.sum(lightcurve['imgs_D1_bkgsub'], axis=0)
+    total_image_rate_bkgsub2 = np.sum(lightcurve['imgs_D2_bkgsub'], axis=0)
 
-        image_rate = image / total_exposure
-        image_bkg, image_bkg_rms_median = \
-            estimate_background(image_rate)
-        image_rate_bkgsub = image_rate - image_bkg
-        total_image_rate += image_rate
-        total_image_rate_bkgsub += image_rate_bkgsub
+    total_image_rate_bkgsub = \
+        total_image_rate_bkgsub1 + total_image_rate_bkgsub2
 
-        total_images_rate_list.append(image_rate)
-
-    lightcurve['nbin'] = 1
-    if final_resolution is not None:
-        lightcurve = \
-            rebin_lightcurve(lightcurve, exposure, final_resolution)
-    else:
-        final_resolution = exposure
-
-    # Temporary fix
-    try:
-        bgd_band1.to('u.ph/u.s')
-    except:
-        bgd_band1 = bgd_band1.value * u.ph * bgd_band1.unit
-        bgd_band2 = bgd_band2.value * u.ph * bgd_band2.unit
+    total_images_rate_list = [total_image_rate1, total_image_rate2]
 
     psf_fwhm_pix = duet.psf_fwhm / duet.pixel
-
-    read_noise = duet.read_noise
-
-    for duet_no in [1, 2]:
-        for suffix in ['', 'err']:
-            colname = f'fluence_D{duet_no}_fit{suffix}'
-            lightcurve[colname] = 0.
-            lightcurve[colname].unit = u.ph / (u.cm**2 * u.s)
 
     # Directory for debugging purposes
     rand = np.random.randint(0, 99999999)
 
-    debugdir = f'debug_imgs_{final_resolution.to(u.s).value}s_{rand}'
+    debugdir = f'debug_imgs_{rand}'
 
     if debug:
         mkdir_p(debugdir)
 
+    log.info('Constructing reference images')
     # Make reference images (5 exposures)
     nexp = 5
-    ref_image1 = construct_image(frame, exposure, duet=duet, band=duet.bandpass1,
-                                 gal_type=gal_type, gal_params=gal_params, sky_rate=bgd_band1, n_exp=nexp)
+    ref_image1 = construct_image(frame, exposure, duet=duet,
+                                 band=duet.bandpass1, gal_type=gal_type,
+                                 gal_params=gal_params, sky_rate=bgd_band1,
+                                 n_exp=nexp)
     ref_image_rate1 = ref_image1 / (exposure * nexp)
     ref_bkg1, ref_bkg_rms_median1 = estimate_background(ref_image_rate1)
     ref_rate_bkgsub1 = ref_image_rate1 - ref_bkg1
 
-    ref_image2 = construct_image(frame, exposure, duet=duet, band=duet.bandpass2,
-                                 gal_type=gal_type, gal_params=gal_params, sky_rate=bgd_band2, n_exp=nexp)
+    ref_image2 = construct_image(frame, exposure, duet=duet,
+                                 band=duet.bandpass2, gal_type=gal_type,
+                                 gal_params=gal_params, sky_rate=bgd_band2,
+                                 n_exp=nexp)
     ref_image_rate2 = ref_image2 / (exposure * nexp)
     ref_bkg2, ref_bkg_rms_median2 = estimate_background(ref_image_rate2)
     ref_rate_bkgsub2 = ref_image_rate2 - ref_bkg2
@@ -635,6 +714,7 @@ def lightcurve_through_image(lightcurve, exposure,
     total_ref_img_rate_bkgsub = \
         ref_rate_bkgsub1 + ref_rate_bkgsub2
 
+    log.info('Finding source in integrated diff image')
     diff_total_image = \
         calculate_diff_image(total_image_rate, total_image_rate_bkgsub,
                              total_ref_img_rate,
@@ -668,26 +748,25 @@ def lightcurve_through_image(lightcurve, exposure,
     star_tbl.sort('flux')
     star_tbl = star_tbl[-1:]['x', 'y']
 
+    # decide light curve bins before image generation, for speed.
+    lightcurve['nbin'] = 1
+    if final_resolution is not None:
+        lightcurve = rebin_lightcurve(lightcurve, exposure, final_resolution,
+                                      debug=debug)
+
+    for duet_no in [1, 2]:
+        for suffix in ['', 'err']:
+            colname = f'fluence_D{duet_no}_fit{suffix}'
+            lightcurve[colname] = 0.
+            lightcurve[colname].unit = u.ph / (u.cm**2 * u.s)
+
     # Generate light curve
+    log.info('Measuring fluxes and creating light curve')
     for i, row in enumerate(tqdm(lightcurve)):
         time = row['time']
 
-        fl1 = duet.fluence_to_rate(row['fluence_D1'])
-        fl2 = duet.fluence_to_rate(row['fluence_D2'])
-
-        nave = row['nbin']
-
-        with suppress_stdout():
-            image1 = construct_image(frame, exposure * nave, duet=duet,
-                                     band=duet.bandpass1,
-                                     source=fl1, gal_type=gal_type,
-                                     gal_params=gal_params,
-                                     sky_rate=bgd_band1)
-        image_rate1 = image1 / (exposure * nave)
-        # star_tbl = Table(data=[[14], [14]], names=['x', 'y'])
-        # Estimate background
-        image_bkg1, image_bkg_rms_median1 = estimate_background(image_rate1)
-        image_rate_bkgsub1 = image_rate1 - image_bkg1
+        image_rate1 = lightcurve['imgs_D1'][i]
+        image_rate_bkgsub1 = lightcurve['imgs_D1_bkgsub'][i]
 
         diff_image1 = calculate_diff_image(image_rate1, image_rate_bkgsub1,
                                            ref_image_rate1, ref_rate_bkgsub1,
@@ -700,15 +779,8 @@ def lightcurve_through_image(lightcurve, exposure,
         fl1_fit = result1['flux_fit'][0] * image_rate1.unit
         fl1_fite = result1['flux_unc'][0] * image_rate1.unit
 
-        with suppress_stdout():
-            image2 = construct_image(frame, exposure * nave, duet=duet, band=duet.bandpass2,
-                                     source=fl2, gal_type=gal_type, gal_params=gal_params,
-                                     sky_rate=bgd_band2)
-        image_rate2 = image2 / (exposure * nave)
-
-        # Estimate background
-        image_bkg2, image_bkg_rms_median2 = estimate_background(image_rate2)
-        image_rate_bkgsub2 = image_rate2 - image_bkg2
+        image_rate2 = lightcurve['imgs_D2'][i]
+        image_rate_bkgsub2 = lightcurve['imgs_D2_bkgsub'][i]
 
         diff_image2 = calculate_diff_image(image_rate2, image_rate_bkgsub2,
                                            ref_image_rate2, ref_rate_bkgsub2,
