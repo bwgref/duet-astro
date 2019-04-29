@@ -11,7 +11,7 @@ from astropy import log
 import astropy.units as u
 from .duet_sensitivity import calc_snr
 from .utils import get_neff, suppress_stdout, tqdm, mkdir_p
-from .utils import time_intervals_from_gtis, contiguous_regions
+from .utils import contiguous_regions
 from .bbmag import sigerr
 from .config import Telescope
 from .background import background_pixel_rate
@@ -632,6 +632,13 @@ def lightcurve_through_image(lightcurve, exposure,
     with suppress_stdout():
         [bgd_band1, bgd_band2] = background_pixel_rate(duet, low_zodi=True,
                                                        diag=True)
+    # Directory for debugging purposes
+    rand = np.random.randint(0, 99999999)
+
+    debugdir = f'debug_imgs_{rand}'
+
+    if debug:
+        mkdir_p(debugdir)
 
     good = (lightcurve['fluence_D1'] > 0) & (lightcurve['fluence_D2'] > 0)
     if not np.any(good):
@@ -643,7 +650,8 @@ def lightcurve_through_image(lightcurve, exposure,
         construct_images_from_lightcurve(
             lightcurve, exposure, duet=duet, gal_type=gal_type,
             gal_params=gal_params, frame=frame, debug=debug,
-            debugfilename='lightcurve.hdf5', low_zodi=True)
+            debugfilename=os.path.join(debugdir, 'lightcurve.hdf5'),
+            low_zodi=True)
 
     total_image_rate1 = np.sum(lightcurve['imgs_D1'], axis=0)
     total_image_rate2 = np.sum(lightcurve['imgs_D2'], axis=0)
@@ -659,14 +667,6 @@ def lightcurve_through_image(lightcurve, exposure,
     total_images_rate_list = [total_image_rate1, total_image_rate2]
 
     psf_fwhm_pix = duet.psf_fwhm / duet.pixel
-
-    # Directory for debugging purposes
-    rand = np.random.randint(0, 99999999)
-
-    debugdir = f'debug_imgs_{rand}'
-
-    if debug:
-        mkdir_p(debugdir)
 
     log.info('Constructing reference images')
     # Make reference images (5 exposures)
@@ -775,10 +775,5 @@ def lightcurve_through_image(lightcurve, exposure,
         lightcurve['fluence_D1_fiterr'][i] = duet.rate_to_fluence(fl1_fite)
         lightcurve['fluence_D2_fit'][i] = duet.rate_to_fluence(fl2_fit)
         lightcurve['fluence_D2_fiterr'][i] = duet.rate_to_fluence(fl2_fite)
-        if debug:
-            outfile = os.path.join(debugdir, f'images_{time.to(u.s).value}.p')
-            with open(outfile, 'wb') as fobj:
-                pickle.dump({'imgD1': image_rate1, 'imgD2': image_rate2},
-                            fobj)
 
     return lightcurve
