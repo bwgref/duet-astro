@@ -228,7 +228,121 @@ def fits_file(file):
     return outfile
 
 
+def load_bai(**kwargs):
+    '''Load in the galaxy tables from the Bai catalog
+
+    
+
+    '''
+    from astroduet.utils import galex_nuv_flux_to_abmag, galex_fuv_flux_to_abmag
+    table1 = '../astroduet/data/bai_data/Table1.txt'
+    table2 = '../astroduet/data/bai_data/Table2.txt'
+
+    galex_nuv_bandpass = 732 * u.AA # Effective NUV bandpass
+    galex_fuv_bandpass = 268 * u.AA # Effectice FUV bandpass
+    # From http://galex.stsci.edu/gr6/?page=faq
 
 
 
+    f = open(table1, 'r')
+    f2 = open(table2, 'r')
+    skip = 27
+    ctr = 0
 
+    dist = []
+    rad= []
+    nuv = []
+    fuv = []
+    pgc = []
+    morph = []
+
+    for line in f:
+        if ctr < skip:
+            ctr += 1
+            continue
+        else:
+
+            bai_bytes = bytearray(line, 'utf-8')
+            pgc = np.append(pgc, int(bai_bytes[0:7]))
+            if bai_bytes[59:65] == b'      ':
+                thist_dist = -1 * u.Mpc
+            else:
+                this_dist = float(bai_bytes[59:65])*u.Mpc
+            dist = np.append(dist, this_dist)
+
+            # Parse morphology
+            if bai_bytes[50:53] == b'   ':
+                this_morph = -99
+            else:
+                this_morph = float(bai_bytes[50:53])
+            morph = np.append(morph, this_morph)
+    f.close()
+
+    skip = 31
+    ctr = 0
+    for line in f2:
+        if ctr < skip:
+            ctr += 1
+            continue
+        else:
+        
+            bai_bytes = bytearray(line, 'utf-8')
+
+            if bai_bytes[52:57] == b'     ':
+                this_fuv = -1
+            else:
+                this_fuv = 10**(float(bai_bytes[52:57]))
+            fuv = np.append(fuv, this_fuv)
+
+            
+            if bai_bytes[59:64] == b'     ':
+                this_nuv = -1
+            else:
+                this_nuv = 10**(float(bai_bytes[59:64]))
+            nuv = np.append(nuv, this_nuv)
+
+
+
+            if bai_bytes[74:80] == b'      ':
+                this_rad = -1
+            else:
+                this_rad = float(bai_bytes[74:80])
+
+    
+            rad = np.append(this_rad, rad)
+    #        break
+    f.close()
+
+    bai_table = Table(
+        [pgc, dist, fuv, nuv, rad, morph],
+        names=('PGC', 'DIST', 'LUMFUV', 'LUMNUV', 'RAD', 'MORPH'),
+        meta={'name': 'Bai Table 1 and 2'}
+        )
+    bai_table['RAD'].unit = u.arcsec
+    bai_table['DIST'].unit = u.Mpc
+    bai_table['LUMNUV'].unit = 'W'
+    bai_table['LUMFUV'].unit = 'W'
+    
+    good = np.where( (bai_table['LUMNUV'] > 0) & (bai_table['DIST'] > 0) &
+                     (bai_table['RAD'] > 0) & (bai_table['MORPH'] > -99) &
+                     (bai_table['LUMFUV'] > 0) )
+    bai_table = bai_table[good]
+    
+    # Surface brightness calculation is here
+    bai_table['AREA']= np.pi * (bai_table['RAD']**2)
+    
+    # Correct flux estimate?
+    flux = (bai_table['LUMNUV'].to(u.erg / u.s)) / (galex_nuv_bandpass * 4 * np.pi * (bai_table['DIST'].to(u.cm))**2)
+    surf_brightness = flux / bai_table['AREA'] 
+    abmag = galex_nuv_flux_to_abmag(surf_brightness) # Now GALEX ABmags per arcsec
+    bai_table['SURFNUV'] = abmag 
+
+    flux = (bai_table['LUMFUV'].to(u.erg / u.s)) / (galex_fuv_bandpass * 4 * np.pi * (bai_table['DIST'].to(u.cm))**2)
+    surf_brightness = flux / bai_table['AREA'] 
+    abmag = galex_fuv_flux_to_abmag(surf_brightness) # Now GALEX ABmags per arcsec
+    bai_table['SURFFUV'] = abmag 
+
+
+    
+    
+    return bai_table

@@ -241,6 +241,53 @@ def galex_to_duet(galmags):
 
     return duetmags
 
+def galex_nuv_flux_to_abmag(galflux):
+    '''Convert GALEX NUV flux to GALEX NUV ABmag
+    
+    Conversion based on this page
+    https://asd.gsfc.nasa.gov/archive/galex/FAQ/counts_background.html
+    
+    Parameters
+    ----------
+    flux : array
+        1D array of GALEX NUV fluxes in units of erg / sec / cm2 / Angstom
+    
+    Returns
+    -------
+    GALEX NUV AB mag:
+    
+    '''
+    conversion = 2.06e-16
+    
+    
+    mAB = (-2.5 * np.log10(galflux.value /conversion) + 20.08)*u.ABmag
+    return mAB
+
+def galex_fuv_flux_to_abmag(galflux):
+    '''Convert GALEX FUV flux to GALEX FUV ABmag
+    
+    Conversion based on this page
+    https://asd.gsfc.nasa.gov/archive/galex/FAQ/counts_background.html
+    
+    Parameters
+    ----------
+    flux : array
+        1D array of GALEX FUV fluxes in units of erg / sec / cm2 / Angstom
+
+
+    
+    Returns
+    -------
+    GALEX FUV AB mag:
+    
+    '''
+    conversion = 1.4e-15
+    #    mAB = -2.5 x log10(FluxFUV / 1.40 x 10-15 erg sec-1 cm-2 Å-1) + 18.82
+
+    mAB = (-2.5 * np.log10(galflux.value /conversion) + 18.82)*u.ABmag
+    return mAB
+
+
 
 def mkdir_p(path):  # pragma: no cover
     """Safe mkdir function.
