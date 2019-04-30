@@ -10,7 +10,8 @@ from astropy.table import Table, QTable
 from astropy import log
 import astropy.units as u
 from .duet_sensitivity import calc_snr
-from .utils import get_neff, suppress_stdout, tqdm, mkdir_p
+from .utils import get_neff, suppress_stdout, mkdir_p
+from .utils import tqdm as imported_tqdm
 from .utils import contiguous_regions
 from .bbmag import sigerr
 from .config import Telescope
@@ -501,7 +502,8 @@ def construct_images_from_lightcurve(lightcurve, exposure, duet=None,
                                      frame=np.array([30, 30]),
                                      debug=False,
                                      debugfilename='lightcurve.hdf5',
-                                     low_zodi=True):
+                                     low_zodi=True,
+                                     silent=False):
     """
     Examples
     --------
@@ -522,6 +524,11 @@ def construct_images_from_lightcurve(lightcurve, exposure, duet=None,
     if duet is None:
         with suppress_stdout():
             duet = Telescope()
+    if silent:
+        tqdm = lambda x: x
+    else:
+        tqdm = imported_tqdm
+
     with suppress_stdout():
         [bgd_band1, bgd_band2] = background_pixel_rate(duet, low_zodi=low_zodi,
                                                        diag=True)
@@ -582,7 +589,9 @@ def lightcurve_through_image(lightcurve, exposure,
                              final_resolution=None,
                              duet=None,
                              gal_type=None, gal_params=None,
-                             debug=False, debugfilename='lightcurve'):
+
+                             debug=False, debugfilename='lightcurve',
+                             silent=False):
     """Transform a theoretical light curve into a flux measurement.
 
     1. Take the values of a light curve, optionally rebin it to a new time
@@ -624,6 +633,10 @@ def lightcurve_through_image(lightcurve, exposure,
     """
     from astropy.table import Table
     lightcurve = copy.deepcopy(lightcurve)
+    if silent:
+        tqdm = lambda x: x
+    else:
+        tqdm = imported_tqdm
 
     with suppress_stdout():
         if duet is None:
@@ -653,7 +666,7 @@ def lightcurve_through_image(lightcurve, exposure,
             lightcurve, exposure, duet=duet, gal_type=gal_type,
             gal_params=gal_params, frame=frame, debug=debug,
             debugfilename=os.path.join(debugdir, debugfilename+'.hdf5'),
-            low_zodi=True)
+            low_zodi=True, silent=silent)
 
     total_image_rate1 = np.sum(lightcurve['imgs_D1'], axis=0)
     total_image_rate2 = np.sum(lightcurve['imgs_D2'], axis=0)
