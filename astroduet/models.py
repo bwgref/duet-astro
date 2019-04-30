@@ -231,17 +231,19 @@ def fits_file(file):
 def load_bai(**kwargs):
     '''Load in the galaxy tables from the Bai catalog
 
-    
+    Returns
+    -------
+    bai_models : dict
+        Contains catalog values.
 
     '''
     from astroduet.utils import galex_nuv_flux_to_abmag, galex_fuv_flux_to_abmag
     table1 = '../astroduet/data/bai_data/Table1.txt'
     table2 = '../astroduet/data/bai_data/Table2.txt'
 
+    # From http://galex.stsci.edu/gr6/?page=faq
     galex_nuv_bandpass = 732 * u.AA # Effective NUV bandpass
     galex_fuv_bandpass = 268 * u.AA # Effectice FUV bandpass
-    # From http://galex.stsci.edu/gr6/?page=faq
-
 
 
     f = open(table1, 'r')
@@ -341,8 +343,6 @@ def load_bai(**kwargs):
     surf_brightness = flux / bai_table['AREA'] 
     abmag = galex_fuv_flux_to_abmag(surf_brightness) # Now GALEX ABmags per arcsec
     bai_table['SURFFUV'] = abmag 
-
-
     
     
     return bai_table
