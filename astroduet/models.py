@@ -334,12 +334,12 @@ def load_bai(**kwargs):
     bai_table['AREA']= np.pi * (bai_table['RAD']**2)
     
     # Correct flux estimate?
-    flux = (bai_table['LUMNUV'].to(u.erg / u.s)) / (galex_nuv_bandpass * 4 * np.pi * (bai_table['DIST'].to(u.cm))**2)
+    flux = (0.5*bai_table['LUMNUV'].to(u.erg / u.s)) / (galex_nuv_bandpass * 4 * np.pi * (bai_table['DIST'].to(u.cm))**2)
     surf_brightness = flux / bai_table['AREA'] 
     abmag = galex_nuv_flux_to_abmag(surf_brightness) # Now GALEX ABmags per arcsec
     bai_table['SURFNUV'] = abmag 
 
-    flux = (bai_table['LUMFUV'].to(u.erg / u.s)) / (galex_fuv_bandpass * 4 * np.pi * (bai_table['DIST'].to(u.cm))**2)
+    flux = (0.5*bai_table['LUMFUV'].to(u.erg / u.s)) / (galex_fuv_bandpass * 4 * np.pi * (bai_table['DIST'].to(u.cm))**2)
     surf_brightness = flux / bai_table['AREA'] 
     abmag = galex_fuv_flux_to_abmag(surf_brightness) # Now GALEX ABmags per arcsec
     bai_table['SURFFUV'] = abmag 
