@@ -6,3 +6,4 @@ photutils
 jupyter
 tqdm
 h5py
+pyyaml
