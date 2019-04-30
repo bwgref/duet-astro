@@ -14,5 +14,6 @@ dist/*
 astroduet/cython_version.py
 astroduet/data/*DUET.fits
 .coverage
-
+notebooks/debug_imgs*
+notebooks/*hdf5
 htmlcov/
