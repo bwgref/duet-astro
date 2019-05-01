@@ -275,7 +275,7 @@ def calculate_snr(duet, band_fluence,
         Background level
     texp : float
         Exposure time
-    read_noise : float, default 3\sqrt(2)
+    read_noise : float, default 3\\sqrt(2)
         Readout noise
     """
     neff = get_neff(duet.psf_size, duet.pixel)
@@ -359,7 +359,7 @@ def get_lightcurve(input_lc_file, distance=10*u.pc, observing_windows=None,
         rate = duet.fluence_to_rate(result_table[f'fluence_{duet_label}'])
 
         result_table[f'snr_{duet_label}'] = \
-            duet.calc_snr(exposure,  rate, background[f'bkg_{duet_label}']) \
+            duet.calc_snr(exposure, rate, background[f'bkg_{duet_label}']) \
                 * u.dimensionless_unscaled
 
         abmag = table_ab['Light curve']
@@ -754,6 +754,8 @@ def lightcurve_through_image(lightcurve, exposure,
             lightcurve[colname] = 0.
             lightcurve[colname].unit = u.ph / (u.cm**2 * u.s)
 
+    lightcurve['snr_D1'] = 0.
+    lightcurve['snr_D2'] = 0.
     # Generate light curve
     log.info('Measuring fluxes and creating light curve')
     for i, row in enumerate(tqdm(lightcurve)):
@@ -772,6 +774,9 @@ def lightcurve_through_image(lightcurve, exposure,
 
         fl1_fit = result1['flux_fit'][0] * image_rate1.unit
         fl1_fite = result1['flux_unc'][0] * image_rate1.unit
+        snr_1 = \
+            duet.calc_snr(exposure, fl1_fit, bgd_band1) \
+                * u.dimensionless_unscaled
 
         image_rate2 = lightcurve['imgs_D2'][i]
         image_rate_bkgsub2 = lightcurve['imgs_D2_bkgsub'][i]
@@ -785,10 +790,15 @@ def lightcurve_through_image(lightcurve, exposure,
                                      star_tbl, niters=1)
         fl2_fit = result2['flux_fit'][0] * image_rate2.unit
         fl2_fite = result2['flux_unc'][0] * image_rate2.unit
+        snr_2 = \
+            duet.calc_snr(exposure, fl2_fit, bgd_band2) \
+                * u.dimensionless_unscaled
 
         lightcurve['fluence_D1_fit'][i] = duet.rate_to_fluence(fl1_fit)
         lightcurve['fluence_D1_fiterr'][i] = duet.rate_to_fluence(fl1_fite)
         lightcurve['fluence_D2_fit'][i] = duet.rate_to_fluence(fl2_fit)
         lightcurve['fluence_D2_fiterr'][i] = duet.rate_to_fluence(fl2_fite)
+        lightcurve['snr_D1'][i] = snr_1
+        lightcurve['snr_D2'][i] = snr_2
 
     return lightcurve
