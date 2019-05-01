@@ -439,7 +439,7 @@ def _decide_bins_to_group(lightcurve, exposure, final_resolution,
     return plain_lc
 
 
-def rebin_lightcurve(lightcurve, exposure, final_resolution, debug=False):
+def rebin_lightcurve(lightcurve, exposure, final_resolution, debug=False, debugfilename='lightcurve_rebin.hdf5'):
     """
     Examples
     --------
@@ -490,7 +490,7 @@ def rebin_lightcurve(lightcurve, exposure, final_resolution, debug=False):
                                                     plain_lc['nbin'])] * lightcurve[col].unit
     new_lightcurve['nbin'] = plain_lc['nbin']
     if debug:
-        new_lightcurve.write('lightcurve_rebin.hdf5', path='default',
+        new_lightcurve.write(debugfilename, path='default',
                              overwrite=True)
     return new_lightcurve
 
@@ -582,7 +582,7 @@ def lightcurve_through_image(lightcurve, exposure,
                              final_resolution=None,
                              duet=None,
                              gal_type=None, gal_params=None,
-                             debug=False):
+                             debug=False, debugfilename='lightcurve'):
     """Transform a theoretical light curve into a flux measurement.
 
     1. Take the values of a light curve, optionally rebin it to a new time
@@ -633,9 +633,11 @@ def lightcurve_through_image(lightcurve, exposure,
         [bgd_band1, bgd_band2] = background_pixel_rate(duet, low_zodi=True,
                                                        diag=True)
     # Directory for debugging purposes
-    rand = np.random.randint(0, 99999999)
-
-    debugdir = f'debug_imgs_{rand}'
+    if debugfilename != 'lightcurve':
+        debugdir = os.path.join('debug_imgs',debugfilename)
+    else:
+        rand = np.random.randint(0, 99999999)
+        debugdir = f'debug_imgs_{rand}'
 
     if debug:
         mkdir_p(debugdir)
@@ -650,7 +652,7 @@ def lightcurve_through_image(lightcurve, exposure,
         construct_images_from_lightcurve(
             lightcurve, exposure, duet=duet, gal_type=gal_type,
             gal_params=gal_params, frame=frame, debug=debug,
-            debugfilename=os.path.join(debugdir, 'lightcurve.hdf5'),
+            debugfilename=os.path.join(debugdir, debugfilename+'.hdf5'),
             low_zodi=True)
 
     total_image_rate1 = np.sum(lightcurve['imgs_D1'], axis=0)
