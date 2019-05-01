@@ -589,7 +589,6 @@ def lightcurve_through_image(lightcurve, exposure,
                              final_resolution=None,
                              duet=None,
                              gal_type=None, gal_params=None,
-
                              debug=False, debugfilename='lightcurve',
                              silent=False):
     """Transform a theoretical light curve into a flux measurement.
@@ -622,6 +621,12 @@ def lightcurve_through_image(lightcurve, exposure,
         in gal_params
     gal_params : dict
         Dictionary of parameters for Sersic model (see sim_galaxy)
+    debug : bool
+        If True, save the light curves to file
+    debugfilename : str
+        File to save the light curves to
+    silent : bool
+        Suppress progress bars
 
     Returns
     -------
