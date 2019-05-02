@@ -556,7 +556,7 @@ def construct_images_from_lightcurve(lightcurve, exposure, duet=None,
                                      sky_rate=bgd_band1)
         image_rate1 = image1 / exposure
         image_bkg, image_bkg_rms_median = \
-            estimate_background(image_rate1)
+            estimate_background(image_rate1, method='1D', sigma=2)
         image_rate_bkgsub = image_rate1 - image_bkg
 
         lightcurve['imgs_D1'][i] = image_rate1
@@ -568,7 +568,7 @@ def construct_images_from_lightcurve(lightcurve, exposure, duet=None,
                                      sky_rate=bgd_band2)
         image_rate2 = image2 / exposure
         image_bkg, image_bkg_rms_median = \
-            estimate_background(image_rate2)
+            estimate_background(image_rate2, method='1D', sigma=2)
         image_rate_bkgsub = image_rate2 - image_bkg
 
         lightcurve['imgs_D2'][i] = image_rate2
@@ -696,7 +696,7 @@ def lightcurve_through_image(lightcurve, exposure,
                                  gal_params=gal_params, sky_rate=bgd_band1,
                                  n_exp=nexp)
     ref_image_rate1 = ref_image1 / (exposure * nexp)
-    ref_bkg1, ref_bkg_rms_median1 = estimate_background(ref_image_rate1)
+    ref_bkg1, ref_bkg_rms_median1 = estimate_background(ref_image_rate1, method='1D', sigma=2)
     ref_rate_bkgsub1 = ref_image_rate1 - ref_bkg1
 
     ref_image2 = construct_image(frame, exposure, duet=duet,
@@ -704,7 +704,7 @@ def lightcurve_through_image(lightcurve, exposure,
                                  gal_params=gal_params, sky_rate=bgd_band2,
                                  n_exp=nexp)
     ref_image_rate2 = ref_image2 / (exposure * nexp)
-    ref_bkg2, ref_bkg_rms_median2 = estimate_background(ref_image_rate2)
+    ref_bkg2, ref_bkg_rms_median2 = estimate_background(ref_image_rate2, method='1D', sigma=2)
     ref_rate_bkgsub2 = ref_image_rate2 - ref_bkg2
 
     # psf_array = duet.psf_model(x_size=5,y_size=5).array
@@ -723,7 +723,7 @@ def lightcurve_through_image(lightcurve, exposure,
     with suppress_stdout():
         star_tbl, bkg_image, threshold = find(diff_total_image,
                                               psf_fwhm_pix.value,
-                                              method='daophot')
+                                              method='daophot', background='1D', frame='diff')
     if len(star_tbl) < 1:
         log.warn("No good detections in this field")
         return

@@ -3,7 +3,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from astropy import units as u
 from astroduet.bbmag import bb_abmag_fluence
-from astroduet.image_utils import construct_image, find, ap_phot, run_daophot
+from astroduet.image_utils import construct_image
 from astroduet.config import Telescope
 from astroduet.background import background_pixel_rate
 from astroduet.utils import duet_abmag_to_fluence
