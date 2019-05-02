@@ -292,7 +292,7 @@ def construct_image(frame,exposure,
     # Return image
     return im_final * im_counts.unit
 
-def estimate_background(image, method='2D', diag=False):
+def estimate_background(image, method='1D', sigma=3, diag=False):
     '''Background estimation.
 
     Generate an estimated background image and median background rms from a given input image.
@@ -305,6 +305,10 @@ def estimate_background(image, method='2D', diag=False):
     method: string
         '2D' or '1D'. 2D is suitable for large images. 1D is more appropriate for small images, especially those with uniform background levels.
 
+    sigma: float
+        Sigma clip level for background estimation. Default is 3. For 1D background estimation in small frames, sigma should be 2.
+        For 2D background estimation, sigma should usually be 3 or 4.
+        
     Returns
     -------
     bkg_image: array
@@ -319,9 +323,13 @@ def estimate_background(image, method='2D', diag=False):
     >>> im = np.ones((10,10)) + np.random.uniform(size=(10,10))
     >>> im *= u.ph
     >>> im[5,5] += 5 * u.ph
-    >>> bkg_im, bkg_med = estimate_background(im)
+    >>> bkg_im, bkg_med = estimate_background(im, method='2D', sigma=4)
     >>> np.allclose([bkg_im[0,0].value, bkg_med.value],
     ...             [1.45771779, 0.288040735])
+    True
+    >>> bkg_im_1d, bkg_med_1d = estimate_background(im, method='1D', sigma=4)
+    >>> np.allclose([bkg_im_1d[0,0].value, bkg_med_1d.value], 
+    ...             [1.4686512016477016, 0.28804073501451516])
     True
     '''
     
@@ -339,7 +347,7 @@ def estimate_background(image, method='2D', diag=False):
     
         bkg = Background2D(image.value,
                            (image.shape[0] // boxes0, image.shape[1] // boxes1),
-                           bkg_estimator=bkg_estimator, sigma_clip=SigmaClip(sigma=4.))
+                           bkg_estimator=bkg_estimator, sigma_clip=SigmaClip(sigma=sigma))
     
         bkg_image = bkg.background * image.unit
         bkg_rms_median = bkg.background_rms_median * image.unit
@@ -351,17 +359,16 @@ def estimate_background(image, method='2D', diag=False):
     elif method == '1D':
         from astropy.stats import sigma_clipped_stats
         
-        # Copy image to make background image
         bkg_image = np.zeros(np.shape(image))*image.unit
         # Get mean, median and std using a sigmaclip of 1:
-        bkg_mean, bkg_median, bkg_rms_median = sigma_clipped_stats(image, sigma=2, maxiters=10)
+        bkg_mean, bkg_median, bkg_rms_median = sigma_clipped_stats(image, sigma=sigma, maxiters=10)
         
         bkg_image[:] = bkg_median
             
     return bkg_image, bkg_rms_median
 
 
-def find(image,fwhm,method='daophot',background='2D',diag=False):
+def find(image,fwhm,method='daophot',background='1D',frame='diff',diag=False):
     '''
         Find all stars above the sky background level using DAOFind-like algorithm
 
@@ -371,18 +378,21 @@ def find(image,fwhm,method='daophot',background='2D',diag=False):
 
         Optional inputs:
         method = Either 'daophot' or 'peaks' to select different finding algorithms
-        background = '2D' or 'sigclip' to select 2- or 1-D background estimators
+        background = '2D' or '1D' to select 2- or 1-D background estimators
+        frame = 'diff' or 'single' to set background behaviour for difference or single frames
     '''
     from photutils.detection import DAOStarFinder, find_peaks
     from astropy.stats import sigma_clipped_stats
-
-    # Create a background image
-    if background == '2D':
-        bkg_image, sky = estimate_background(image, diag=diag)
-    elif background == 'sigclip':
-        mean, median, sky = sigma_clipped_stats(image, sigma=3.0)
-        bkg_image = median
-
+    
+    if frame == 'diff':
+        # Determine background RMS: 
+        bkg_image, sky = estimate_background(image, method=background, sigma=5, diag=diag)
+        find_image = image 
+    elif frame == 'single':
+        # Create and subtract a background image and determine background RMS:
+        bkg_image, sky = estimate_background(image, method=background, sigma=2, diag=diag)
+        find_image = image - bkg_image
+    
     # Look for five-sigma detections
     threshold = 5 * sky
 
@@ -392,17 +402,11 @@ def find(image,fwhm,method='daophot',background='2D',diag=False):
     # Find stars
     if method == 'daophot':
         finder = DAOStarFinder(threshold.value,fwhm)
-        star_tbl = finder.find_stars(image.value)
+        star_tbl = finder.find_stars(find_image.value)
         star_tbl['x'], star_tbl['y'] = \
             star_tbl['xcentroid'], star_tbl['ycentroid']
     elif method == 'peaks':
-        if background =='sigclip':
-            star_tbl = find_peaks(image.value,threshold.value,box_size=3)
-            star_tbl['x'], star_tbl['y'] = \
-                star_tbl['x_peak'], star_tbl['y_peak']
-        elif background =='2D':
-            star_tbl = find_peaks((image-bkg_image).value,
-                                  threshold.value,box_size=3)
+            star_tbl = find_peaks(find_image.value,threshold.value,box_size=3)
             star_tbl['x'], star_tbl['y'] = \
                 star_tbl['x_peak'], star_tbl['y_peak']
 
