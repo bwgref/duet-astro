@@ -437,7 +437,7 @@ def ap_phot(image,star_tbl,read_noise,exposure,r=1.5,r_in=1.5,r_out=3.):
 
     for col in result.colnames:
             result[col].info.format = '%.8g'  # for consistent table output
-    print("Aperture photometry complete")
+#    print("Aperture photometry complete")
 
     return result, apertures, annulus_apertures
 
