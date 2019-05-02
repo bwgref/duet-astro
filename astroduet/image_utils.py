@@ -292,7 +292,7 @@ def construct_image(frame,exposure,
     # Return image
     return im_final * im_counts.unit
 
-def estimate_background(image, diag=False):
+def estimate_background(image, method='2D', diag=False):
     '''Background estimation.
 
     Generate an estimated background image and median background rms from a given input image.
@@ -301,6 +301,9 @@ def estimate_background(image, diag=False):
     ----------
     image: array
         2D array containing the image values, no units
+        
+    method: string
+        '2D' or '1D'. 2D is suitable for large images. 1D is more appropriate for small images, especially those with uniform background levels.
 
     Returns
     -------
@@ -321,29 +324,40 @@ def estimate_background(image, diag=False):
     ...             [1.45771779, 0.288040735])
     True
     '''
-
-    from photutils import Background2D, SExtractorBackground
-    from astropy.stats import SigmaClip
-
-    # Define estimator (we're using the default SExtractorBackground estimator from photutils)
-    bkg_estimator = SExtractorBackground()
-
-    # Want the box size to be ~10 pixels or thereabouts
-    boxes0 = np.int(1 if image.shape[0] <= 5 else np.round(image.shape[0] / 10))
-    boxes1 = np.int(1 if image.shape[1] <= 5 else np.round(image.shape[1] / 10))
-
-    bkg = Background2D(image.value,
-                       (image.shape[0] // boxes0, image.shape[1] // boxes1),
-                       bkg_estimator=bkg_estimator, sigma_clip=SigmaClip(sigma=4.))
-
-    bkg_image = bkg.background * image.unit
-    bkg_rms_median = bkg.background_rms_median * image.unit
-
-    if diag:
-        print("Image shape:", image.shape)
-        print("Boxes per axis: {}, {}".format(boxes0,boxes1))
-        print("Box size: {}, {}".format(image.shape[0] // boxes0, image.shape[1] // boxes1))
-
+    
+    if method == '2D':
+        from photutils import Background2D, SExtractorBackground
+        from astropy.stats import SigmaClip
+    
+    
+        # Define estimator (we're using the default SExtractorBackground estimator from photutils)
+        bkg_estimator = SExtractorBackground()
+    
+        # Want the box size to be ~10 pixels or thereabouts
+        boxes0 = np.int(1 if image.shape[0] <= 5 else np.round(image.shape[0] / 10))
+        boxes1 = np.int(1 if image.shape[1] <= 5 else np.round(image.shape[1] / 10))
+    
+        bkg = Background2D(image.value,
+                           (image.shape[0] // boxes0, image.shape[1] // boxes1),
+                           bkg_estimator=bkg_estimator, sigma_clip=SigmaClip(sigma=4.))
+    
+        bkg_image = bkg.background * image.unit
+        bkg_rms_median = bkg.background_rms_median * image.unit
+        if diag:
+            print("Image shape:", image.shape)
+            print("Boxes per axis: {}, {}".format(boxes0,boxes1))
+            print("Box size: {}, {}".format(image.shape[0] // boxes0, image.shape[1] // boxes1))
+    
+    elif method == '1D':
+        from astropy.stats import sigma_clipped_stats
+        
+        # Copy image to make background image
+        bkg_image = np.zeros(np.shape(image))*image.unit
+        # Get mean, median and std using a sigmaclip of 1:
+        bkg_mean, bkg_median, bkg_rms_median = sigma_clipped_stats(image, sigma=2, maxiters=10)
+        
+        bkg_image[:] = bkg_median
+            
     return bkg_image, bkg_rms_median
 
 
@@ -364,7 +378,7 @@ def find(image,fwhm,method='daophot',background='2D',diag=False):
 
     # Create a background image
     if background == '2D':
-        bkg_image, sky = estimate_background(image, diag)
+        bkg_image, sky = estimate_background(image, diag=diag)
     elif background == 'sigclip':
         mean, median, sky = sigma_clipped_stats(image, sigma=3.0)
         bkg_image = median
