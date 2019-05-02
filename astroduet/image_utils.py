@@ -380,6 +380,16 @@ def find(image,fwhm,method='daophot',background='1D',frame='diff',diag=False):
         method = Either 'daophot' or 'peaks' to select different finding algorithms
         background = '2D' or '1D' to select 2- or 1-D background estimators
         frame = 'diff' or 'single' to set background behaviour for difference or single frames
+    
+    Example
+    -------
+    >>> np.random.seed(0)
+    >>> im = np.ones((10,10)) + np.random.uniform(size=(10,10))
+    >>> im *= u.ph
+    >>> im[5,5] += 5 * u.ph
+    >>> star_tbl, bkg_image, threshold = find(im, 1, method='peaks', background='1D', frame='single')
+    >>> np.equal(len(star_tbl), 1)
+    True
     '''
     from photutils.detection import DAOStarFinder, find_peaks
     from astropy.stats import sigma_clipped_stats
