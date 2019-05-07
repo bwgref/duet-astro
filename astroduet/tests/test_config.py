@@ -4,7 +4,7 @@ import astropy.units as u
 
 def test_run_through_Telescope_methods():
     duet = Telescope()
-    duet_offax = Telescope(on_axis=False)
+    duet_offax = Telescope(config='reduced_baseline')
     duet.info()
     duet.update_bandpass()
     duet.update_psf()
