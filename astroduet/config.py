@@ -232,28 +232,30 @@ class Telescope():
 
 
     def info(self):
-        print('-----')
-        print('DUET Telescope State:')
-        print('Physical Entrance Pupil: {}'.format(self.EPD))
-        print('Effective EPD: {}'.format(self.eff_epd))
-        print('Effective Area: {}'.format(self.eff_area))
-        print('Transmission Efficiency: {}'.format(self.trans_eff))
-        print()
-        print('Pixel size: {}'.format(self.pixel))
-        print('PSF FWHM: {}'.format(self.psf_fwhm))
-        print('Pointing jitter: {}'.format(self.psf_jitter))
-        print('Effective PSF FWHM: {}'.format(self.psf_size))
-        print('N_eff: {}'.format(self.neff))
-        print()
-        print('Band 1: {}'.format(self.band1))
-        print('Bandpass 1: {}'.format(self.bandpass1))
-        print('Band 2: {}'.format(self.band2))
-        print('Bandpass 2: {}'.format(self.bandpass2))
-        print()
-        print()
-        print('Dark current: {}'.format(self.dark_current))
-        print('Read noise (RMS per read): {}'.format(self.read_noise))
-        print('-----')
+        info_str = f"""-----
+        DUET Telescope State:
+        Physical Entrance Pupil: {self.EPD}
+        Effective EPD: {self.eff_epd}
+        Effective Area: {self.eff_area}
+        Transmission Efficiency: {self.trans_eff}
+        
+        Pixel size: {self.pixel}
+        PSF FWHM: {self.psf_fwhm}
+        Pointing jitter: {self.psf_jitter}
+        Effective PSF FWHM: {self.psf_size}
+        N_eff: {self.neff}
+
+        Band 1: {self.band1}
+        Bandpass 1: {self.bandpass1}
+        Band 2: {self.band2}
+        Bandpass 2: {self.bandpass2}
+
+        Dark current: {self.dark_current}
+        Read noise (RMS per read): {self.read_noise}
+        -----
+        """
+        print(info_str)
+        return info_str
 
     def update_bandpass(self):
         '''
