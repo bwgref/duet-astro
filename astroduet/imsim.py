@@ -15,12 +15,15 @@ def imsim(**kwargs):
     Simulate images of sources in galaxies with a range of surface brightnesses
     Warning! Takes several hours to run on a laptop!
     
-    VERY MUCH WORK IN PROGRESS!! DO NOT USE!
+    Currently set up to run on atlas.
     
     Parameters
     ----------   
     tel: 'min' or 'best', default is best
         Sets telescope parameters
+        
+    date: string
+        To track which version of telescope definitions is used
     
     gal: 'spiral', 'elliptical' or 'dwarf', default is spiral
         Sets Sersic index and size
@@ -39,8 +42,7 @@ def imsim(**kwargs):
         
     Returns
     -------
-    telescope_band_gal_sfb_zodi_src-mag.fits: fits file with simulated images. Currently path is relative to astroduet directory
-        (and will fail if run anywhere else).
+    telescope_band_gal_sfb_zodi_src-mag.fits: fits file with simulated images. 
     """
     
     # Deal with kwargs:
@@ -50,12 +52,19 @@ def imsim(**kwargs):
     sfb_lim = kwargs.pop('sfb', [18,26])
     nmags = kwargs.pop('nmags', 50)
     nsrc = kwargs.pop('nsrc', 100)
+    date = kwargs.pop(date, '050719') 
 
     # set some telescope, instrument parameters; check this bit with new setup files
     if tel == 'best':
         duet = Telescope()
     elif tel == 'min':
         duet = Telescope() # Needs updated telescope file
+    
+    # Write telescope definition file
+    teldef = duet.info()
+    teldef_file = open('/Users/duetsim/duet-sims/image_library/run_'+date+'/teldef', 'w+')
+    teldef_file.write(teldef)
+    teldef_file.close()
             
     # Define image simulation parameters
     exposure = 300 * u.s
@@ -106,8 +115,9 @@ def imsim(**kwargs):
             imhdu.header['EXPTIME'] = (nref*exposure.value, 'Total exposure time of reference image (s)')
             ref_hdu.append(imhdu)
         # Write file    
-        filename = 'data/image_library/tel_'+tel+'/gal_'+gal+'/zodi_'+zodi+'/duet1/'+tel+'_duet1_'+gal+'_'+str(sfb)+'_zodi-'+zodi+'_reference.fits'
-        ref_hdu.writeto(filename, overwrite=True)
+        path  = '/Users/duetsim/duet-sims/image_library/run_'+date+'/gal_'+gal+'/zodi_'+zodi+'/duet1/'
+        filename = date+'_duet1_'+gal+'_'+str(sfb)+'_zodi-'+zodi+'_reference.fits'
+        ref_hdu.writeto(path+filename, overwrite=True)
         #ref_hdu.writeto('data/test_ref.fits',overwrite=True)
         
         # Make source images:
@@ -135,8 +145,9 @@ def imsim(**kwargs):
                 imhdu.header['EXPTIME'] = (exposure.value, 'Exposure time (s)')
                 src_hdu.append(imhdu)
             # Write file
-            filename = 'data/image_library/tel_'+tel+'/gal_'+gal+'/zodi_'+zodi+'/duet1/'+tel+'_duet1_'+gal+'_'+str(sfb)+'_zodi-'+zodi+'_src-'+"{:5.2f}".format(srcmag)+'.fits'
-            src_hdu.writeto(filename, overwrite=True)
+            path = '/Users/duetsim/duet-sims/image_library/run_'+date+'/gal_'+gal+'/zodi_'+zodi+'/duet1/'
+            filename = date+'_duet1_'+gal+'_'+str(sfb)+'_zodi-'+zodi+'_src-'+"{:5.2f}".format(srcmag)+'.fits'
+            src_hdu.writeto(path+filename, overwrite=True)
             #src_hdu.writeto('test_im.fits',overwrite=True)
 
     # Same for DUET2
@@ -160,8 +171,9 @@ def imsim(**kwargs):
             imhdu.header['EXPTIME'] = (nref*exposure.value, 'Total exposure time of reference image (s)')
             ref_hdu.append(imhdu)
         # Write file    
-        filename = 'data/image_library/tel_'+tel+'/gal_'+gal+'/zodi_'+zodi+'/duet2/'+tel+'_duet2_'+gal+'_'+str(sfb)+'_zodi-'+zodi+'_reference.fits'
-        ref_hdu.writeto(filename, overwrite=True)
+        path = '/Users/duetsim/duet-sims/image_library/run_'+date+'/gal_'+gal+'/zodi_'+zodi+'/duet2/'
+        filename = date+'_duet2_'+gal+'_'+str(sfb)+'_zodi-'+zodi+'_reference.fits'
+        ref_hdu.writeto(path+filename, overwrite=True)
         #ref_hdu.writeto('data/test_ref.fits',overwrite=True)
         
         # Make source images:
@@ -189,8 +201,9 @@ def imsim(**kwargs):
                 imhdu.header['EXPTIME'] = (exposure.value, 'Exposure time (s)')
                 src_hdu.append(imhdu)
             # Write file
-            filename = 'data/image_library/tel_'+tel+'/gal_'+gal+'/zodi_'+zodi+'/duet2/'+tel+'_duet2_'+gal+'_'+str(sfb)+'_zodi-'+zodi+'_src-'+"{:5.2f}".format(srcmag)+'.fits'
-            src_hdu.writeto(filename, overwrite=True)
+            path = '/Users/duetsim/duet-sims/image_library/run_'+date+'/gal_'+gal+'/zodi_'+zodi+'/duet2/'
+            filename = date+'_duet2_'+gal+'_'+str(sfb)+'_zodi-'+zodi+'_src-'+"{:5.2f}".format(srcmag)+'.fits'
+            src_hdu.writeto(path+filename, overwrite=True)
             #src_hdu.writeto('test_im.fits',overwrite=True)
                 
         
