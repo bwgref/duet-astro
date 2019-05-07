@@ -107,10 +107,12 @@ class Telescope():
 
     def __init__(self, config='baseline'):
 
+        assert config in ['baseline', 'reduced_baseline'], \
+            'Bad config option "'+config+'"'
         if config is 'baseline':
             self._set_baseline()
-  
-
+        elif config is 'reduced_baseline':
+            self._set_reduced_baseline()
 
         # Detector-specific values
 
@@ -184,6 +186,49 @@ class Telescope():
             'description' : ['CBE DUET 1 Bandpass', 'CBE DUET 2 Bandpass'],
             'names' : [datadir+'duet1_filter_light.csv', datadir+'duet2_filter_light.csv']
         }
+
+
+    def _set_reduced_baseline(self):
+        '''Reduced baseline configuration. Duplicate this with different values
+        and/or 
+        '''
+        
+        reduction = 0.8
+        self.EPD = 26*u.cm
+        self.eff_epd = reduction*24.2*u.cm
+        psf_fwhm_um = 6.7*u.micron
+        pixel = 10*u.micron
+        plate_scale = 6.4*u.arcsec / pixel  # arcsec per micron
+        self.pixel = plate_scale * pixel
+
+        # Transmission through the Schmidt plates
+        self.trans_eff = (0.975)**8 # from Jim.
+
+        self.psf_params = {
+        'sig':[2.08, 4.26]*u.arcsec,
+        'amp':[1, 0.1],
+        'norm':[0.505053538858156, 0.21185072119504136]
+        }
+        # Computed by calc_psf_hpd, but hardcoded here.
+        self.psf_fwhm = 5.0 * u.arcsec
+        
+        # Set QE files here:
+        
+        self.qe_files = {
+            'description' : ['DUET 1 CBE QE', 'DUET 2 CBE QE'],
+            'names' : [datadir+'detector_180_220nm.csv', datadir+'detector_260_300nm.csv']
+        }
+
+        self.reflectivity_file = {
+            'description' : 'CBE Reflectivity',
+            'name' : datadir+'al_mgf2_mirror_coatings.csv'
+        }
+
+        self.bandpass_files = {
+            'description' : ['CBE DUET 1 Bandpass', 'CBE DUET 2 Bandpass'],
+            'names' : [datadir+'duet1_filter_light.csv', datadir+'duet2_filter_light.csv']
+        }
+
 
 
     def info(self):
@@ -460,7 +505,6 @@ class Telescope():
         qe_file = self.qe_files['names'][band_ind]
         reflectivity_file = self.reflectivity_file['name']
         bandpass_file = self.bandpass_files['names'][band_ind]
-
 
         # Load filters
         ref_wave, reflectivity = load_reflectivity(infile = reflectivity_file, **kwargs)
