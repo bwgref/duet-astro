@@ -96,6 +96,9 @@ class Telescope():
     read_noise: float
         RMS noise in the detetors per frame read
 
+    plate_scale : float
+        Astropy units value for arcsec / micron
+
     Examples
     --------
     >>> duet = Telescope()
@@ -174,8 +177,8 @@ class Telescope():
         self.eff_epd = 24.2*u.cm
         psf_fwhm_um = 6.7*u.micron
         pixel = 10*u.micron
-        plate_scale = 6.4*u.arcsec / pixel  # arcsec per micron
-        self.pixel = plate_scale * pixel
+        self.plate_scale = 6.4*u.arcsec / pixel  # arcsec per micron
+        self.pixel = self.plate_scale * pixel
 
         # Transmission through the Schmidt plates
         self.trans_eff = (0.975)**8 # from Jim.
@@ -208,19 +211,21 @@ class Telescope():
         self.eff_epd = 24.0*u.cm
         psf_fwhm_um = 6.7*u.micron
         pixel = 10*u.micron
-        plate_scale = 6.25*u.arcsec / pixel  # arcsec per micron
-        self.pixel = plate_scale * pixel
+        self.plate_scale = 6.25*u.arcsec / pixel  # arcsec per micron
+        self.pixel = self.plate_scale * pixel
 
         # Transmission through the Schmidt plates
         self.trans_eff = (0.975)**8 # from Jim.
 
+        # Below are in 
         self.psf_params = {
-        'sig':[5.0*u.micron*plate_scale],
-        'amp':[1.0],
-        'norm':[1.0]
+        'sig':[2.08, 4.26]*u.arcsec,
+        'amp':[1, 0.1],
+        'norm':[0.505053538858156, 0.21185072119504136]
         }
+
         # Computed by calc_psf_hpd, but hardcoded here.
-        self.psf_fwhm = 7.2 * u.arcsec
+        self.psf_fwhm = 7.0 * u.arcsec
 
         self.reflectivity_file = {
             'description' : 'CBE Reflectivity',
@@ -241,8 +246,8 @@ class Telescope():
         self.eff_epd = 24.4*u.cm
         psf_fwhm_um = 6.7*u.micron
         pixel = 10*u.micron
-        plate_scale = 6.67*u.arcsec / pixel  # arcsec per micron
-        self.pixel = plate_scale * pixel
+        self.plate_scale = 6.67*u.arcsec / pixel  # arcsec per micron
+        self.pixel = self.plate_scale * pixel
 
         # Transmission through the Schmidt plates
         self.trans_eff = (0.975)**8 # from Jim.
@@ -274,8 +279,8 @@ class Telescope():
         self.eff_epd = 22.5*u.cm
         psf_fwhm_um = 6.7*u.micron
         pixel = 10*u.micron
-        plate_scale = 5.0*u.arcsec / pixel  # arcsec per micron
-        self.pixel = plate_scale * pixel
+        self.plate_scale = 5.0*u.arcsec / pixel  # arcsec per micron
+        self.pixel = self.plate_scale * pixel
 
         # Transmission through the Schmidt plates
         self.trans_eff = (0.975)**8 # from Jim.
@@ -307,8 +312,8 @@ class Telescope():
         self.eff_epd = 32.0*u.cm
         psf_fwhm_um = 6.7*u.micron
         pixel = 10*u.micron
-        plate_scale = 5.0*u.arcsec / pixel  # arcsec per micron
-        self.pixel = plate_scale * pixel
+        self.plate_scale = 5.0*u.arcsec / pixel  # arcsec per micron
+        self.pixel = self.plate_scale * pixel
 
         # Transmission through the Schmidt plates
         self.trans_eff = (0.975)**8 # from Jim.
@@ -341,8 +346,8 @@ class Telescope():
         self.eff_epd = reduction*24.2*u.cm
         psf_fwhm_um = 6.7*u.micron
         pixel = 10*u.micron
-        plate_scale = 6.4*u.arcsec / pixel  # arcsec per micron
-        self.pixel = plate_scale * pixel
+        self.plate_scale = 6.4*u.arcsec / pixel  # arcsec per micron
+        self.pixel = self.plate_scale * pixel
 
         # Transmission through the Schmidt plates
         self.trans_eff = (0.975)**8 # from Jim.
@@ -424,7 +429,7 @@ class Telescope():
 
         '''
         self.psf_params['norm'] = self.compute_psf_norms()
-        self.psf_fwhm = self.calc_psf_hpd()
+        self.psf_fwhm = self.calc_psf_fwhm()
         self.update_psf()
         self.neff = get_neff(self.psf_size, self.pixel)
 
@@ -460,7 +465,6 @@ class Telescope():
 
         return pix_size, np.array(radialprofile)
 
-    # Allow some things to get updated.
     def calc_psf_fwhm(self):
         '''
         Computes the FWHM of the 2D PSF kernel. Only do this if you change the PSF
