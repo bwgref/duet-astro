@@ -17,3 +17,4 @@ astroduet/data/*DUET.fits
 notebooks/debug_imgs*
 notebooks/*hdf5
 htmlcov/
+*.csv
