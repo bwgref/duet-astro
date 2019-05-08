@@ -52,7 +52,7 @@ def imsim(**kwargs):
     sfb_lim = kwargs.pop('sfb', [18,26])
     nmags = kwargs.pop('nmags', 50)
     nsrc = kwargs.pop('nsrc', 100)
-    date = kwargs.pop(date, '050719') 
+    date = kwargs.pop('date', '050719') 
 
     # set some telescope, instrument parameters; check this bit with new setup files
     if tel == 'best':
