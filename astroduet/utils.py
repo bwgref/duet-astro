@@ -130,7 +130,7 @@ def load_neff():
     from astropy.table import Table
     ref_file = os.path.join(datadir, 'neff_data_full.dat')
 
-    neff_table = Table.read('../astroduet/data/neff_data_full.dat', format='ascii')
+    neff_table = Table.read(ref_file, format='ascii')
        
 #    oversig, oversample, neff_center, neff_corner, neff_avg = genfromtxt(ref_file, unpack=True, skip_header=True)
     return neff_table['pix-fwhm'].data, neff_table['avg'].data
