@@ -111,7 +111,7 @@ class Telescope():
     def __init__(self, config='baseline'):
 
         self.config_list = ['baseline', 'classic', 'minimum_mass', 
-            'fine_plate','large_aperture', 'reduced_baseline']
+            'fine_plate','equal_mass','largest_aperture', 'reduced_baseline']
 
         assert config in self.config_list, 'Bad config option "'+config+'"'
             
@@ -125,8 +125,10 @@ class Telescope():
             self.set_minimum_mass()
         elif config is 'fine_plate':
             self.set_fine_plate()
-        elif config is 'large_aperture':
-            self.set_large_aperature()
+        elif config is 'equal_mass':
+            self.set_equal_mass()
+        elif config is 'largest_aperture':
+            self.set_largest_aperature()
         
         self.config=config
             
@@ -208,7 +210,7 @@ class Telescope():
         '''
     
         self.EPD = 26*u.cm
-        self.eff_epd = 24.0*u.cm
+        self.eff_epd = 24.5*u.cm
         psf_fwhm_um = 6.7*u.micron
         pixel = 10*u.micron
         self.plate_scale = 6.25*u.arcsec / pixel  # arcsec per micron
@@ -219,13 +221,13 @@ class Telescope():
 
         # Below are in 
         self.psf_params = {
-        'sig':[2.08, 4.26]*u.arcsec,
-        'amp':[1, 0.1],
-        'norm':[0.505053538858156, 0.21185072119504136]
+        'sig':[3.2*u.micron*self.plate_scale],
+        'amp':[1.0],
+        'norm':[1.0]
         }
 
-        # Computed by calc_psf_hpd, but hardcoded here.
-        self.psf_fwhm = 7.0 * u.arcsec
+        # Computed by calc_psf_fwhm, but hardcoded here for speed.
+        self.psf_fwhm = 4.6 * u.arcsec
 
         self.reflectivity_file = {
             'description' : 'CBE Reflectivity',
@@ -243,7 +245,7 @@ class Telescope():
         '''
     
         self.EPD = 26*u.cm
-        self.eff_epd = 24.4*u.cm
+        self.eff_epd = 24.5*u.cm
         psf_fwhm_um = 6.7*u.micron
         pixel = 10*u.micron
         self.plate_scale = 6.67*u.arcsec / pixel  # arcsec per micron
@@ -253,12 +255,12 @@ class Telescope():
         self.trans_eff = (0.975)**8 # from Jim.
 
         self.psf_params = {
-        'sig':[2.08, 4.26]*u.arcsec,
-        'amp':[1, 0.1],
-        'norm':[0.505053538858156, 0.21185072119504136]
+        'sig':[5.3*u.micron*self.plate_scale],
+        'amp':[1.0],
+        'norm':[1.0]
         }
         # Computed by calc_psf_hpd, but hardcoded here.
-        self.psf_fwhm = 5.0 * u.arcsec
+        self.psf_fwhm = 8.2 * u.arcsec
 
         self.reflectivity_file = {
             'description' : 'CBE Reflectivity',
@@ -276,22 +278,22 @@ class Telescope():
         '''
     
         self.EPD = 26*u.cm
-        self.eff_epd = 22.5*u.cm
+        self.eff_epd = 23.9*u.cm
         psf_fwhm_um = 6.7*u.micron
         pixel = 10*u.micron
-        self.plate_scale = 5.0*u.arcsec / pixel  # arcsec per micron
+        self.plate_scale = 5.03*u.arcsec / pixel  # arcsec per micron
         self.pixel = self.plate_scale * pixel
 
         # Transmission through the Schmidt plates
         self.trans_eff = (0.975)**8 # from Jim.
 
         self.psf_params = {
-        'sig':[2.08, 4.26]*u.arcsec,
-        'amp':[1, 0.1],
-        'norm':[0.505053538858156, 0.21185072119504136]
+        'sig':[2.8*u.micron*self.plate_scale],
+        'amp':[1],
+        'norm':[1.0]
         }
         # Computed by calc_psf_hpd, but hardcoded here.
-        self.psf_fwhm = 5.0 * u.arcsec
+        self.psf_fwhm = 3.2 * u.arcsec
 
         self.reflectivity_file = {
             'description' : 'CBE Reflectivity',
@@ -303,28 +305,28 @@ class Telescope():
             'names' : [datadir+'duet1_filter_light.csv', datadir+'duet2_filter_light.csv']
         }
 
-    def set_large_aperature(self):
+    def set_equal_mass(self):
         '''Largest aperture configuration. 
         
         '''
     
-        self.EPD = 34*u.cm
-        self.eff_epd = 32.0*u.cm
+        self.EPD = 31.9*u.cm
+        self.eff_epd = 30.0*u.cm
         psf_fwhm_um = 6.7*u.micron
         pixel = 10*u.micron
-        self.plate_scale = 5.0*u.arcsec / pixel  # arcsec per micron
+        self.plate_scale = 5.03*u.arcsec / pixel  # arcsec per micron
         self.pixel = self.plate_scale * pixel
 
         # Transmission through the Schmidt plates
         self.trans_eff = (0.975)**8 # from Jim.
 
         self.psf_params = {
-        'sig':[2.08, 4.26]*u.arcsec,
-        'amp':[1, 0.1],
-        'norm':[0.505053538858156, 0.21185072119504136]
+        'sig':[4.8*u.micron*self.plate_scale],
+        'amp':[1],
+        'norm':[1.0]
         }
         # Computed by calc_psf_hpd, but hardcoded here.
-        self.psf_fwhm = 5.0 * u.arcsec
+        self.psf_fwhm = 5.4 * u.arcsec
 
         self.reflectivity_file = {
             'description' : 'CBE Reflectivity',
@@ -335,7 +337,40 @@ class Telescope():
             'description' : ['CBE DUET 1 Bandpass', 'CBE DUET 2 Bandpass'],
             'names' : [datadir+'duet1_filter_light.csv', datadir+'duet2_filter_light.csv']
         }
+        
+    def set_largest_aperature(self):
+        '''Largest aperture configuration. 
+        
+        '''
+    
+        self.EPD = 33.8*u.cm
+        self.eff_epd = 32.0*u.cm
+        psf_fwhm_um = 6.7*u.micron
+        pixel = 10*u.micron
+        self.plate_scale = 5.03*u.arcsec / pixel  # arcsec per micron
+        self.pixel = self.plate_scale * pixel
 
+        # Transmission through the Schmidt plates
+        self.trans_eff = (0.975)**8 # from Jim.
+
+        self.psf_params = {
+        'sig':[6.0]*u.arcsec,
+        'amp':[1],
+        'norm':[1.0]
+        }
+        # Computed by calc_psf_hpd, but hardcoded here.
+        self.psf_fwhm = 14.0 * u.arcsec
+
+        self.reflectivity_file = {
+            'description' : 'CBE Reflectivity',
+            'name' : datadir+'al_mgf2_mirror_coatings.csv'
+        }
+
+        self.bandpass_files = {
+            'description' : ['CBE DUET 1 Bandpass', 'CBE DUET 2 Bandpass'],
+            'names' : [datadir+'duet1_filter_light.csv', datadir+'duet2_filter_light.csv']
+        }
+        
     def set_reduced_baseline(self):
         '''Reduced baseline configuration. Duplicate this with different values
         and/or 
@@ -438,7 +473,7 @@ class Telescope():
         The python way, from Stack Overflow
         https://stackoverflow.com/questions/21242011/most-efficient-way-to-calculate-radial-profile
 
-        Returns the radial profile and the pixel size
+        Returns the radial profile and the pixel size used to computer. 
 
         '''
         import numpy as np
