@@ -223,7 +223,7 @@ class Telescope():
         self.psf_params = {
         'sig':[3.2*u.micron*self.plate_scale],
         'amp':[1.0],
-        'norm':[1.0]
+        'norm':[0.624335784627981]
         }
 
         # Computed by calc_psf_fwhm, but hardcoded here for speed.
@@ -257,7 +257,7 @@ class Telescope():
         self.psf_params = {
         'sig':[5.3*u.micron*self.plate_scale],
         'amp':[1.0],
-        'norm':[1.0]
+        'norm':[0.9845499186721847]
         }
         # Computed by calc_psf_hpd, but hardcoded here.
         self.psf_fwhm = 8.2 * u.arcsec
@@ -290,7 +290,7 @@ class Telescope():
         self.psf_params = {
         'sig':[2.8*u.micron*self.plate_scale],
         'amp':[1],
-        'norm':[1.0]
+        'norm':[0.48927044820341287]
         }
         # Computed by calc_psf_hpd, but hardcoded here.
         self.psf_fwhm = 3.2 * u.arcsec
@@ -323,7 +323,7 @@ class Telescope():
         self.psf_params = {
         'sig':[4.8*u.micron*self.plate_scale],
         'amp':[1],
-        'norm':[1.0]
+        'norm':[0.9589514449942292]
         }
         # Computed by calc_psf_hpd, but hardcoded here.
         self.psf_fwhm = 5.4 * u.arcsec
@@ -354,12 +354,12 @@ class Telescope():
         self.trans_eff = (0.975)**8 # from Jim.
 
         self.psf_params = {
-        'sig':[6.0]*u.arcsec,
-        'amp':[1],
-        'norm':[1.0]
+        'sig':[6.0*u.micron*self.plate_scale],
+        'amp':[1.0],
+        'norm':[0.9967376175195871]
         }
         # Computed by calc_psf_hpd, but hardcoded here.
-        self.psf_fwhm = 14.0 * u.arcsec
+        self.psf_fwhm = 7.0 * u.arcsec
 
         self.reflectivity_file = {
             'description' : 'CBE Reflectivity',
@@ -477,9 +477,9 @@ class Telescope():
 
         '''
         import numpy as np
-        pix_size = 0.1*u.arcsec
-        xsize = 1001
-        ysize = 1001
+        pix_size = 0.01*u.arcsec
+        xsize = 2001
+        ysize = 2001
         psf_model = self.psf_model(pixel_size=pix_size, x_size=xsize, y_size=ysize)
         data = psf_model.array
 
