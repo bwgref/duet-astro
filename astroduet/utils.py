@@ -127,11 +127,13 @@ def load_neff():
     """
     import os
     from numpy import genfromtxt
-    ref_file = os.path.join(datadir, 'neff_data.dat')
-    header=True
-    neff = {}
-    oversample, neff = genfromtxt(ref_file, unpack=True, skip_header=True)
-    return oversample, neff
+    from astropy.table import Table
+    ref_file = os.path.join(datadir, 'neff_data_full.dat')
+
+    neff_table = Table.read(ref_file, format='ascii')
+       
+#    oversig, oversample, neff_center, neff_corner, neff_avg = genfromtxt(ref_file, unpack=True, skip_header=True)
+    return neff_table['pix-fwhm'].data, neff_table['avg'].data
 
 
 def get_neff(psf_size, pixel_size):
@@ -158,7 +160,7 @@ def get_neff(psf_size, pixel_size):
     >>> from astroduet.config import Telescope
     >>> duet = Telescope()
     >>> neff = get_neff(duet.psf_size, duet.pixel)
-    >>> np.isclose(neff, 3.3581908798935647)
+    >>> np.isclose(neff, 3.98911789551266)
     True
 
     """
