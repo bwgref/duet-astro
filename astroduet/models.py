@@ -54,14 +54,24 @@ class Simulations():
 
 
 
-    def parse_emgw(self):
+    def parse_emgw(self, diag=False):
         '''
         Loop over each EMGW GRB shock model and save the outputs
+    
+        Optional parameters
+        -------------------
+        
+        diag: boolean
+            Just run one test instead of looping over all for unit tests
+
 
         '''
 
         self.emgw_processed = np.array([])
-        for shockf in self.emgw_simulations:
+        for ind, shockf in enumerate(self.emgw_simulations):
+            if diag is True:
+                if ind > 0:
+                    break
             sname = os.path.splitext(shockf)[0]
             print('Parsing and storing: {}'.format(sname))
             outfile = datadir+'/'+sname+'_lightcurve_DUET.fits'
