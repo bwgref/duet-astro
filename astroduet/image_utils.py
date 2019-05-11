@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 from astropy import units as u
 from scipy.signal import convolve2d
 from astroduet.config import Telescope
-from astropy.convolution import convolve
+from astropy.convolution import convolve, Gaussian2DKernel
 
 # def gaussian_psf(fwhm,patch_size,pixel_size):
 #     '''
@@ -248,18 +248,11 @@ def construct_image(frame,exposure,
     # Result should now be (floats) expected number of photons per pixel per second
     # in the oversampled imae
 
-    # 4. Convolve with the PSF (need to re-apply units here as it's lost in convolution)
-    im_psf = convolve(im_array, psf_kernel)*im_array.unit
+    # 4. Convolve with the PSF 
+    im_psf_temp = convolve(im_array.value, psf_kernel)
 
-    #
-    #
-    #
-    # NEEDS TO BE ADDED HERE OR THOUGHT ABOUT!
-    # Apply jitter at this stage? Shuffle everything around by a pixel or something
-    #
-    #
-    #
-
+    # Convolve again, now with the pointing jitter (need to re-apply units here as it's lost in convolution)
+    im_psf = convolve(im_psf_temp, Gaussian2DKernel((duet.psf_jitter/pixel_size_init).value)) * im_array.unit
 
     # 5. Bin up the image by oversample parameter to the correct pixel size
     shape = (frame[0], oversample, frame[1], oversample)
