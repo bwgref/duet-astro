@@ -112,7 +112,7 @@ def imsim(**kwargs):
                                 band='DUET1', nframes=len(ref_arr), exptime=exposure.value)
         for nref in ref_arr:
             image = construct_image(frame, exposure, gal_type='custom', gal_params=gal_params, source=None,
-                            sky_rate=bgd_band1, n_exp=nref)
+                            sky_rate=bgd_band1, n_exp=nref, duet=duet)
             imhdu = fits.ImageHDU(image.value)
             imhdu.header['NFRAMES'] = (nref, 'Number of frames in reference image')
             imhdu.header['BUNIT'] = image.unit.to_string()
@@ -140,7 +140,7 @@ def imsim(**kwargs):
             for i in range(nsrc):
                 source_loc = np.array([gal_startx+2*gal_sizex*np.random.random(), gal_starty+2*gal_sizey*np.random.random()])
                 image = construct_image(frame, exposure, gal_type='custom', gal_params=gal_params, source=src_fluence,
-                            source_loc=source_loc, sky_rate=bgd_band1, n_exp=1)
+                            source_loc=source_loc, sky_rate=bgd_band1, n_exp=1, duet=duet)
                 imhdu = fits.ImageHDU(image.value)
                 imhdu.header['SRC_POSX'] = (source_loc[0]*frame[0], 'X-position of source in image (pixels)')
                 imhdu.header['SRC_POSY'] = (source_loc[1]*frame[1], 'Y-position of source in image (pixels)')
@@ -167,7 +167,7 @@ def imsim(**kwargs):
                                 band='DUET2', nframes=len(ref_arr), exptime=exposure.value)
         for nref in ref_arr:
             image = construct_image(frame, exposure, gal_type='custom', gal_params=gal_params, source=None,
-                            sky_rate=bgd_band2, n_exp=nref)
+                            sky_rate=bgd_band2, n_exp=nref, duet=duet)
             imhdu = fits.ImageHDU(image.value)
             imhdu.header['NFRAMES'] = (nref, 'Number of frames in reference image')
             imhdu.header['BUNIT'] = image.unit.to_string()
@@ -195,7 +195,7 @@ def imsim(**kwargs):
             for i in range(nsrc):
                 source_loc = np.array([gal_startx+2*gal_sizex*np.random.random(), gal_starty+2*gal_sizey*np.random.random()])
                 image = construct_image(frame, exposure, gal_type='custom', gal_params=gal_params, source=src_fluence,
-                            source_loc=source_loc, sky_rate=bgd_band2, n_exp=1)
+                            source_loc=source_loc, sky_rate=bgd_band2, n_exp=1, duet=duet)
                 imhdu = fits.ImageHDU(image.value)
                 imhdu.header['SRC_POSX'] = (source_loc[0]*frame[0], 'X-position of source in image (pixels)')
                 imhdu.header['SRC_POSY'] = (source_loc[1]*frame[1], 'Y-position of source in image (pixels)')
@@ -283,7 +283,7 @@ def imsim_no_gal(**kwargs):
                             band='DUET1', nframes=len(ref_arr), exptime=exposure.value)
     for nref in ref_arr:
         image = construct_image(frame, exposure, gal_type=None, source=None,
-                        sky_rate=bgd_band1, n_exp=nref)
+                        sky_rate=bgd_band1, n_exp=nref, duet=duet)
         imhdu = fits.ImageHDU(image.value)
         imhdu.header['NFRAMES'] = (nref, 'Number of frames in reference image')
         imhdu.header['BUNIT'] = image.unit.to_string()
@@ -306,7 +306,7 @@ def imsim_no_gal(**kwargs):
         for i in range(nsrc):
             source_loc = np.array([np.random.random(), np.random.random()])
             image = construct_image(frame, exposure, gal_type=None, source=src_fluence,
-                        source_loc=source_loc, sky_rate=bgd_band1, n_exp=1)
+                        source_loc=source_loc, sky_rate=bgd_band1, n_exp=1, duet=duet)
             imhdu = fits.ImageHDU(image.value)
             imhdu.header['SRC_POSX'] = (source_loc[0]*frame[0], 'X-position of source in image (pixels)')
             imhdu.header['SRC_POSY'] = (source_loc[1]*frame[1], 'Y-position of source in image (pixels)')
@@ -328,7 +328,7 @@ def imsim_no_gal(**kwargs):
                             band='DUET2', nframes=len(ref_arr), exptime=exposure.value)
     for nref in ref_arr:
         image = construct_image(frame, exposure, gal_type=None, source=None,
-                        sky_rate=bgd_band2, n_exp=nref)
+                        sky_rate=bgd_band2, n_exp=nref, duet=duet)
         imhdu = fits.ImageHDU(image.value)
         imhdu.header['NFRAMES'] = (nref, 'Number of frames in reference image')
         imhdu.header['BUNIT'] = image.unit.to_string()
@@ -351,7 +351,7 @@ def imsim_no_gal(**kwargs):
         for i in range(nsrc):
             source_loc = np.array([np.random.random(), np.random.random()])
             image = construct_image(frame, exposure, gal_type=None, source=src_fluence,
-                        source_loc=source_loc, sky_rate=bgd_band2, n_exp=1)
+                        source_loc=source_loc, sky_rate=bgd_band2, n_exp=1, duet=duet)
             imhdu = fits.ImageHDU(image.value)
             imhdu.header['SRC_POSX'] = (source_loc[0]*frame[0], 'X-position of source in image (pixels)')
             imhdu.header['SRC_POSY'] = (source_loc[1]*frame[1], 'Y-position of source in image (pixels)')

@@ -252,7 +252,7 @@ def construct_image(frame,exposure,
     im_psf_temp = convolve(im_array.value, psf_kernel)
 
     # Convolve again, now with the pointing jitter (need to re-apply units here as it's lost in convolution)
-    im_psf = convolve(im_psf_temp, Gaussian2DKernel((duet.psf_jitter/pixel_size_init).value)) * im_array.unit
+    im_psf = convolve(im_psf_temp, Gaussian2DKernel((duet.jitter_rms/pixel_size_init).value)) * im_array.unit
 
     # 5. Bin up the image by oversample parameter to the correct pixel size
     shape = (frame[0], oversample, frame[1], oversample)

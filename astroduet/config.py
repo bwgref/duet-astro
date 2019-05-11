@@ -250,6 +250,7 @@ class Telescope():
         pixel = 10*u.micron
         self.plate_scale = 6.67*u.arcsec / pixel  # arcsec per micron
         self.pixel = self.plate_scale * pixel
+        self.jitter_rms = 11.8 * u.micron * self.plate_scale
 
         # Transmission through the Schmidt plates
         self.trans_eff = (0.975)**8 # from Jim.
