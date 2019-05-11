@@ -279,7 +279,7 @@ def imsim_no_gal(**kwargs):
     print('Building reference images...')
     empty_hdu = fits.PrimaryHDU()
     ref_hdu = fits.HDUList([empty_hdu])
-    ref_hdu = update_header(ref_hdu, im_type='reference', zodi=zodi, gal='None', reff=reff.value, 
+    ref_hdu = update_header(ref_hdu, im_type='reference', zodi=zodi, gal='None', 
                             band='DUET1', nframes=len(ref_arr), exptime=exposure.value)
     for nref in ref_arr:
         image = construct_image(frame, exposure, gal_type=None, source=None,
@@ -300,7 +300,7 @@ def imsim_no_gal(**kwargs):
     for srcmag in srcmag_arr:
         empty_hdu = fits.PrimaryHDU()
         src_hdu = fits.HDUList([empty_hdu])
-        src_hdu = update_header(src_hdu, im_type='source', zodi=zodi, gal='None', reff=reff.value, 
+        src_hdu = update_header(src_hdu, im_type='source', zodi=zodi, gal='None', 
                                 band='DUET1', srcmag=srcmag, nframes=nsrc, exptime=exposure.value)
         src_fluence = duet.fluence_to_rate(duet_abmag_to_fluence(srcmag*u.ABmag, duet.bandpass1))
         for i in range(nsrc):
@@ -324,7 +324,7 @@ def imsim_no_gal(**kwargs):
     print('Building reference images...')
     empty_hdu = fits.PrimaryHDU()
     ref_hdu = fits.HDUList([empty_hdu])
-    ref_hdu = update_header(ref_hdu, im_type='reference', zodi=zodi, gal='None', reff=reff.value, 
+    ref_hdu = update_header(ref_hdu, im_type='reference', zodi=zodi, gal='None', 
                             band='DUET2', nframes=len(ref_arr), exptime=exposure.value)
     for nref in ref_arr:
         image = construct_image(frame, exposure, gal_type=None, source=None,
@@ -345,7 +345,7 @@ def imsim_no_gal(**kwargs):
     for srcmag in srcmag_arr:
         empty_hdu = fits.PrimaryHDU()
         src_hdu = fits.HDUList([empty_hdu])
-        src_hdu = update_header(src_hdu, im_type='source', zodi=zodi, gal='None', reff=reff.value, 
+        src_hdu = update_header(src_hdu, im_type='source', zodi=zodi, gal='None', 
                                 band='DUET2', srcmag=srcmag, nframes=nsrc, exptime=exposure.value)
         src_fluence = duet.fluence_to_rate(duet_abmag_to_fluence(srcmag*u.ABmag, duet.bandpass2))
         for i in range(nsrc):
