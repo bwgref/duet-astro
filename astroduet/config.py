@@ -184,7 +184,7 @@ class Telescope():
 
         # Transmission through the Schmidt plates
         self.trans_eff = (0.975)**8 # from Jim.
-        self.jitter_rms = 1 * u.micron * self.plate_scale
+        self.jitter_rms = 11.8 * u.micron * self.plate_scale
 
         # Below are in 
         self.psf_params = {
