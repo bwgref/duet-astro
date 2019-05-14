@@ -434,7 +434,7 @@ def imsim_srcdetect(run='050719',gal='spiral',zodi='low',band='duet1', nmags=71,
     """
     Run background estimation, image differencing and source detection on simulated images
     
-    Currently set up to run on atlas.
+    Assumes that the script is run in the directory that contains the run_... directory tree
     
     Parameters
     ----------   
@@ -459,27 +459,19 @@ def imsim_srcdetect(run='050719',gal='spiral',zodi='low',band='duet1', nmags=71,
     """
     # Get telescope configuration from teldef file:
     with open('run_'+run+'/teldef') as origin:
-    for line in origin:
-        if 'DUET Telescope State' in line:
-            tel = line.split(':')[1].strip('\n').strip()
+        for line in origin:
+            if 'DUET Telescope State' in line:
+                tel = line.split(':')[1].strip('\n').strip()
 
     # Initialize parameters
     duet = Telescope(config=tel)
     
-    # PSF stuff
-    oversample = 5
-    pixel_size_init = duet.pixel / oversample
-    psf_model = duet.psf_model(pixel_size=pixel_size_init, x_size=25, y_size=25)
-    psf_os = psf_model.array
-    shape = (5, 5, 5, 5)
-    psf_array = psf_os.reshape(shape).sum(-1).sum(1)
-    psf_fwhm_pix = duet.psf_fwhm / duet.pixel
-
     # Set up path
-    path = '/Users/duetsim/duet-sims/image_library/run_'+run+'/gal_'+gal+'/zodi_'+zodi+'/'+band+'/'
+    path = 'run_'+run+'/gal_'+gal+'/zodi_'+zodi+'/'+band+'/'
     
     # Make galaxy surface brightness array
-    sfb_arr = np.arange(sfb_lim[0],sfb_lim[1]+1.).astype(str)
+    if gal is not 'none':
+        sfb_arr = np.arange(sfb_lim[0],sfb_lim[1]+1.).astype(str)
 
     if band is 'duet1':
         bandpass = duet.bandpass1
@@ -495,196 +487,41 @@ def imsim_srcdetect(run='050719',gal='spiral',zodi='low',band='duet1', nmags=71,
     tab = Table(np.zeros(9), names=('galmag', 'srcmag', 'src-ctrate', 'dist', 'ref_depth', 'detected',
                                                     'ctrate', 'ctrate_err', 'false-pos'), dtype=('f8','f8','f8','f8',
                                                     'i8','b','f8','f8','i8'), meta={'name': gal+' - '+zodi+ 'zodi - '+band})
-    
-    for sfb in sfb_arr:
-        print('SFB: '+sfb)
-        reffile = run+'_'+band+'_'+gal+'_'+sfb+'_zodi-'+zodi+'_reference.fits'
+    if gal is 'none':
+        reffile = run+'_'+band+'_zodi-'+zodi+'_reference.fits'
         hdu_ref = fits.open(path+reffile)
-        
-        for i in range(hdu_ref[0].header['NEXTEND']):
-            # Prepare reference image:
-            ref_image_rate = hdu_ref[i+1].data / hdu_ref[i+1].header['EXPTIME'] *u.ph / u.s
-            ref_bkg, ref_bkg_rms_median = estimate_background(ref_image_rate, method='1D', sigma=2)
-            ref_rate_bkgsub = ref_image_rate - ref_bkg
-            s_r = np.sqrt(ref_image_rate)
-            sr = np.mean(s_r)
-            # Get depth of reference image
-            ref_depth = hdu_ref[i+1].header['NFRAMES']
             
-            for srcmag in src_arr:
-                imfile = run+'_'+band+'_'+gal+'_'+sfb+'_zodi-'+zodi+'_src-'+"{:5.2f}".format(srcmag)+'.fits'
-                hdu_im = fits.open(path+imfile)
-                # Get input countrate
-                src_ctrate = duet.fluence_to_rate(duet_abmag_to_fluence(srcmag*u.ABmag, bandpass))
-                for j in range(hdu_im[0].header['NEXTEND']):
-                    # Get source distance from center of galaxy
-                    dist = np.sqrt((14.5-hdu_im[j+1].header['SRC_POSX'])**2 + (14.5-hdu_im[j+1].header['SRC_POSY'])**2) * duet.pixel
-                    # Prepare science image:
-                    image_rate = hdu_im[j+1].data / hdu_im[j+1].header['EXPTIME'] *u.ph / u.s
-                    image_bkg, image_bkg_rms_median = estimate_background(image_rate, method='1D', sigma=2)
-                    image_rate_bkgsub = image_rate - image_bkg
-                    s_n = np.sqrt(image_rate)
-                    sn = np.mean(s_n)
-                    
-                    dx, dy = 0.1, 0.01 # Astrometric uncertainty (sigma)
-                    # Run zogy:
-                    diff_image, d_psf, s_corr = py_zogy(image_rate_bkgsub.value,
-                                        ref_rate_bkgsub.value,
-                                        psf_array,psf_array,
-                                        s_n.value,s_r.value,
-                                        sn.value,sr.value,dx,dy)
-        
-                    diff_image *= image_rate_bkgsub.unit
-                    # Find sources:
-                    star_tbl, bkg_image, threshold = find(diff_image,psf_fwhm_pix.value,method='peaks')
-                    
-                    # Define separation from input source and find nearest peak:
-                    if len(star_tbl) > 0:
-                        sep = np.sqrt((star_tbl['x'] - hdu_im[j+1].header['SRC_POSX'])**2 + (star_tbl['y'] - hdu_im[j+1].header['SRC_POSY'])**2)
-                        src = np.argmin(sep)
-                        if sep[src] < 1.5:
-                            detected = True
-                            # Run aperture photometry
-                            result, apertures, annulus_apertures = ap_phot(diff_image,star_tbl[src],duet.read_noise,hdu_im[j+1].header['EXPTIME']*u.s)
-                            ctrate, ctrate_err = result['aper_sum_bkgsub'],result['aperture_sum_err']
-                            fp = len(star_tbl) - 1
-                        else:
-                            detected = False
-                            ctrate, ctrate_err = np.nan, np.nan
-                            fp = len(star_tbl)
-                    else:
-                        detected = False
-                        ctrate, ctrate_err = np.nan, np.nan
-                        fp = len(star_tbl)
-                        
-                    tab.add_row([float(sfb), srcmag, src_ctrate, dist, ref_depth, detected,
-                                                       ctrate, ctrate_err, fp])
-                    
-                hdu_im.close()
-        hdu_ref.close()
-    tab.remove_row(0)
-    
-    # Save output table
-    tab.write('run'+run+'_gal-'+gal+'_zodi-'+zodi+'-'+band+'.fits', format='fits', overwrite=True)
-    
-def run_srcdetect_no_gal(run='050719', zodi='low', band='duet1', nmags=71):
-    """
-    Run background estimation, image differencing and source detection on simulated images
-    
-    Currently set up to run on atlas.
-    
-    Parameters
-    ----------   
-    run: string (date, as in '050719')
-        To track runs
-        
-    zodi: 'low', 'med' or 'high', default is low 
-        
-    band: 'duet1' or 'duet2'
-    
-    nmags: float, default is 71
-        Number of source magnitudes used in image simulations
-    
-    Returns
-    -------
-    run_gal_zodi_band.fits: fits table with source detection results
-    """
-    
-    # Initialize parameters
-    duet = Telescope()
-
-    # Set up path
-    path = '/Users/duetsim/duet-sims/image_library/run_'+run+'/gal_none/zodi_'+zodi+'/'+band+'/'
-    
-    if band == 'duet1':
-        bandpass = duet.bandpass1
-    elif band == 'duet2':
-        bandpass = duet.bandpass2
-        
-    srcmag_arr = np.linspace(20.5 - 0.5*(nmags-1)*0.1, 20.5 + 0.5*(nmags-1)*0.1, num=nmags, endpoint=True) # Currently in steps of 0.1 mag
-    
-    # Set up results table
-    # columns: galaxy mag, source input mag, source input count rate, distance from galaxy center, reference depth, source detected True/False, 
-    # if True: retrieved count rate, count rate error; number of false positives
-    tab = Table(np.zeros(8), names=('srcmag', 'src-ctrate', 'dist', 'ref_depth', 'detected',
-                                                    'ctrate', 'ctrate_err', 'false-pos'), dtype=('f8','f8','f8',
-                                                    'i8','b','f8','f8','i8'), meta={'name': 'source - '+zodi+ 'zodi - '+band})
-    
-    print('Detecting sources...')
-    reffile = run+'_'+band+'_zodi-'+zodi+'_reference.fits'
-    hdu_ref = fits.open(path+reffile)
-    
-    for i in range(hdu_ref[0].header['NEXTEND']):
-        # Prepare reference image:
-        ref_image_rate = hdu_ref[i+1].data / hdu_ref[i+1].header['EXPTIME'] *u.ph / u.s
-        ref_bkg, ref_bkg_rms_median = estimate_background(ref_image_rate, method='1D', sigma=2)
-        ref_rate_bkgsub = ref_image_rate - ref_bkg
-        s_r = np.sqrt(ref_image_rate)
-        sr = np.mean(s_r)
-        # Get depth of reference image
-        ref_depth = hdu_ref[i+1].header['NFRAMES']
-        
         for srcmag in src_arr:
             imfile = run+'_'+band+'_zodi-'+zodi+'_src-'+"{:5.2f}".format(srcmag)+'.fits'
             hdu_im = fits.open(path+imfile)
             # Get input countrate
             src_ctrate = duet.fluence_to_rate(duet_abmag_to_fluence(srcmag*u.ABmag, bandpass))
-            for j in range(hdu_im[0].header['NEXTEND']):
-                # Get source distance from center of galaxy
-                dist = np.sqrt((14.5-hdu_im[j+1].header['SRC_POSX'])**2 + (14.5-hdu_im[j+1].header['SRC_POSY'])**2) * duet.pixel
-                # Prepare science image:
-                image_rate = hdu_im[j+1].data / hdu_im[j+1].header['EXPTIME'] *u.ph / u.s
-                image_bkg, image_bkg_rms_median = estimate_background(image_rate, method='1D', sigma=2)
-                image_rate_bkgsub = image_rate - image_bkg
-                s_n = np.sqrt(image_rate)
-                sn = np.mean(s_n)
+            # Run source detection for this set of HDUs:        
+            tab = run_srcdetect(hdu_ref=hdu_ref, hdu_im=hdu_im, tab=tab, duet=duet, sfb=float(sfb), srcmag=srcmag, src_ctrate=src_ctrate)
+
+    else:
+        for sfb in sfb_arr:
+            print('SFB: '+sfb)
+            reffile = run+'_'+band+'_'+gal+'_'+sfb+'_zodi-'+zodi+'_reference.fits'
+            hdu_ref = fits.open(path+reffile)
                 
-                dx, dy = 0.1, 0.01 # Astrometric uncertainty (sigma)
-                # Run zogy:
-                diff_image, d_psf, s_corr = py_zogy(image_rate_bkgsub.value,
-                                    ref_rate_bkgsub.value,
-                                    psf_array,psf_array,
-                                    s_n.value,s_r.value,
-                                    sn.value,sr.value,dx,dy)
-    
-                diff_image *= image_rate_bkgsub.unit
-                # Find sources:
-                star_tbl, bkg_image, threshold = find(diff_image,psf_fwhm_pix.value,method='peaks')
-                
-                # Define separation from input source and find nearest peak:
-                if len(star_tbl) > 0:
-                    sep = np.sqrt((star_tbl['x'] - hdu_im[j+1].header['SRC_POSX'])**2 + (star_tbl['y'] - hdu_im[j+1].header['SRC_POSY'])**2)
-                    src = np.argmin(sep)
-                    if sep[src] < 1.5:
-                        detected = True
-                        # Run aperture photometry
-                        result, apertures, annulus_apertures = ap_phot(diff_image,star_tbl[src],duet.read_noise,hdu_im[j+1].header['EXPTIME']*u.s)
-                        ctrate, ctrate_err = result['aper_sum_bkgsub'],result['aperture_sum_err']
-                        fp = len(star_tbl) - 1
-                    else:
-                        detected = False
-                        ctrate, ctrate_err = np.nan, np.nan
-                        fp = len(star_tbl)
-                else:
-                    detected = False
-                    ctrate, ctrate_err = np.nan, np.nan
-                    fp = len(star_tbl)
-                    
-                tab.add_row([srcmag, src_ctrate, dist, ref_depth, detected,
-                                                   ctrate, ctrate_err, fp])
-                
-            hdu_im.close()
-    hdu_ref.close()
-    tab.remove_row(0)
-    
+            for srcmag in src_arr:
+                imfile = run+'_'+band+'_'+gal+'_'+sfb+'_zodi-'+zodi+'_src-'+"{:5.2f}".format(srcmag)+'.fits'
+                hdu_im = fits.open(path+imfile)
+                # Get input countrate
+                src_ctrate = duet.fluence_to_rate(duet_abmag_to_fluence(srcmag*u.ABmag, bandpass))
+                # Run source detection for this set of HDUs:        
+                tab = run_srcdetect(hdu_ref=hdu_ref, hdu_im=hdu_im, tab=tab, duet=duet, sfb=float(sfb), srcmag=srcmag, src_ctrate=src_ctrate)
+
     # Save output table
-    tab.write('run'+run+'_gal-none_zodi-'+zodi+'-'+band+'.fits', format='fits', overwrite=True)
-    
-def run_srcdetect(hdu_ref=hdu_ref, hdu_im=hdu_im, tab=tab, duet=duet, sfb=sfb, srcmag=srcmag, src_ctrate=src_ctrate):
+    tab.remove_row(0)
+    tab.write('run'+run+'_gal-'+gal+'_zodi-'+zodi+'-'+band+'.fits', format='fits', overwrite=True)
+        
+def run_srcdetect(**kwargs):
     """
     Run the background estimation, image differencing and source detection for given set of reference and image HDUs.
     Append the results to the input table, return the table.
-    
+        
     Parameters
     ----------   
     hdu_ref: input HDU with reference images
@@ -705,6 +542,14 @@ def run_srcdetect(hdu_ref=hdu_ref, hdu_im=hdu_im, tab=tab, duet=duet, sfb=sfb, s
     -------
     tab: table with source detection results
     """
+    hdu_ref = kwargs.pop('hdu_ref') 
+    hdu_im = kwargs.pop('hdu_im')  
+    tab = kwargs.pop('tab') 
+    duet = kwargs.pop('duet') 
+    sfb = kwargs.pop('sfb') 
+    srcmag = kwargs.pop('srcmag') 
+    src_ctrate = kwargs.pop('src_ctrate') 
+    
     # PSF stuff
     oversample = 5
     pixel_size_init = duet.pixel / oversample
@@ -753,7 +598,8 @@ def run_srcdetect(hdu_ref=hdu_ref, hdu_im=hdu_im, tab=tab, duet=duet, sfb=sfb, s
                 if sep[src] < 1.5:
                     detected = True
                     # Run aperture photometry
-                    result, apertures, annulus_apertures = ap_phot(diff_image,star_tbl[src],duet.read_noise,hdu_im[j+1].header['EXPTIME']*u.s)
+                    result, apertures, annulus_apertures = ap_phot(diff_image,star_tbl[src],duet.read_noise,
+                                    hdu_im[j+1].header['EXPTIME']*u.s,r=2*psf_fwhm_pix, r_in=2*psf_fwhm_pix,r_out=4*psf_fwhm_pix)
                     ctrate, ctrate_err = result['aper_sum_bkgsub'],result['aperture_sum_err']
                     fp = len(star_tbl) - 1
                 else:
@@ -765,12 +611,10 @@ def run_srcdetect(hdu_ref=hdu_ref, hdu_im=hdu_im, tab=tab, duet=duet, sfb=sfb, s
                 ctrate, ctrate_err = np.nan, np.nan
                 fp = len(star_tbl)
                 
-            tab.add_row([float(sfb), srcmag, src_ctrate, dist, ref_depth, detected,
+            tab.add_row([sfb, srcmag, src_ctrate, dist, ref_depth, detected,
                                                        ctrate, ctrate_err, fp])
                     
         hdu_im.close()
     hdu_ref.close()
     
-    
-    # Save output table
-    tab.write('run'+run+'_gal-'+gal+'_zodi-'+zodi+'-'+band+'.fits', format='fits', overwrite=True)
+    return tab
