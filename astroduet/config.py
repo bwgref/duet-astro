@@ -124,19 +124,19 @@ class Telescope():
 
         assert config in self.config_list, 'Bad config option "'+config+'"'
             
-        if config is 'baseline':
+        if config == 'baseline':
             self.set_baseline()
-        elif config is 'reduced_baseline':
+        elif config == 'reduced_baseline':
             self.set_reduced_baseline()
-        elif config is 'classic':
+        elif config == 'classic':
             self.set_classic()
-        elif config is 'minimum_mass':
+        elif config == 'minimum_mass':
             self.set_minimum_mass()
-        elif config is 'fine_plate':
+        elif config == 'fine_plate':
             self.set_fine_plate()
-        elif config is 'equal_mass':
+        elif config == 'equal_mass':
             self.set_equal_mass()
-        elif config is 'largest_aperture':
+        elif config == 'largest_aperture':
             self.set_largest_aperature()
         
         self.config=config
