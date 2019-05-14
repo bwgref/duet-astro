@@ -775,13 +775,15 @@ def lightcurve_through_image(lightcurve, exposure,
 
         with suppress_stdout():
             result1, _ = run_daophot(diff_image1, threshold,
-                                     star_tbl, niters=1)
+                                     star_tbl, niters=1, duet=duet)
 
         fl1_fit = result1['flux_fit'][0] * image_rate1.unit
         fl1_fite = result1['flux_unc'][0] * image_rate1.unit
-        snr_1 = \
-            duet.calc_snr(exposure, fl1_fit, bgd_band1) \
-                * u.dimensionless_unscaled
+        if fl1_fit > 0:
+            snr_1 = \
+                duet.calc_snr(exposure, fl1_fit, bgd_band1) \
+                    * u.dimensionless_unscaled
+            lightcurve['snr_D1'][i] = snr_1
 
         image_rate2 = lightcurve['imgs_D2'][i]
         image_rate_bkgsub2 = lightcurve['imgs_D2_bkgsub'][i]
@@ -792,18 +794,18 @@ def lightcurve_through_image(lightcurve, exposure,
 
         with suppress_stdout():
             result2, _ = run_daophot(diff_image2, threshold,
-                                     star_tbl, niters=1)
+                                     star_tbl, niters=1, duet=duet)
         fl2_fit = result2['flux_fit'][0] * image_rate2.unit
         fl2_fite = result2['flux_unc'][0] * image_rate2.unit
-        snr_2 = \
-            duet.calc_snr(exposure, fl2_fit, bgd_band2) \
-                * u.dimensionless_unscaled
+        if fl2_fit > 0:
+            snr_2 = \
+                duet.calc_snr(exposure, fl2_fit, bgd_band2) \
+                    * u.dimensionless_unscaled
+            lightcurve['snr_D2'][i] = snr_2
 
         lightcurve['fluence_D1_fit'][i] = duet.rate_to_fluence(fl1_fit)
         lightcurve['fluence_D1_fiterr'][i] = duet.rate_to_fluence(fl1_fite)
         lightcurve['fluence_D2_fit'][i] = duet.rate_to_fluence(fl2_fit)
         lightcurve['fluence_D2_fiterr'][i] = duet.rate_to_fluence(fl2_fite)
-        lightcurve['snr_D1'][i] = snr_1
-        lightcurve['snr_D2'][i] = snr_2
 
     return lightcurve
