@@ -80,35 +80,35 @@ def imsim(**kwargs):
     oversample = 6 # Hardcoded in construct_image
     
     # Get backgrounds
-    if zodi is 'low':
+    if zodi == 'low':
         [bgd_band1, bgd_band2] = background_pixel_rate(duet, low_zodi = True, diag=False)
-    elif zodi is 'med':
+    elif zodi == 'med':
         [bgd_band1, bgd_band2] = background_pixel_rate(duet, med_zodi = True, diag=False)
-    elif zodi is 'high':
+    elif zodi == 'high':
         [bgd_band1, bgd_band2] = background_pixel_rate(duet, high_zodi = True, diag=False)
     
     # Define galaxy: amplitude is placeholder. Sizes are typical at 100 Mpc
-    if gal is 'spiral':
+    if gal == 'spiral':
         reff = 16.5 *u.arcsec
         gal_params = {'amplitude': 1,'r_eff': reff/(duet.pixel/oversample),'n':1, 'x_0': 0, 'y_0': 0}
-    elif gal is 'elliptical':
+    elif gal == 'elliptical':
         reff = 12.5 *u.arcsec
         gal_params = {'amplitude': 1,'r_eff': reff/(duet.pixel/oversample),'n':4, 'x_0': 0, 'y_0': 0}
-    elif gal is 'dwarf':
+    elif gal == 'dwarf':
         reff = 7 *u.arcsec
         gal_params = {'amplitude': 1,'r_eff': reff/(duet.pixel/oversample),'n':1, 'x_0': 0, 'y_0': 0}
-    elif gal is 'none':
+    elif gal == 'none':
         gal_params = None
     
     # Make galaxy surface brightness array (if necessary)
-    if gal is not 'none':
+    if gal != 'none':
         sfb_arr = np.arange(sfb_lim[0],sfb_lim[1]+1.) # Now in steps of 1 mag
     
     # Make srcmag array:
     srcmag_arr = np.linspace(20.5 - 0.5*(nmags-1)*0.1, 20.5 + 0.5*(nmags-1)*0.1, num=nmags, endpoint=True) # Currently in steps of 0.1 mag
     
     # No background galaxy:
-    if gal is 'none':
+    if gal == 'none':
         # First DUET1
         print('DUET1...')
         # Make reference images:
@@ -462,24 +462,26 @@ def imsim_srcdetect(run='050719',gal='spiral',zodi='low',band='duet1', nmags=71,
         for line in origin:
             if 'DUET Telescope State' in line:
                 tel = line.split(':')[1].strip('\n').strip()
-
+    
+    tel = 'baseline'
     # Initialize parameters
+    #duet = Telescope(config=tel)
     duet = Telescope(config=tel)
     
     # Set up path
     path = 'run_'+run+'/gal_'+gal+'/zodi_'+zodi+'/'+band+'/'
     
     # Make galaxy surface brightness array
-    if gal is not 'none':
-        sfb_arr = np.arange(sfb_lim[0],sfb_lim[1]+1.).astype(str)
+    if gal != 'none':
+        sfb_arr = np.arange(sfb[0],sfb[1]+1.).astype(str)
 
-    if band is 'duet1':
+    if band == 'duet1':
         bandpass = duet.bandpass1
-    elif band is 'duet2':
+    elif band == 'duet2':
         bandpass = duet.bandpass2
     
     # Make source magnitude array    
-    srcmag_arr = np.linspace(20.5 - 0.5*(nmags-1)*0.1, 20.5 + 0.5*(nmags-1)*0.1, num=nmags, endpoint=True) # Currently in steps of 0.1 mag
+    src_arr = np.linspace(20.5 - 0.5*(nmags-1)*0.1, 20.5 + 0.5*(nmags-1)*0.1, num=nmags, endpoint=True) # Currently in steps of 0.1 mag
     
     # Set up results table
     # columns: galaxy mag, source input mag, source input count rate, distance from galaxy center, reference depth, source detected True/False, 
@@ -487,7 +489,9 @@ def imsim_srcdetect(run='050719',gal='spiral',zodi='low',band='duet1', nmags=71,
     tab = Table(np.zeros(9), names=('galmag', 'srcmag', 'src-ctrate', 'dist', 'ref_depth', 'detected',
                                                     'ctrate', 'ctrate_err', 'false-pos'), dtype=('f8','f8','f8','f8',
                                                     'i8','b','f8','f8','i8'), meta={'name': gal+' - '+zodi+ 'zodi - '+band})
-    if gal is 'none':
+    
+    print('Finding sources...')
+    if gal == 'none':
         reffile = run+'_'+band+'_zodi-'+zodi+'_reference.fits'
         hdu_ref = fits.open(path+reffile)
             
@@ -497,8 +501,10 @@ def imsim_srcdetect(run='050719',gal='spiral',zodi='low',band='duet1', nmags=71,
             # Get input countrate
             src_ctrate = duet.fluence_to_rate(duet_abmag_to_fluence(srcmag*u.ABmag, bandpass))
             # Run source detection for this set of HDUs:        
-            tab = run_srcdetect(hdu_ref=hdu_ref, hdu_im=hdu_im, tab=tab, duet=duet, sfb=float(sfb), srcmag=srcmag, src_ctrate=src_ctrate)
-
+            tab = run_srcdetect(hdu_ref=hdu_ref, hdu_im=hdu_im, tab=tab, duet=duet, sfb=np.nan, srcmag=srcmag, src_ctrate=src_ctrate)
+            hdu_im.close()
+        hdu_ref.close()
+        
     else:
         for sfb in sfb_arr:
             print('SFB: '+sfb)
@@ -511,11 +517,14 @@ def imsim_srcdetect(run='050719',gal='spiral',zodi='low',band='duet1', nmags=71,
                 # Get input countrate
                 src_ctrate = duet.fluence_to_rate(duet_abmag_to_fluence(srcmag*u.ABmag, bandpass))
                 # Run source detection for this set of HDUs:        
-                tab = run_srcdetect(hdu_ref=hdu_ref, hdu_im=hdu_im, tab=tab, duet=duet, sfb=float(sfb), srcmag=srcmag, src_ctrate=src_ctrate)
-
+                tab = run_srcdetect(hdu_ref=hdu_ref, hdu_im=hdu_im, tab=tab, duet=duet, srcmag=srcmag, src_ctrate=src_ctrate)
+                hdu_im.close()
+            hdu_ref.close()
     # Save output table
+    print('Writing file')
     tab.remove_row(0)
     tab.write('run'+run+'_gal-'+gal+'_zodi-'+zodi+'-'+band+'.fits', format='fits', overwrite=True)
+    print('Done')
         
 def run_srcdetect(**kwargs):
     """
@@ -546,9 +555,12 @@ def run_srcdetect(**kwargs):
     hdu_im = kwargs.pop('hdu_im')  
     tab = kwargs.pop('tab') 
     duet = kwargs.pop('duet') 
-    sfb = kwargs.pop('sfb') 
+    sfb = kwargs.pop('sfb', np.nan) 
     srcmag = kwargs.pop('srcmag') 
     src_ctrate = kwargs.pop('src_ctrate') 
+    
+    import warnings
+    warnings.filterwarnings("ignore") # photutils throws a lot of useless warnings when no peaks are found
     
     # PSF stuff
     oversample = 5
@@ -613,8 +625,5 @@ def run_srcdetect(**kwargs):
                 
             tab.add_row([sfb, srcmag, src_ctrate, dist, ref_depth, detected,
                                                        ctrate, ctrate_err, fp])
-                    
-        hdu_im.close()
-    hdu_ref.close()
-    
+                        
     return tab
