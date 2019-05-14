@@ -463,9 +463,7 @@ def imsim_srcdetect(run='050719',gal='spiral',zodi='low',band='duet1', nmags=71,
             if 'DUET Telescope State' in line:
                 tel = line.split(':')[1].strip('\n').strip()
     
-    tel = 'baseline'
     # Initialize parameters
-    #duet = Telescope(config=tel)
     duet = Telescope(config=tel)
     
     # Set up path
