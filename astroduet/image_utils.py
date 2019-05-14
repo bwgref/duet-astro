@@ -249,7 +249,7 @@ def construct_image(frame,exposure,
     # in the oversampled imae
 
     # 4. Convolve with the PSF 
-    im_psf = convolve_fft(im_array.value, psf_kernel)
+    im_psf = convolve_fft(im_array.value, psf_kernel) * im_array.unit
 
     # Convolve again, now with the pointing jitter (need to re-apply units here as it's lost in convolution)
     #im_psf = convolve(im_psf_temp, Gaussian2DKernel((duet.jitter_rms/pixel_size_init).value)) * im_array.unit
