@@ -159,8 +159,8 @@ def get_neff(psf_size, pixel_size):
     -------
     >>> from astroduet.config import Telescope
     >>> duet = Telescope()
-    >>> neff = get_neff(duet.psf_size, duet.pixel)
-    >>> np.isclose(neff, 3.98911789551266)
+    >>> neff = get_neff(duet.psf_fwhm, duet.pixel)
+    >>> np.isclose(neff, 9.75310538172716)
     True
 
     """

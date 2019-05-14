@@ -1,10 +1,11 @@
 from astropy import units as u
 import numpy as np
 from numpy import pi, sqrt, allclose, count_nonzero
+import warnings
 
 from .filters import filter_parameters
 from .utils import get_neff
-from astropy.convolution import Gaussian2DKernel
+from astropy.convolution import Gaussian2DKernel, convolve
 
 import os
 curdir = os.path.dirname(__file__)
@@ -54,50 +55,58 @@ class Telescope():
 
     update_bandpass
 
-    _set_baseline
+    diq_budget
 
     Attributes
     ----------
-    epd: float
+    epd : float
         The physical size of the entrance pupil.
 
-    eff_epd: float
+    eff_epd : float
         The effective size of the entrance pupil (i.e. once corrected
         for vignetting, with Astropy units.
 
-    psf_fwhm: float
+    psf_fwhm : float
         The FWHM of the PSF, with Astropy units.
 
-    psf_jitter: float
+    psf_jitter : float
         The contribution of the PSF to be added in quadrature with the psf_fwhm
         due to spacecraft pointing jitter.
 
-    psf_size: float
+    psf_size : float
         psf_fwhm and psf_jitter added in quadrature with Astropy units.
 
-    pixel: float
+    pixel : float
         Angular pixel size with Astropy units
 
-    band1: dict
+    band1 : dict
         ``{eff_wave: float, eff_width: float}``
 
-    band2: dict
+    band2 : dict
         ``{eff_wave: float, eff_width: float}``
 
-    bandpass1: 1-d float array
+    bandpass1 : 1-d float array
         ``[eff_wave - eff_width*0.5, eff_wave+eff_width*0.5]``
 
-    bandpass2: 1-d float array
+    bandpass2 : 1-d float array
         ``[eff_wave - eff_width*0.5, eff_wave+eff_width*0.5]``
 
-    eff_area: float
+    eff_area : float
         Effective area computed using the eff_epd size.
 
-    read_noise: float
+    read_noise : float
         RMS noise in the detetors per frame read
 
     plate_scale : float
         Astropy units value for arcsec / micron
+
+    diq_rms : float
+        Astropy units value for microns of blur due to focus/mounting errors
+    
+    pointing_rms : float
+        Astropy units for PSF blur associated with the pointing instability.
+        Given in arcseconds.
+        
 
     Examples
     --------
@@ -140,7 +149,7 @@ class Telescope():
         }
 
         # Dark current given in e- per pixel per sec
-        self.dark_current_downscale = 4
+        self.dark_current_downscale = 4.0
         self.dark_current = (0.046 / self.dark_current_downscale) * u.ph / u.s
 
         # RMS value
@@ -149,16 +158,22 @@ class Telescope():
         # Pointing jitter:
         self.psf_jitter = 5*u.arcsec
 
+        # Pointing jitter:
+        self.pointing_rms = 2.5*u.arcsec
+
+        # Implement DIQ budget here
+        self.diq_budget()
+
         # Compute the effective area
         self.update_effarea()
 
         # Below just adds the pointing jitter in quadrature to the PSF FWHM.
         # Not really used for anything...
-        self.update_psf()
+#        self.update_psf()
 
         # Compute the effective number of background pixels (this isn't used in as
         # many places and should be depricated moving forward.
-        self.neff = get_neff(self.psf_size, self.pixel)
+        self.neff = get_neff(self.psf_fwhm, self.pixel)
 
         # Compute the filters (to be hard coded in the futuer?)
         [self.band1, self.band2] = filter_parameters(duet=self)
@@ -189,11 +204,10 @@ class Telescope():
         # Below are in 
         self.psf_params = {
         'sig':[2.08, 4.26]*u.arcsec,
-        'amp':[1, 0.1],
-        'norm':[0.505053538858156, 0.21185072119504136]
+        'amp':[1, 0.1]
         }
         # Computed by calc_psf_hpd, but hardcoded here.
-        self.psf_fwhm = 5.0 * u.arcsec
+        self.psf_fwhm = 12.5 * u.arcsec
 
         self.reflectivity_file = {
             'description' : 'CBE Reflectivity',
@@ -224,12 +238,11 @@ class Telescope():
         # Below are in 
         self.psf_params = {
         'sig':[3.2*u.micron*self.plate_scale],
-        'amp':[1.0],
-        'norm':[0.624335784627981]
+        'amp':[1.0]
         }
 
         # Computed by calc_psf_fwhm, but hardcoded here for speed.
-        self.psf_fwhm = 4.6 * u.arcsec
+        self.psf_fwhm = 12.0 * u.arcsec
 
         self.reflectivity_file = {
             'description' : 'CBE Reflectivity',
@@ -259,11 +272,10 @@ class Telescope():
 
         self.psf_params = {
         'sig':[5.3*u.micron*self.plate_scale],
-        'amp':[1.0],
-        'norm':[0.9845499186721847]
+        'amp':[1.0]
         }
         # Computed by calc_psf_hpd, but hardcoded here.
-        self.psf_fwhm = 8.2 * u.arcsec
+        self.psf_fwhm = 14.5 * u.arcsec
 
         self.reflectivity_file = {
             'description' : 'CBE Reflectivity',
@@ -293,11 +305,10 @@ class Telescope():
 
         self.psf_params = {
         'sig':[2.8*u.micron*self.plate_scale],
-        'amp':[1],
-        'norm':[0.48927044820341287]
+        'amp':[1]
         }
         # Computed by calc_psf_hpd, but hardcoded here.
-        self.psf_fwhm = 3.2 * u.arcsec
+        self.psf_fwhm = 10.0 * u.arcsec
 
         self.reflectivity_file = {
             'description' : 'CBE Reflectivity',
@@ -327,11 +338,10 @@ class Telescope():
 
         self.psf_params = {
         'sig':[4.8*u.micron*self.plate_scale],
-        'amp':[1],
-        'norm':[0.9589514449942292]
+        'amp':[1]
         }
         # Computed by calc_psf_hpd, but hardcoded here.
-        self.psf_fwhm = 5.4 * u.arcsec
+        self.psf_fwhm = 11.0 * u.arcsec
 
         self.reflectivity_file = {
             'description' : 'CBE Reflectivity',
@@ -361,11 +371,10 @@ class Telescope():
 
         self.psf_params = {
         'sig':[6.0*u.micron*self.plate_scale],
-        'amp':[1.0],
-        'norm':[0.9967376175195871]
+        'amp':[1.0]
         }
         # Computed by calc_psf_hpd, but hardcoded here.
-        self.psf_fwhm = 7.0 * u.arcsec
+        self.psf_fwhm = 12.0 * u.arcsec
 
         self.reflectivity_file = {
             'description' : 'CBE Reflectivity',
@@ -396,11 +405,10 @@ class Telescope():
 
         self.psf_params = {
         'sig':[2.08, 4.26]*u.arcsec,
-        'amp':[1, 0.1],
-        'norm':[0.505053538858156, 0.21185072119504136]
+        'amp':[1, 0.1]
         }
         # Computed by calc_psf_hpd, but hardcoded here.
-        self.psf_fwhm = 5.0 * u.arcsec
+        self.psf_fwhm = 12.5 * u.arcsec
         
         # Set QE files here:
         
@@ -428,9 +436,9 @@ class Telescope():
         Transmission Efficiency: {self.trans_eff}
         
         Pixel size: {self.pixel}
-        PSF FWHM: {self.psf_fwhm}
-        Pointing jitter: {self.psf_jitter}
-        Effective PSF FWHM: {self.psf_size}
+        Pointing RMS: {self.pointing_rms}
+        DIQ RMS: {self.diq_rms*self.plate_scale}
+        Effective PSF FWHM: {self.psf_fwhm}
         N_eff: {self.neff}
 
         Band 1: {self.band1}
@@ -473,7 +481,7 @@ class Telescope():
         self.psf_params['norm'] = self.compute_psf_norms()
         self.psf_fwhm = self.calc_psf_fwhm()
         self.update_psf()
-        self.neff = get_neff(self.psf_size, self.pixel)
+        self.neff = get_neff(self.psf_fwhm, self.pixel)
 
     def calc_radial_profile(self):
         '''
@@ -484,13 +492,15 @@ class Telescope():
 
         '''
         import numpy as np
-        pix_size = 0.01*u.arcsec
-        xsize = 2001
-        ysize = 2001
-        psf_model = self.psf_model(pixel_size=pix_size, x_size=xsize, y_size=ysize)
+
+        pix_size = 0.25 * u.arcsec
+        # Cover +/- 25 arcsec
+        cover = 25 * u.arcsec
+        nbins = np.floor(( 2 * (cover / pix_size).value)) + 1
+        psf_model = self.psf_model(pixel_size=pix_size, x_size = nbins, y_size = nbins)
         data = psf_model.array
 
-        center = [(xsize*0.5), (ysize*0.5)]
+        center = [(nbins*0.5), (nbins*0.5)]
         y,x = np.indices((data.shape)) # first determine radii of all pixels
         r = np.sqrt((x-center[0])**2+(y-center[1])**2)
         ind = np.argsort(r.flat) # get sorted indices
@@ -535,7 +545,6 @@ class Telescope():
         Helper script to convert fluences to count rates
 
         '''
-
         rate = self.eff_area * self.trans_eff * fluence
         return rate
 
@@ -555,30 +564,37 @@ class Telescope():
         ----------------
         Pixel size: float
             Pixel size for the PSF kernel. Default is self.pixel
+            
+        Accepts options keywords for astropy.convlution.Gaussian2DKernel 
         '''
+        
         if pixel_size is None:
             pixel_size = self.pixel
             force_renorm=False
         else:
             force_renorm = True
 
-        if not force_renorm:
-            set = False
-            for s, n in zip(self.psf_params['sig'], self.psf_params['norm']):
-                if not set:
-                    model = n*Gaussian2DKernel( (s / pixel_size).to('').value, **kwargs)
-                    set=True
-                else:
-                    model += n*Gaussian2DKernel( (s / pixel_size).to('').value, **kwargs)
-        else:
-            norms = self.compute_psf_norms(pixel_size=pixel_size)
-            set= False
-            for s, n in zip(self.psf_params['sig'], norms):
-                if not set:
-                    model = n*Gaussian2DKernel( (s / pixel_size).to('').value, **kwargs)
-                    set=True
-                else:
-                    model += n*Gaussian2DKernel( (s / pixel_size).to('').value, **kwargs)
+        for i, (s, n) in enumerate(zip(self.psf_params['sig'], self.psf_params['amp'])):
+            if i == 0:
+                psf_model = n * Gaussian2DKernel( (s / pixel_size).to('').value, **kwargs)
+            else:
+                psf_model +=  n * Gaussian2DKernel( (s / pixel_size).to('').value, **kwargs)
+                force_renorm = True
+                
+        if force_renorm is True:
+            psf_model.normalize()
+
+        # Step 2: Add DIQ jitter and pointing jitter:
+        diq_rms = self.diq_rms * self.plate_scale
+        pointing_rms = self.pointing_rms
+        
+        diq_model = Gaussian2DKernel( (diq_rms / pixel_size).to('').value, **kwargs)
+        pointing_model = Gaussian2DKernel( (pointing_rms / pixel_size).to('').value, **kwargs)
+        
+        with warnings.catch_warnings():
+            warnings.simplefilter('ignore')  # Ignore warning for doctest
+            model = convolve(psf_model, convolve(pointing_model, diq_model))
+        model.normalize()
 
         return model
 
@@ -640,7 +656,6 @@ class Telescope():
 
         if diag:
             print('Kernel normalization after PSFs renormalized {}'.format(norm))
-
 
         return new_norms
 
@@ -706,7 +721,40 @@ class Telescope():
         band_flux = apply_trans(wave, qe_flux, red_wave, red_trans)
 
         return band_flux
+        
+    def diq_budget(self):
+        """Place holder for the DIQ values.
+    
+        This is currently at the strawman level and needs to be improved.
 
+        """
+        diq = {}
+        diq['optical_surface_quality ']= 3 * u.micron
+        diq['optical_surface_figure'] = 2 * u.micron
+        diq['optical_alignments_corrector_1_tilt'] = 1*u.micron
+        diq['optical_alignments_corrector_2_tilt'] = 1*u.micron
+        diq['primary_tilt'] = 0 * u.micron
+        diq['optical_alignment_flattener1_tilt'] = 1*u.micron
+        diq['optical_alignment_flattener2_tilt'] = 1*u.micron
+        
+        diq['focus_tilt'] = 2.1*u.micron
+        diq['focus_piston']= 3*u.micron
+        
+        diq['detector_tilt'] = 3 * u.micron
+        diq['detector_curvature'] = 2*u.micron
+        
+        diq['pixel_diffusion'] = 2*u.micron
+        diq['pixel_crosstalk'] = 0*u.micron
+
+        # Add in quadrature.        
+        rms_val = (0. * u.micron)**2
+        for item in diq:
+            rms_val += diq[item]**2
+        rms_val = (rms_val)**0.5
+        
+        self.diq_rms = rms_val
+        
+        
     def calc_snr(self, texp, src_rate, bgd_rate, nint = 1.0):
         """
 
