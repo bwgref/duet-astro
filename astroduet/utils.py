@@ -171,7 +171,7 @@ def get_neff(psf_size, pixel_size):
     neff = interp(data_oversample, over, neff)
     return neff
 
-def galex_to_duet(duet, galmags):
+def galex_to_duet(galmags, duet=None):
     """
     Converts GALEX FUV and NUV ABmags into DUET 1 and DUET 2 ABmags, assuming flat Fnu
 
@@ -200,7 +200,11 @@ def galex_to_duet(duet, galmags):
     """
 
     from astropy.modeling.blackbody import FNU
-
+    
+    if duet == None:
+        from astroduet.config import Telescope
+        duet = Telescope()
+    
     galex_fuv_lef = 151.6 * u.nm
     galex_nuv_lef = 226.7 * u.nm
 
