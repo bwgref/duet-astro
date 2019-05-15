@@ -193,7 +193,7 @@ def galex_to_duet(galmags, duet=None):
     >>> from astroduet.config import Telescope
     >>> duet = Telescope()
     >>> galmags = [20,20]
-    >>> duetmags = galex_to_duet(duet, galmags)
+    >>> duetmags = galex_to_duet(galmags, duet)
     >>> np.allclose(duetmags, [20,20])
     True
 
