@@ -201,7 +201,7 @@ def galex_to_duet(galmags, duet=None):
 
     from astropy.modeling.blackbody import FNU
     
-    if duet == None:
+    if duet is None:
         from astroduet.config import Telescope
         duet = Telescope()
     
