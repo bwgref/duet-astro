@@ -462,7 +462,7 @@ def ap_phot(image,star_tbl,read_noise,exposure,r=1.5,r_in=1.5,r_out=3.):
 
     return result, apertures, annulus_apertures
 
-def run_daophot(image,threshold,star_tbl,niters=1, duet=None):
+def run_daophot(image,threshold,star_tbl,niters=1,duet=None,diag=False):
     '''
         Given an image and a PSF, go run DAOPhot PSF-fitting algorithm
     '''
@@ -480,14 +480,16 @@ def run_daophot(image,threshold,star_tbl,niters=1, duet=None):
     # Define a fittable PSF model
     sigma = fwhm / (2. * np.sqrt(2 * np.log(2)))
     # Simple Gaussian model to fit
-    # to-do: add options to define DUET-like PSF, generate PSF from image etc.
-    psf_model = IntegratedGaussianPRF(sigma=sigma)
+    #psf_model = IntegratedGaussianPRF(sigma=sigma)
+    #flux_norm = 1
+    
+    # Use DUET-like PSF
+    #oversample = 2 # Needs to be oversampled but only minimally
+    #duet_psf_os = duet.psf_model(pixel_size=duet.pixel/oversample, x_size=12, y_size=12) # Even numbers work better
+    #psf_model = EPSFModel(duet_psf_os.array,oversampling=oversample)
+    #flux_norm = 1/oversample**2 # A quirk of constructing an oversampled ePSF using photutils
+    psf_model = duet.epsf_model
 
-#    psf_model = duet.psf_model()
-
-
-#    fwhm = (duet.psf_fwhm / duet.pixel).to('').value
-#    print(fwhm)
     # Temporarily turn off Astropy warnings
     import warnings
     from astropy.utils.exceptions import AstropyWarning
@@ -503,7 +505,9 @@ def run_daophot(image,threshold,star_tbl,niters=1, duet=None):
     # Problem with _recursive_lookup while fitting (needs latest version of astropy fix to modeling/utils.py)
     result = photometry(image=image.value, init_guesses=star_tbl)
     residual_image = photometry.get_residual_image()
-    print("PSF-fitting complete")
+    
+    if diag:
+        print("PSF-fitting complete")
 
     # Turn warnings back on again
     warnings.simplefilter('default')

@@ -6,6 +6,7 @@ import warnings
 from .filters import filter_parameters
 from .utils import get_neff
 from astropy.convolution import Gaussian2DKernel, convolve
+from photutils.psf import EPSFModel
 
 import os
 curdir = os.path.dirname(__file__)
@@ -56,6 +57,8 @@ class Telescope():
     update_bandpass
 
     diq_budget
+    
+    construct_epsf
 
     Attributes
     ----------
@@ -107,6 +110,8 @@ class Telescope():
         Astropy units for PSF blur associated with the pointing instability.
         Given in arcseconds.
         
+    epsf_model : class 'photutils.psf.models.EPSFModel'
+        2D fittable model for use by photutils.psf.DAOPhotPSFPhotometry
 
     Examples
     --------
@@ -184,6 +189,9 @@ class Telescope():
         center_D2 = self.band2['eff_wave'].to(u.nm).value
         width_D2 = self.band2['eff_width'].to(u.nm).value
         self.bandpass2 =[center_D2 - 0.5*width_D2, center_D2+0.5*width_D2] * u.nm
+        
+        # Construct fittable ePSF model
+        self.construct_epsf()
 
     def set_baseline(self):
         '''Baseline configuration. Duplicate this with different values
@@ -796,4 +804,20 @@ class Telescope():
         nom = nint*src_rate * texp
         snr = nom / denom
         return snr
+    
+    def construct_epsf(self):
+        """
+        
+        Build the integrated PSF fittable model used by DAOPhot 
+        and store it in self.epsf_model.
+        
+        """
+        # For best operation, kernel needs to be oversampled but only minimally
+        oversample = 2 
+        
+        # Get kernel - array size must be odd for convolution purposes
+        psf_os = self.psf_model(pixel_size=self.pixel/oversample, 
+                                x_size=15, y_size=15) 
+        self.epsf_model = EPSFModel(psf_os.array, oversampling=oversample,
+                                    normalization_correction=1/oversample**2)
 
