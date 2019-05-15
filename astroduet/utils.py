@@ -171,7 +171,7 @@ def get_neff(psf_size, pixel_size):
     neff = interp(data_oversample, over, neff)
     return neff
 
-def galex_to_duet(galmags):
+def galex_to_duet(galmags, duet=None):
     """
     Converts GALEX FUV and NUV ABmags into DUET 1 and DUET 2 ABmags, assuming flat Fnu
 
@@ -181,6 +181,8 @@ def galex_to_duet(galmags):
     galmags: array
         GALEX AB magnitudes, either as [[FUV1, ..., FUVN],[NUV1, ..., NUVN]] or as [[FUV1, NUV1],...,[FUVN, NUVN]]
         Code assumes the first format if len(galmags) = 2
+        
+    duet: Telescope instance
 
     Returns
     -------
@@ -188,19 +190,21 @@ def galex_to_duet(galmags):
 
     Example
     -------
+    >>> from astroduet.config import Telescope
+    >>> duet = Telescope()
     >>> galmags = [20,20]
-    >>> duetmags = galex_to_duet(galmags)
+    >>> duetmags = galex_to_duet(galmags, duet)
     >>> np.allclose(duetmags, [20,20])
     True
 
     """
 
-    import astroduet.config as config
     from astropy.modeling.blackbody import FNU
-
-    # Setup filters (only interested in effective wavelengths/frequency)
-    duet = config.Telescope()
-
+    
+    if duet is None:
+        from astroduet.config import Telescope
+        duet = Telescope()
+    
     galex_fuv_lef = 151.6 * u.nm
     galex_nuv_lef = 226.7 * u.nm
 

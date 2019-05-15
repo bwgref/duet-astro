@@ -515,7 +515,7 @@ def imsim_srcdetect(run='050719',gal='spiral',zodi='low',band='duet1', nmags=71,
                 # Get input countrate
                 src_ctrate = duet.fluence_to_rate(duet_abmag_to_fluence(srcmag*u.ABmag, bandpass))
                 # Run source detection for this set of HDUs:        
-                tab = run_srcdetect(hdu_ref=hdu_ref, hdu_im=hdu_im, tab=tab, duet=duet, srcmag=srcmag, src_ctrate=src_ctrate)
+                tab = run_srcdetect(hdu_ref=hdu_ref, hdu_im=hdu_im, tab=tab, duet=duet, sfb=float(sfb), srcmag=srcmag, src_ctrate=src_ctrate)
                 hdu_im.close()
             hdu_ref.close()
     # Save output table
