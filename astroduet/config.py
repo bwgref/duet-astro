@@ -152,6 +152,8 @@ class Telescope():
             'description' : ['DUET 1 CBE QE', 'DUET 2 CBE QE'],
             'names' : [datadir+'detector_180_220nm.csv', datadir+'detector_260_300nm.csv']
         }
+        
+        self.transmission_file = datadir+'glass_transmission_20190518.csv'
 
         # Dark current given in e- per pixel per sec
         self.dark_current_downscale = 4.0
@@ -219,7 +221,7 @@ class Telescope():
 
         self.reflectivity_file = {
             'description' : 'CBE Reflectivity',
-            'name' : datadir+'al_mgf2_mirror_coatings.csv'
+            'name' : datadir+'mirror_coatings_20190518.csv'
         }
 
         self.bandpass_files = {
@@ -553,13 +555,17 @@ class Telescope():
         Helper script to convert fluences to count rates
 
         '''
-        rate = self.eff_area * self.trans_eff * fluence
+#        rate = self.eff_area * self.trans_eff * fluence
+        rate = self.eff_area * fluence
+
         return rate
 
     def rate_to_fluence(self, rate):
         '''Convert count rates to fluences.'''
 
-        fluence = rate / (self.eff_area * self.trans_eff)
+#        fluence = rate / (self.eff_area * self.trans_eff)
+        fluence = rate / (self.eff_area )
+
         return fluence
 
     def psf_model(self, pixel_size=None, **kwargs):
@@ -703,13 +709,14 @@ class Telescope():
         >>> wave = [190, 200]*u.nm
         >>> spec = [1, 1]
         >>> band_flux = duet.apply_filters(wave, spec, band=1)
-        >>> test = [0.20659143, 0.37176641]
+        >>> test = [0.20671559, 0.3720735]
         >>> allclose(band_flux, test)
         True
 
         """
 
-        from astroduet.filters import load_reflectivity, load_qe, load_redfilter, apply_trans
+        from astroduet.filters import load_reflectivity, load_qe, \
+            load_redfilter, apply_trans, load_transmission
 
         # Shift to make band an index:
 
@@ -722,37 +729,39 @@ class Telescope():
         ref_wave, reflectivity = load_reflectivity(infile = reflectivity_file, **kwargs)
         qe_wave, qe = load_qe(infile = qe_file, **kwargs)
         red_wave, red_trans = load_redfilter(infile = bandpass_file, **kwargs)
+        trans_wave, transmission = \
+            load_transmission(infile=self.transmission_file, **kwargs)
+
 
         # Apply filters
         ref_flux = apply_trans(wave, spec, ref_wave, reflectivity)
         qe_flux = apply_trans(wave, ref_flux, qe_wave, qe)
-        band_flux = apply_trans(wave, qe_flux, red_wave, red_trans)
+        trans_flux = apply_trans(wave, qe_flux, trans_wave, transmission)
+        band_flux = apply_trans(wave, trans_flux, red_wave, red_trans)
+        
 
         return band_flux
         
     def diq_budget(self):
         """Place holder for the DIQ values.
+        
+        Values taken as wraps from Roger's DIQ budget. Note that we track the PSF
+        values separately, so the "as designed" PSF contribution is not captured
+        here on purpose.
+        
+        https://caltech-my.sharepoint.com/personal/romsmith_caltech_edu/Documents/DUET/DUET%20Optics/DUET%20DIQ%20budget%20straw-man.xlsx?web=1
     
-        This is currently at the strawman level and needs to be improved.
-
         """
         diq = {}
-        diq['optical_surface_quality ']= 3 * u.micron
-        diq['optical_surface_figure'] = 2 * u.micron
-        diq['optical_alignments_corrector_1_tilt'] = 1*u.micron
-        diq['optical_alignments_corrector_2_tilt'] = 1*u.micron
-        diq['primary_tilt'] = 0 * u.micron
-        diq['optical_alignment_flattener1_tilt'] = 1*u.micron
-        diq['optical_alignment_flattener2_tilt'] = 1*u.micron
+        diq['polishing_fab']= 0.45 * u.micron
+        diq['optical_alignments'] = 2.65*u.micron
+        diq['detector_fab'] = 1.9 * u.micron
         
-        diq['focus_tilt'] = 2.1*u.micron
-        diq['focus_piston']= 3*u.micron
-        
-        diq['detector_tilt'] = 3 * u.micron
-        diq['detector_curvature'] = 2*u.micron
         
         diq['pixel_diffusion'] = 2*u.micron
         diq['pixel_crosstalk'] = 0*u.micron
+
+        diq['focus_stability'] = 1.58 * u.micron 
 
         # Add in quadrature.        
         rms_val = (0. * u.micron)**2

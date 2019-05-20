@@ -6,6 +6,54 @@ curdir = os.path.dirname(__file__)
 datadir = os.path.join(curdir, 'data')
 
 
+def load_transmission(infile=None, **kwargs):
+    """
+    
+    Parameters
+    ----------
+    
+    infile 
+        The full path to the input transmission file
+    
+    
+    Loads the glass transmission. For now, does a little math on this
+    top account for the multiple pieces of glass with different widths.
+    
+    
+    Returns
+    -------
+    wave : 1D array
+        Wavelength values from the input file, with Astropy units
+        
+    transmisison : 1D array
+        transmission values, normalized to 1
+        
+    Example
+    -------
+    
+    >>> from astroduet.config import Telescope
+    >>> duet = Telescope()
+    >>> wave, transmission = load_transmission(duet.glass_transmission)
+    >>> allclose(qe[120], 0.736837)
+    True
+    
+
+    """
+    assert infile is not None, 'load_transmission: Provide an input transmission file'
+
+    from numpy import genfromtxt
+    
+    data = genfromtxt(infile, skip_header=2, delimiter=',')
+    wave = data[:,0]*u.nm
+    thin = data[:,1] / 100.
+    thick = data[:, 6] / 100.
+    
+    # Right now this is a 3mm and two 10 mm thick pieces of glass
+    transmission = thin * thick * thick
+    
+    return wave, transmission
+
+
 def load_qe(infile = None, **kwargs):
     """
     
