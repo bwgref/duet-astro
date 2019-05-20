@@ -122,7 +122,7 @@ class Telescope():
 
     """
 
-    def __init__(self, config='baseline'):
+    def __init__(self, config='minimum_mass'):
 
         self.config_list = ['baseline', 'classic', 'minimum_mass', 
             'fine_plate','equal_mass','largest_aperture', 'reduced_baseline']
@@ -208,7 +208,7 @@ class Telescope():
         self.pixel = self.plate_scale * pixel
 
         # Transmission through the Schmidt plates
-        self.trans_eff = (0.975)**8 # from Jim.
+#        self.trans_eff = (0.975)**8 # from Jim.
         self.jitter_rms = 11.8 * u.micron * self.plate_scale
 
         # Below are in 
@@ -242,7 +242,7 @@ class Telescope():
         self.pixel = self.plate_scale * pixel
 
         # Transmission through the Schmidt plates
-        self.trans_eff = (0.975)**8 # from Jim.
+#        self.trans_eff = (0.975)**8 # from Jim.
         self.jitter_rms = 11.8 * u.micron * self.plate_scale
 
         # Below are in 
@@ -278,7 +278,7 @@ class Telescope():
         self.jitter_rms = 11.8 * u.micron * self.plate_scale
 
         # Transmission through the Schmidt plates
-        self.trans_eff = (0.975)**8 # from Jim.
+#        self.trans_eff = (0.975)**8 # from Jim.
 
         self.psf_params = {
         'sig':[5.3*u.micron*self.plate_scale],
@@ -310,7 +310,7 @@ class Telescope():
         self.pixel = self.plate_scale * pixel
 
         # Transmission through the Schmidt plates
-        self.trans_eff = (0.975)**8 # from Jim.
+#        self.trans_eff = (0.975)**8 # from Jim.
         self.jitter_rms = 11.8 * u.micron * self.plate_scale
 
         self.psf_params = {
@@ -343,7 +343,7 @@ class Telescope():
         self.pixel = self.plate_scale * pixel
 
         # Transmission through the Schmidt plates
-        self.trans_eff = (0.975)**8 # from Jim.
+#        self.trans_eff = (0.975)**8 # from Jim.
         self.jitter_rms = 11.8 * u.micron * self.plate_scale
 
         self.psf_params = {
@@ -377,7 +377,7 @@ class Telescope():
         self.jitter_rms = 11.8 * u.micron * self.plate_scale
 
         # Transmission through the Schmidt plates
-        self.trans_eff = (0.975)**8 # from Jim.
+#        self.trans_eff = (0.975)**8 # from Jim.
 
         self.psf_params = {
         'sig':[6.0*u.micron*self.plate_scale],
@@ -411,7 +411,7 @@ class Telescope():
         self.jitter_rms = 11.8 * u.micron * self.plate_scale
 
         # Transmission through the Schmidt plates
-        self.trans_eff = (0.975)**8 # from Jim.
+#        self.trans_eff = (0.975)**8 # from Jim.
 
         self.psf_params = {
         'sig':[2.08, 4.26]*u.arcsec,
@@ -443,7 +443,6 @@ class Telescope():
         Physical Entrance Pupil: {self.EPD}
         Effective EPD: {self.eff_epd}
         Effective Area: {self.eff_area}
-        Transmission Efficiency: {self.trans_eff}
         
         Pixel size: {self.pixel}
         Pointing RMS: {self.pointing_rms}
