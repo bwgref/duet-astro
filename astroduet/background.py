@@ -1,3 +1,12 @@
+import glob
+import os
+import numpy as np
+
+
+curdir = os.path.dirname(__file__)
+datadir = os.path.join(curdir, 'data')
+
+
 from numpy import allclose
 
 def background_pixel_rate(duet, **kwargs):
@@ -23,6 +32,15 @@ def background_pixel_rate(duet, **kwargs):
 
     high_zodi: coniditonal , default is False
         Use the medium zodiacal background rate. Overrideslow_zodi.
+
+    zodi_airglow : boolean
+        Use the old version of the airglow lines (Default is False)
+        
+    airglow_level : string
+        Which of the new airglow levels do we want to use.
+        Options are: False, 'Low', 'Average', and 'High'
+    
+
 
     Returns
     -------
@@ -50,6 +68,9 @@ def background_pixel_rate(duet, **kwargs):
     low_zodi = kwargs.pop('low_zodi', True)
     med_zodi = kwargs.pop('med_zodi', False)
     high_zodi = kwargs.pop('high_zodi', False)
+    
+    airglow_level = kwargs.pop('airglow_level', 'Average')
+    zodi_airglow = kwargs.pop('zodi_airglow', False)
 
     if low_zodi:
         zodi_level = 77
@@ -57,9 +78,13 @@ def background_pixel_rate(duet, **kwargs):
         zodi_level = 165
     if high_zodi:
         zodi_level=900
-    zodi = load_zodi(scale=zodi_level)
+    zodi = load_zodi(scale=zodi_level, airglow=zodi_airglow)
     wave = zodi['wavelength']
     flux = zodi['flux']
+
+    if airglow_level is not False:
+        airglow_flux = airglow_lines(wave, airglow_level=airglow_level)
+        flux += airglow_flux
 
     band1_flux = duet.apply_filters(zodi['wavelength'], zodi['flux'], band=1, **kwargs)
     band2_flux = duet.apply_filters(zodi['wavelength'], zodi['flux'], band=2, **kwargs)
@@ -99,3 +124,51 @@ def background_pixel_rate(duet, **kwargs):
 
 
     return [bgd_rate1, bgd_rate2]
+
+def airglow_lines(wave, airglow_level='Average'):
+    """
+    Returns the airglow contribution
+
+    Parameters
+    ----------
+
+    wave : array
+        Should have Astropy units.
+
+    level: string
+        'Low', 'Average' (default), or 'High'
+
+
+    Returns
+    -------
+    airglow_spec : array
+        The surface brightenss in units of ph / cm2 / sec / sr / AA
+        
+
+    Examples
+    --------
+    >>> from astroduet.config import Telescope
+    >>> duet = Telescope()
+    >>> [bgd1, bgd2] = background_pixel_rate(duet, high_zodi=True)
+    >>> allclose(bgd1.value, 0.190, atol=0.001)
+    True
+
+
+    """
+    from astropy import units as u
+
+    levels = ['High', 'Average', 'Low']
+    assert airglow_level in levels
+    flux_ind = levels.index(airglow_level) + 1 # +1 to offset from wavelength column
+    
+    step = (wave[1] - wave[0]).to(u.AA).value
+    fl_unit = u.ph / (u.s * u.cm**2 * u.sr * u.AA)
+    
+    airglow_spec = np.zeros_like(wave.value)*fl_unit
+    
+    airglow = np.genfromtxt(datadir+'/airglow_lines.txt', skip_header=2)    
+    for row in airglow:
+        idx = (np.abs((wave - row[0]*u.AA).value)).argmin()
+        airglow_spec[idx] += row[flux_ind] * fl_unit / step
+    
+    return airglow_spec
