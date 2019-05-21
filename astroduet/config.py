@@ -217,7 +217,7 @@ class Telescope():
         'amp':[1, 0.1]
         }
         # Computed by calc_psf_hpd, but hardcoded here.
-        self.psf_fwhm = 12.5 * u.arcsec
+        self.psf_fwhm = 9.5 * u.arcsec
 
         self.reflectivity_file = {
             'description' : 'CBE Reflectivity',
@@ -252,7 +252,7 @@ class Telescope():
         }
 
         # Computed by calc_psf_fwhm, but hardcoded here for speed.
-        self.psf_fwhm = 12.0 * u.arcsec
+        self.psf_fwhm = 9.5 * u.arcsec
 
         self.reflectivity_file = {
             'description' : 'CBE Reflectivity',
@@ -285,7 +285,7 @@ class Telescope():
         'amp':[1.0]
         }
         # Computed by calc_psf_hpd, but hardcoded here.
-        self.psf_fwhm = 14.5 * u.arcsec
+        self.psf_fwhm = 11.5 * u.arcsec
 
         self.reflectivity_file = {
             'description' : 'CBE Reflectivity',
@@ -318,7 +318,7 @@ class Telescope():
         'amp':[1]
         }
         # Computed by calc_psf_hpd, but hardcoded here.
-        self.psf_fwhm = 10.0 * u.arcsec
+        self.psf_fwhm = 8.0 * u.arcsec
 
         self.reflectivity_file = {
             'description' : 'CBE Reflectivity',
@@ -351,7 +351,7 @@ class Telescope():
         'amp':[1]
         }
         # Computed by calc_psf_hpd, but hardcoded here.
-        self.psf_fwhm = 11.0 * u.arcsec
+        self.psf_fwhm = 9.0 * u.arcsec
 
         self.reflectivity_file = {
             'description' : 'CBE Reflectivity',
@@ -374,7 +374,7 @@ class Telescope():
         pixel = 10*u.micron
         self.plate_scale = 5.03*u.arcsec / pixel  # arcsec per micron
         self.pixel = self.plate_scale * pixel
-        self.jitter_rms = 11.8 * u.micron * self.plate_scale
+        self.jitter_rms = 10.0 * u.micron * self.plate_scale
 
         # Transmission through the Schmidt plates
 #        self.trans_eff = (0.975)**8 # from Jim.
@@ -418,7 +418,7 @@ class Telescope():
         'amp':[1, 0.1]
         }
         # Computed by calc_psf_hpd, but hardcoded here.
-        self.psf_fwhm = 12.5 * u.arcsec
+        self.psf_fwhm = 9.5 * u.arcsec
         
         # Set QE files here:
         
