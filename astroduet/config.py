@@ -116,7 +116,7 @@ class Telescope():
     Examples
     --------
     >>> duet = Telescope()
-    >>> allclose(duet.eff_epd.value, 24.2)
+    >>> allclose(duet.eff_epd.value, 24.5)
     True
 
 
@@ -708,7 +708,7 @@ class Telescope():
         >>> wave = [190, 200]*u.nm
         >>> spec = [1, 1]
         >>> band_flux = duet.apply_filters(wave, spec, band=1)
-        >>> test = [0.20671559, 0.3720735]
+        >>> test = [0.18407341, 0.33287063]
         >>> allclose(band_flux, test)
         True
 

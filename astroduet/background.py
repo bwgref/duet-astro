@@ -53,7 +53,7 @@ def background_pixel_rate(duet, **kwargs):
     >>> from astroduet.config import Telescope
     >>> duet = Telescope()
     >>> [bgd1, bgd2] = background_pixel_rate(duet, high_zodi=True)
-    >>> allclose(bgd1.value, 0.190, atol=0.001)
+    >>> allclose(bgd1.value, 0.59213129, atol=0.001)
     True
 
 
@@ -109,7 +109,7 @@ def background_pixel_rate(duet, **kwargs):
         print('Background Computation Integrating over Pixel Area')
         print('Telescope diameter: {}'.format(duet.EPD))
         print('Collecting Area: {}'.format(duet.eff_area))
-        print('Transmission Efficiency: {}'.format(duet.trans_eff))
+#        print('Transmission Efficiency: {}'.format(duet.trans_eff))
 
         print()
         print()
@@ -143,16 +143,6 @@ def airglow_lines(wave, airglow_level='Average'):
     -------
     airglow_spec : array
         The surface brightenss in units of ph / cm2 / sec / sr / AA
-        
-
-    Examples
-    --------
-    >>> from astroduet.config import Telescope
-    >>> duet = Telescope()
-    >>> [bgd1, bgd2] = background_pixel_rate(duet, high_zodi=True)
-    >>> allclose(bgd1.value, 0.190, atol=0.001)
-    True
-
 
     """
     from astropy import units as u

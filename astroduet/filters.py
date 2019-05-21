@@ -33,8 +33,8 @@ def load_transmission(infile=None, **kwargs):
     
     >>> from astroduet.config import Telescope
     >>> duet = Telescope()
-    >>> wave, transmission = load_transmission(duet.glass_transmission)
-    >>> allclose(qe[120], 0.736837)
+    >>> wave, transmission = load_transmission(duet.transmission_file)
+    >>> allclose(transmission[120], 0.8794079028314423)
     True
     
 
@@ -418,10 +418,9 @@ def filter_parameters(duet=None, *args, **kwargs):
     Examples
     --------
     >>> band1, band2 = filter_parameters()
-    >>> allclose(band1['eff_wave'].value, 202.56878682)
+    >>> allclose(band1['eff_wave'].value, 212.65475539)
     True
     
-
     """
     from astroduet.config import Telescope
 
