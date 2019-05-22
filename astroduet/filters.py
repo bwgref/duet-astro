@@ -81,7 +81,7 @@ def load_qe(infile = None, **kwargs):
     >>> duet = Telescope()
     >>> band = 1
     >>> wave, qe = load_qe(infile=duet.qe_files['names'][band])
-    >>> allclose(qe[120], 0.737945)
+    >>> allclose(qe[120], 0.7225539999999999)
     True
     
 
@@ -424,7 +424,7 @@ def filter_parameters(duet=None, *args, **kwargs):
     Examples
     --------
     >>> band1, band2 = filter_parameters()
-    >>> allclose(band1['eff_wave'].value, 212.65475539)
+    >>> allclose(band1['eff_wave'].value, 214.18053253)
     True
     
     """
