@@ -56,7 +56,7 @@ def duet_abmag_to_fluence(ABmag, band, **kwargs):
     >>> from astroduet.config import Telescope
     >>> duet = Telescope()
     >>> fluence = duet_abmag_to_fluence(20*u.ABmag, duet.bandpass1)
-    >>> np.isclose(fluence.value, 0.0130845)
+    >>> np.isclose(fluence.value, 0.01118276)
     True
 
     """
@@ -99,7 +99,7 @@ def duet_fluence_to_abmag(fluence, band, **kwargs):
     >>> duet = Telescope()
     >>> funit = u.ph / u.cm**2/u.s
     >>> abmag = duet_fluence_to_abmag(0.01*funit, duet.bandpass1)
-    >>> np.isclose(abmag.value,  20.29189264)
+    >>> np.isclose(abmag.value,  20.12137283)
     True
 
     """

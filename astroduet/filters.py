@@ -165,7 +165,7 @@ def load_reflectivity(infile = None, **kwargs):
     >>> from astroduet.config import Telescope
     >>> duet = Telescope()
     >>> wave, reflectivity = load_reflectivity(infile=duet.reflectivity_file['name'])
-    >>> allclose(reflectivity[50], 0.896282)
+    >>> allclose(reflectivity[50], 0.895383)
     True
 
     """
@@ -233,7 +233,7 @@ def load_redfilter(infile = None, **kwargs):
     >>> from astroduet.config import Telescope
     >>> duet = Telescope()
     >>> wave, redfilter = load_redfilter(infile=duet.bandpass_files['names'][0])
-    >>> allclose(redfilter[30], 0.635886)
+    >>> allclose(redfilter[70], 0.21605899999999997)
     True
 
     """
@@ -438,7 +438,7 @@ def filter_parameters(duet=None, *args, **kwargs):
     Examples
     --------
     >>> band1, band2 = filter_parameters()
-    >>> allclose(band1['eff_wave'].value, 214.18053253)
+    >>> allclose(band1['eff_wave'].value, 199.29610824)
     True
     
     """

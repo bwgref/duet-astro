@@ -652,7 +652,7 @@ class Telescope():
         >>> wave = [190, 200]*u.nm
         >>> spec = [1, 1]
         >>> band_flux = duet.apply_filters(wave, spec, band=1)
-        >>> test = [0.18407341, 0.33287063]
+        >>> test = [0.23696456, 0.23919347]
         >>> allclose(band_flux, test)
         True
 
