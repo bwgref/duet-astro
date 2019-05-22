@@ -56,7 +56,7 @@ def duet_abmag_to_fluence(ABmag, band, **kwargs):
     >>> from astroduet.config import Telescope
     >>> duet = Telescope()
     >>> fluence = duet_abmag_to_fluence(20*u.ABmag, duet.bandpass1)
-    >>> np.isclose(fluence.value, 0.014425401676001228)
+    >>> np.isclose(fluence.value, 0.01118276)
     True
 
     """
@@ -72,7 +72,6 @@ def duet_abmag_to_fluence(ABmag, band, **kwargs):
     midband = np.mean( (band).to(u.AA) )
 
     fluence = bandpass *  ABmag.to(funit, equivalencies=u.spectral_density(midband))
-
 
     return fluence
 
@@ -100,7 +99,7 @@ def duet_fluence_to_abmag(fluence, band, **kwargs):
     >>> duet = Telescope()
     >>> funit = u.ph / u.cm**2/u.s
     >>> abmag = duet_fluence_to_abmag(0.01*funit, duet.bandpass1)
-    >>> np.isclose(abmag.value, 20.397819787367016)
+    >>> np.isclose(abmag.value,  20.12137283)
     True
 
     """
@@ -160,7 +159,7 @@ def get_neff(psf_size, pixel_size):
     >>> from astroduet.config import Telescope
     >>> duet = Telescope()
     >>> neff = get_neff(duet.psf_fwhm, duet.pixel)
-    >>> np.isclose(neff, 9.75310538172716)
+    >>> np.isclose(neff, 7.862666177549524)
     True
 
     """

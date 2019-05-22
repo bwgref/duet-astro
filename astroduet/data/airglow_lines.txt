@@ -1,0 +1,6 @@
+# fluxes in ph / s / cm2 / sr (need to divide by bin width to convert to density, assume delta functions)
+wave flux_low flux_ave flux_high
+1216 1.6e9       7.9e8       1.6e8
+1302 1.6e8       7.9e7       1.1e6
+1356 1.5e7       7.3e6       8.7e4
+2471 1.6e7       7.9e6       7.9e4

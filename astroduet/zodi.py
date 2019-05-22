@@ -60,7 +60,7 @@ def load_airglow(airglow_spec, bin_width=1):
 
 
 
-def load_zodi(**kwargs):
+def load_zodi(airglow=True, **kwargs):
     """
     From here
     https://cads.iiap.res.in/tools/zodiacalCalc/Documentation
@@ -79,6 +79,7 @@ def load_zodi(**kwargs):
     https://aas.aanda.org/articles/aas/pdf/1998/01/ds1449.pdf
 
     scale = scale in units of [1e-8 W / m2 / sr / micron at 500 nm]
+    
     Default is for polar zodiacal emission, which is 77 in the above units.
 
     Toward the ecliptic plane this number can grow to be >1000
@@ -86,14 +87,31 @@ def load_zodi(**kwargs):
     For a Sun avoidance of 45 degrees this looks like a value of 200 - 900
     based strongly on the heliocentric longitdue. However, if you try
     72, 300, and 1000 it looks like you'll probably span this space.
+    
+    Optional Parameters
+    -------------------
+    
+    airglow : boolean
+        Add in airglow lines, defaults to True
+    
+    scale : float
+        See above for definition. Default is 77 (suitabled for NEP)
+    
+    Returns
+    -------
+    spec : dict
+        Has 'wavelength' and 'flux' keys.
+        'wavelength' has astropy units of Angstroms
+        'flux' has astropy units of ph / cm2 / s / A / sr
+    
     """
     from astropy import units as ur
 
-    scale = kwargs.pop('scale', 77)
+    scale = kwargs.pop('scale', 77.0)
     bin_width = kwargs.pop('bin_width', 1)
     return_wl_units = kwargs.pop('return_wl_units', True)
 
-    ftab_unit = ur.ph /(ur.cm**2 * ur.Angstrom * ur.sr * ur.s) # ph / m2 / micron / sr
+    ftab_unit = ur.ph /(ur.cm**2 * ur.Angstrom * ur.sr * ur.s)
 
     scale_norm = False
     wave, flux = np.genfromtxt(os.path.join(datadir,
@@ -111,12 +129,13 @@ def load_zodi(**kwargs):
     # Normalize to flux density at 500 nm:
     spec['flux'] = spec["flux"] * (scale / scale_norm) * ftab_unit
 
-    for airglow_spec in glob.glob(os.path.join(datadir, "airglow*.dat")):
-        new_wave_grid, new_flux = load_airglow(airglow_spec, bin_width=bin_width)
+    if airglow:
+        for airglow_spec in glob.glob(os.path.join(datadir, "airglow*.dat")):
+            new_wave_grid, new_flux = load_airglow(airglow_spec, bin_width=bin_width)
 
-        for w, f in zip(new_wave_grid, new_flux):
-            idx = np.argmin(np.abs(spec['wavelength'] - w))
-            spec["flux"][idx] += f
+            for w, f in zip(new_wave_grid, new_flux):
+                idx = np.argmin(np.abs(spec['wavelength'] - w))
+                spec["flux"][idx] += f
 
     if not return_wl_units:
         spec["wavelength"] = spec["wavelength"].value

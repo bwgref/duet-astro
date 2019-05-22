@@ -116,13 +116,13 @@ class Telescope():
     Examples
     --------
     >>> duet = Telescope()
-    >>> allclose(duet.eff_epd.value, 24.2)
+    >>> allclose(duet.eff_epd.value, 24.5)
     True
 
 
     """
 
-    def __init__(self, config='baseline'):
+    def __init__(self, config='minimum_mass'):
 
         self.config_list = ['baseline', 'classic', 'minimum_mass', 
             'fine_plate','equal_mass','largest_aperture', 'reduced_baseline']
@@ -150,7 +150,20 @@ class Telescope():
         # Set QE files here:
         self.qe_files = {
             'description' : ['DUET 1 CBE QE', 'DUET 2 CBE QE'],
-            'names' : [datadir+'detector_180_220nm.csv', datadir+'detector_260_300nm.csv']
+            'names' : [datadir+'duet1_qe_20190518.csv', datadir+'duet2_qe_20190518.csv']
+        }
+        
+        self.transmission_file = datadir+'glass_transmission_20190518.csv'
+
+        # Bandpass files here
+        self.bandpass_files = {
+            'description' : ['CBE DUET 1 Bandpass', 'CBE DUET 2 Bandpass'],
+            'names' : [datadir+'duet1_bandpass_20190518.csv', datadir+'duet2_bandpass_20190518.csv']
+        }
+
+        self.reflectivity_file = {
+            'description' : 'CBE Reflectivity',
+            'name' : datadir+'mirror_coatings_20190518.csv'
         }
 
         # Dark current given in e- per pixel per sec
@@ -206,7 +219,7 @@ class Telescope():
         self.pixel = self.plate_scale * pixel
 
         # Transmission through the Schmidt plates
-        self.trans_eff = (0.975)**8 # from Jim.
+#        self.trans_eff = (0.975)**8 # from Jim.
         self.jitter_rms = 11.8 * u.micron * self.plate_scale
 
         # Below are in 
@@ -215,17 +228,10 @@ class Telescope():
         'amp':[1, 0.1]
         }
         # Computed by calc_psf_hpd, but hardcoded here.
-        self.psf_fwhm = 12.5 * u.arcsec
+        self.psf_fwhm = 9.5 * u.arcsec
 
-        self.reflectivity_file = {
-            'description' : 'CBE Reflectivity',
-            'name' : datadir+'al_mgf2_mirror_coatings.csv'
-        }
 
-        self.bandpass_files = {
-            'description' : ['CBE DUET 1 Bandpass', 'CBE DUET 2 Bandpass'],
-            'names' : [datadir+'duet1_filter_light.csv', datadir+'duet2_filter_light.csv']
-        }
+
         
     def set_classic(self):
         '''Baseline configuration. Duplicate this with different values
@@ -240,7 +246,7 @@ class Telescope():
         self.pixel = self.plate_scale * pixel
 
         # Transmission through the Schmidt plates
-        self.trans_eff = (0.975)**8 # from Jim.
+#        self.trans_eff = (0.975)**8 # from Jim.
         self.jitter_rms = 11.8 * u.micron * self.plate_scale
 
         # Below are in 
@@ -250,17 +256,9 @@ class Telescope():
         }
 
         # Computed by calc_psf_fwhm, but hardcoded here for speed.
-        self.psf_fwhm = 12.0 * u.arcsec
+        self.psf_fwhm = 9.5 * u.arcsec
 
-        self.reflectivity_file = {
-            'description' : 'CBE Reflectivity',
-            'name' : datadir+'al_mgf2_mirror_coatings.csv'
-        }
 
-        self.bandpass_files = {
-            'description' : ['CBE DUET 1 Bandpass', 'CBE DUET 2 Bandpass'],
-            'names' : [datadir+'duet1_filter_light.csv', datadir+'duet2_filter_light.csv']
-        }
         
     def set_minimum_mass(self):
         '''Minimum mass configuration. 
@@ -276,24 +274,15 @@ class Telescope():
         self.jitter_rms = 11.8 * u.micron * self.plate_scale
 
         # Transmission through the Schmidt plates
-        self.trans_eff = (0.975)**8 # from Jim.
+#        self.trans_eff = (0.975)**8 # from Jim.
 
         self.psf_params = {
         'sig':[5.3*u.micron*self.plate_scale],
         'amp':[1.0]
         }
         # Computed by calc_psf_hpd, but hardcoded here.
-        self.psf_fwhm = 14.5 * u.arcsec
+        self.psf_fwhm = 11.5 * u.arcsec
 
-        self.reflectivity_file = {
-            'description' : 'CBE Reflectivity',
-            'name' : datadir+'al_mgf2_mirror_coatings.csv'
-        }
-
-        self.bandpass_files = {
-            'description' : ['CBE DUET 1 Bandpass', 'CBE DUET 2 Bandpass'],
-            'names' : [datadir+'duet1_filter_light.csv', datadir+'duet2_filter_light.csv']
-        }
 
     def set_fine_plate(self):
         '''Fine plate scale configuration. 
@@ -308,7 +297,7 @@ class Telescope():
         self.pixel = self.plate_scale * pixel
 
         # Transmission through the Schmidt plates
-        self.trans_eff = (0.975)**8 # from Jim.
+#        self.trans_eff = (0.975)**8 # from Jim.
         self.jitter_rms = 11.8 * u.micron * self.plate_scale
 
         self.psf_params = {
@@ -316,17 +305,7 @@ class Telescope():
         'amp':[1]
         }
         # Computed by calc_psf_hpd, but hardcoded here.
-        self.psf_fwhm = 10.0 * u.arcsec
-
-        self.reflectivity_file = {
-            'description' : 'CBE Reflectivity',
-            'name' : datadir+'al_mgf2_mirror_coatings.csv'
-        }
-
-        self.bandpass_files = {
-            'description' : ['CBE DUET 1 Bandpass', 'CBE DUET 2 Bandpass'],
-            'names' : [datadir+'duet1_filter_light.csv', datadir+'duet2_filter_light.csv']
-        }
+        self.psf_fwhm = 8.0 * u.arcsec
 
     def set_equal_mass(self):
         '''Largest aperture configuration. 
@@ -341,7 +320,7 @@ class Telescope():
         self.pixel = self.plate_scale * pixel
 
         # Transmission through the Schmidt plates
-        self.trans_eff = (0.975)**8 # from Jim.
+#        self.trans_eff = (0.975)**8 # from Jim.
         self.jitter_rms = 11.8 * u.micron * self.plate_scale
 
         self.psf_params = {
@@ -349,17 +328,8 @@ class Telescope():
         'amp':[1]
         }
         # Computed by calc_psf_hpd, but hardcoded here.
-        self.psf_fwhm = 11.0 * u.arcsec
+        self.psf_fwhm = 9.0 * u.arcsec
 
-        self.reflectivity_file = {
-            'description' : 'CBE Reflectivity',
-            'name' : datadir+'al_mgf2_mirror_coatings.csv'
-        }
-
-        self.bandpass_files = {
-            'description' : ['CBE DUET 1 Bandpass', 'CBE DUET 2 Bandpass'],
-            'names' : [datadir+'duet1_filter_light.csv', datadir+'duet2_filter_light.csv']
-        }
         
     def set_largest_aperature(self):
         '''Largest aperture configuration. 
@@ -372,10 +342,10 @@ class Telescope():
         pixel = 10*u.micron
         self.plate_scale = 5.03*u.arcsec / pixel  # arcsec per micron
         self.pixel = self.plate_scale * pixel
-        self.jitter_rms = 11.8 * u.micron * self.plate_scale
+        self.jitter_rms = 10.0 * u.micron * self.plate_scale
 
         # Transmission through the Schmidt plates
-        self.trans_eff = (0.975)**8 # from Jim.
+#        self.trans_eff = (0.975)**8 # from Jim.
 
         self.psf_params = {
         'sig':[6.0*u.micron*self.plate_scale],
@@ -384,15 +354,6 @@ class Telescope():
         # Computed by calc_psf_hpd, but hardcoded here.
         self.psf_fwhm = 12.0 * u.arcsec
 
-        self.reflectivity_file = {
-            'description' : 'CBE Reflectivity',
-            'name' : datadir+'al_mgf2_mirror_coatings.csv'
-        }
-
-        self.bandpass_files = {
-            'description' : ['CBE DUET 1 Bandpass', 'CBE DUET 2 Bandpass'],
-            'names' : [datadir+'duet1_filter_light.csv', datadir+'duet2_filter_light.csv']
-        }
         
     def set_reduced_baseline(self):
         '''Reduced baseline configuration. Duplicate this with different values
@@ -409,31 +370,16 @@ class Telescope():
         self.jitter_rms = 11.8 * u.micron * self.plate_scale
 
         # Transmission through the Schmidt plates
-        self.trans_eff = (0.975)**8 # from Jim.
+#        self.trans_eff = (0.975)**8 # from Jim.
 
         self.psf_params = {
         'sig':[2.08, 4.26]*u.arcsec,
         'amp':[1, 0.1]
         }
         # Computed by calc_psf_hpd, but hardcoded here.
-        self.psf_fwhm = 12.5 * u.arcsec
+        self.psf_fwhm = 9.5 * u.arcsec
         
-        # Set QE files here:
-        
-        self.qe_files = {
-            'description' : ['DUET 1 CBE QE', 'DUET 2 CBE QE'],
-            'names' : [datadir+'detector_180_220nm.csv', datadir+'detector_260_300nm.csv']
-        }
 
-        self.reflectivity_file = {
-            'description' : 'CBE Reflectivity',
-            'name' : datadir+'al_mgf2_mirror_coatings.csv'
-        }
-
-        self.bandpass_files = {
-            'description' : ['CBE DUET 1 Bandpass', 'CBE DUET 2 Bandpass'],
-            'names' : [datadir+'duet1_filter_light.csv', datadir+'duet2_filter_light.csv']
-        }
 
     def info(self):
         info_str = f"""-----
@@ -441,7 +387,6 @@ class Telescope():
         Physical Entrance Pupil: {self.EPD}
         Effective EPD: {self.eff_epd}
         Effective Area: {self.eff_area}
-        Transmission Efficiency: {self.trans_eff}
         
         Pixel size: {self.pixel}
         Pointing RMS: {self.pointing_rms}
@@ -553,13 +498,17 @@ class Telescope():
         Helper script to convert fluences to count rates
 
         '''
-        rate = self.eff_area * self.trans_eff * fluence
+#        rate = self.eff_area * self.trans_eff * fluence
+        rate = self.eff_area * fluence
+
         return rate
 
     def rate_to_fluence(self, rate):
         '''Convert count rates to fluences.'''
 
-        fluence = rate / (self.eff_area * self.trans_eff)
+#        fluence = rate / (self.eff_area * self.trans_eff)
+        fluence = rate / (self.eff_area )
+
         return fluence
 
     def psf_model(self, pixel_size=None, **kwargs):
@@ -703,13 +652,14 @@ class Telescope():
         >>> wave = [190, 200]*u.nm
         >>> spec = [1, 1]
         >>> band_flux = duet.apply_filters(wave, spec, band=1)
-        >>> test = [0.20659143, 0.37176641]
+        >>> test = [0.23696456, 0.23919347]
         >>> allclose(band_flux, test)
         True
 
         """
 
-        from astroduet.filters import load_reflectivity, load_qe, load_redfilter, apply_trans
+        from astroduet.filters import load_reflectivity, load_qe, \
+            load_redfilter, apply_trans, load_transmission
 
         # Shift to make band an index:
 
@@ -722,37 +672,40 @@ class Telescope():
         ref_wave, reflectivity = load_reflectivity(infile = reflectivity_file, **kwargs)
         qe_wave, qe = load_qe(infile = qe_file, **kwargs)
         red_wave, red_trans = load_redfilter(infile = bandpass_file, **kwargs)
+        trans_wave, transmission = \
+            load_transmission(infile=self.transmission_file, **kwargs)
+
 
         # Apply filters
         ref_flux = apply_trans(wave, spec, ref_wave, reflectivity)
         qe_flux = apply_trans(wave, ref_flux, qe_wave, qe)
-        band_flux = apply_trans(wave, qe_flux, red_wave, red_trans)
-
+        trans_flux = apply_trans(wave, qe_flux, trans_wave, transmission)
+        band_flux = apply_trans(wave, trans_flux, red_wave, red_trans)
         return band_flux
         
     def diq_budget(self):
         """Place holder for the DIQ values.
+        
+        Values taken as wraps from Roger's DIQ budget. Note that we track the PSF
+        values separately, so the "as designed" PSF contribution is not captured
+        here on purpose.
+        
+        https://caltech-my.sharepoint.com/personal/romsmith_caltech_edu/Documents/DUET/DUET%20Optics/DUET%20DIQ%20budget%20straw-man.xlsx?web=1
     
-        This is currently at the strawman level and needs to be improved.
-
         """
         diq = {}
-        diq['optical_surface_quality ']= 3 * u.micron
-        diq['optical_surface_figure'] = 2 * u.micron
-        diq['optical_alignments_corrector_1_tilt'] = 1*u.micron
-        diq['optical_alignments_corrector_2_tilt'] = 1*u.micron
-        diq['primary_tilt'] = 0 * u.micron
-        diq['optical_alignment_flattener1_tilt'] = 1*u.micron
-        diq['optical_alignment_flattener2_tilt'] = 1*u.micron
-        
-        diq['focus_tilt'] = 2.1*u.micron
-        diq['focus_piston']= 3*u.micron
-        
-        diq['detector_tilt'] = 3 * u.micron
-        diq['detector_curvature'] = 2*u.micron
-        
-        diq['pixel_diffusion'] = 2*u.micron
-        diq['pixel_crosstalk'] = 0*u.micron
+#         diq['polishing_fab']= 0.45 * u.micron
+#         diq['optical_alignments'] = 2.65*u.micron
+#         diq['detector_fab'] = 1.9 * u.micron
+#         
+#         
+#         diq['pixel_diffusion'] = 2*u.micron
+#         diq['pixel_crosstalk'] = 0*u.micron
+# 
+#         diq['focus_stability'] = 1.58 * u.micron 
+#     
+        diq['wrap_error'] = 5.0*u.micron
+
 
         # Add in quadrature.        
         rms_val = (0. * u.micron)**2

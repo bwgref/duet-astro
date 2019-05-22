@@ -6,6 +6,54 @@ curdir = os.path.dirname(__file__)
 datadir = os.path.join(curdir, 'data')
 
 
+def load_transmission(infile=None, **kwargs):
+    """
+    
+    Parameters
+    ----------
+    
+    infile 
+        The full path to the input transmission file
+    
+    
+    Loads the glass transmission. For now, does a little math on this
+    top account for the multiple pieces of glass with different widths.
+    
+    
+    Returns
+    -------
+    wave : 1D array
+        Wavelength values from the input file, with Astropy units
+        
+    transmisison : 1D array
+        transmission values, normalized to 1
+        
+    Example
+    -------
+    
+    >>> from astroduet.config import Telescope
+    >>> duet = Telescope()
+    >>> wave, transmission = load_transmission(duet.transmission_file)
+    >>> allclose(transmission[120], 0.8794079028314423)
+    True
+    
+
+    """
+    assert infile is not None, 'load_transmission: Provide an input transmission file'
+
+    from numpy import genfromtxt
+    
+    data = genfromtxt(infile, skip_header=2, delimiter=',')
+    wave = data[:,0]*u.nm
+    thin = data[:,1] / 100.
+    thick = data[:, 6] / 100.
+    
+    # Right now this is a 3mm and two 10 mm thick pieces of glass
+    transmission = thin * thick * thick
+    
+    return wave, transmission
+
+
 def load_qe(infile = None, **kwargs):
     """
     
@@ -33,7 +81,7 @@ def load_qe(infile = None, **kwargs):
     >>> duet = Telescope()
     >>> band = 1
     >>> wave, qe = load_qe(infile=duet.qe_files['names'][band])
-    >>> allclose(qe[120], 0.736837)
+    >>> allclose(qe[120], 0.7225539999999999)
     True
     
 
@@ -54,35 +102,41 @@ def load_qe(infile = None, **kwargs):
 #         infile = os.path.join(datadir, 'detector_340_380nm.csv')
 #     else:
 #         raise ValueError('band number not recognized')
+    data = np.genfromtxt(infile, skip_header=2, delimiter=',')
 
-    f = open(infile, 'r')
-    header = True
-    qe = {}
-    set = False
-    for line in f:
-        if header:
-            header = False
-            continue
-        fields = line.split(',')
-        if not set:
-            wave = float(fields[0])
-            qe = float(fields[3])
-            set = True
-        else:
-            wave = np.append(wave, float(fields[0]))
-            qe = np.append(qe, float(fields[3]))
-
-    f.close()
-
-    # Give wavelength a unit
-    wave *= u.nm
-
-    if diag:
-        print('Detector Q.E. loader')
-        print('Band {} has input file {}'.format(band, infile))
+    
+    wave = data[:,0]*u.nm
+    qe = data[:,3] / 100.
 
 
-    return wave, qe / 100.
+#     f = open(infile, 'r')
+#     header = True
+#     qe = {}
+#     set = False
+#     for line in f:
+#         if header:
+#             header = False
+#             continue
+#         fields = line.split(',')
+#         if not set:
+#             wave = float(fields[0])
+#             qe = float(fields[3])
+#             set = True
+#         else:
+#             wave = np.append(wave, float(fields[0]))
+#             qe = np.append(qe, float(fields[3]))
+# 
+#     f.close()
+# 
+#     # Give wavelength a unit
+#     wave *= u.nm
+# 
+#     if diag:
+#         print('Detector Q.E. loader')
+#         print('Band {} has input file {}'.format(band, infile))
+
+
+    return wave, qe 
 
 def load_reflectivity(infile = None, **kwargs):
     """
@@ -111,7 +165,7 @@ def load_reflectivity(infile = None, **kwargs):
     >>> from astroduet.config import Telescope
     >>> duet = Telescope()
     >>> wave, reflectivity = load_reflectivity(infile=duet.reflectivity_file['name'])
-    >>> allclose(reflectivity[50], 0.896282)
+    >>> allclose(reflectivity[50], 0.895383)
     True
 
     """
@@ -179,7 +233,7 @@ def load_redfilter(infile = None, **kwargs):
     >>> from astroduet.config import Telescope
     >>> duet = Telescope()
     >>> wave, redfilter = load_redfilter(infile=duet.bandpass_files['names'][0])
-    >>> allclose(redfilter[30], 0.635886)
+    >>> allclose(redfilter[70], 0.21605899999999997)
     True
 
     """
@@ -189,40 +243,54 @@ def load_redfilter(infile = None, **kwargs):
     band = kwargs.pop('band', 1)
     diag = kwargs.pop('diag', False)
     light = kwargs.pop('light', True)
+    filter_type = kwargs.pop('filter_type', 'B')
+    
+    available = ['A', 'B', 'C']
+    cols = [3, 7, 11]
+    
+    assert filter_type in available, 'load_redfilter: Provide a valid filter type'
+    trans_col = cols[available.index(filter_type)]
 
 
     assert infile is not None, 'load_redfilter: Need an input file'
+    data = np.genfromtxt(infile, skip_header=4, delimiter=',')
+    wave = data[:,0]*u.nm
+    transmission = data[:, trans_col] / 100.
+
+#     qe = data[:,3] / 100.
+# 
+# 
+# 
+# 
+#     f = open(infile, 'r')
+#     header = True
+#     qe = {}
+#     set = False
+#     for line in f:
+#         if header:
+#             if (line.startswith('Wavelength')) or ('%T' in line):
+#                 header = False
+#             continue
+#         fields = line.split(',')
+#         if not set:
+#             wave = float(fields[0])
+#             transmission = float(fields[1])
+#             set = True
+#         else:
+#             wave = np.append(wave, float(fields[0]))
+#             transmission = np.append(transmission, float(fields[1]))
+# 
+#     f.close()
+# 
+#     # Give wavelength a unit
+#     wave *= ur.nm
+# 
+#     if diag:
+#         print('Red filter loader')
+#         print('Band {} has input file {}'.format(band, infile))
 
 
-    f = open(infile, 'r')
-    header = True
-    qe = {}
-    set = False
-    for line in f:
-        if header:
-            if (line.startswith('Wavelength')) or ('%T' in line):
-                header = False
-            continue
-        fields = line.split(',')
-        if not set:
-            wave = float(fields[0])
-            transmission = float(fields[1])
-            set = True
-        else:
-            wave = np.append(wave, float(fields[0]))
-            transmission = np.append(transmission, float(fields[1]))
-
-    f.close()
-
-    # Give wavelength a unit
-    wave *= ur.nm
-
-    if diag:
-        print('Red filter loader')
-        print('Band {} has input file {}'.format(band, infile))
-
-
-    return wave, transmission / 100.
+    return wave, transmission
 
 
 def apply_trans(wav_s, flux_s, wav_t, trans, **kwargs):
@@ -370,10 +438,9 @@ def filter_parameters(duet=None, *args, **kwargs):
     Examples
     --------
     >>> band1, band2 = filter_parameters()
-    >>> allclose(band1['eff_wave'].value, 202.56878682)
+    >>> allclose(band1['eff_wave'].value, 199.29610824)
     True
     
-
     """
     from astroduet.config import Telescope
 
