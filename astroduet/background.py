@@ -86,8 +86,8 @@ def background_pixel_rate(duet, **kwargs):
         airglow_flux = airglow_lines(wave, airglow_level=airglow_level)
         flux += airglow_flux
 
-    band1_flux = duet.apply_filters(zodi['wavelength'], zodi['flux'], band=1, **kwargs)
-    band2_flux = duet.apply_filters(zodi['wavelength'], zodi['flux'], band=2, **kwargs)
+    band1_flux = duet.apply_filters(zodi['wavelength'], flux, band=1, **kwargs)
+    band2_flux = duet.apply_filters(zodi['wavelength'], flux, band=2, **kwargs)
 
 #     # Assume bins are the same size:
     de = wave[1] - wave[0]
