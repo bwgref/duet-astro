@@ -228,7 +228,7 @@ class Telescope():
         'amp':[1, 0.1]
         }
         # Computed by calc_psf_hpd, but hardcoded here.
-        self.psf_fwhm = 9.5 * u.arcsec
+        self.psf_fwhm = 10.5 * u.arcsec
 
 
 
@@ -256,7 +256,7 @@ class Telescope():
         }
 
         # Computed by calc_psf_fwhm, but hardcoded here for speed.
-        self.psf_fwhm = 9.5 * u.arcsec
+        self.psf_fwhm = 10.0 * u.arcsec
 
 
         
@@ -281,7 +281,7 @@ class Telescope():
         'amp':[1.0]
         }
         # Computed by calc_psf_hpd, but hardcoded here.
-        self.psf_fwhm = 11.5 * u.arcsec
+        self.psf_fwhm = 12.5 * u.arcsec
 
 
     def set_fine_plate(self):
@@ -305,7 +305,7 @@ class Telescope():
         'amp':[1]
         }
         # Computed by calc_psf_hpd, but hardcoded here.
-        self.psf_fwhm = 8.0 * u.arcsec
+        self.psf_fwhm = 8.5 * u.arcsec
 
     def set_equal_mass(self):
         '''Largest aperture configuration. 
@@ -328,7 +328,7 @@ class Telescope():
         'amp':[1]
         }
         # Computed by calc_psf_hpd, but hardcoded here.
-        self.psf_fwhm = 9.0 * u.arcsec
+        self.psf_fwhm = 9.5 * u.arcsec
 
         
     def set_largest_aperature(self):
@@ -352,7 +352,7 @@ class Telescope():
         'amp':[1.0]
         }
         # Computed by calc_psf_hpd, but hardcoded here.
-        self.psf_fwhm = 12.0 * u.arcsec
+        self.psf_fwhm = 10.5 * u.arcsec
 
         
     def set_reduced_baseline(self):
@@ -377,7 +377,7 @@ class Telescope():
         'amp':[1, 0.1]
         }
         # Computed by calc_psf_hpd, but hardcoded here.
-        self.psf_fwhm = 9.5 * u.arcsec
+        self.psf_fwhm = 10.5 * u.arcsec
         
 
 
