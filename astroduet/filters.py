@@ -81,7 +81,7 @@ def load_qe(infile = None, **kwargs):
     >>> duet = Telescope()
     >>> band = 1
     >>> wave, qe = load_qe(infile=duet.qe_files['names'][band])
-    >>> allclose(qe[120], 0.736837)
+    >>> allclose(qe[120], 0.737945)
     True
     
 
@@ -102,35 +102,41 @@ def load_qe(infile = None, **kwargs):
 #         infile = os.path.join(datadir, 'detector_340_380nm.csv')
 #     else:
 #         raise ValueError('band number not recognized')
+    data = np.genfromtxt(infile, skip_header=2, delimiter=',')
 
-    f = open(infile, 'r')
-    header = True
-    qe = {}
-    set = False
-    for line in f:
-        if header:
-            header = False
-            continue
-        fields = line.split(',')
-        if not set:
-            wave = float(fields[0])
-            qe = float(fields[3])
-            set = True
-        else:
-            wave = np.append(wave, float(fields[0]))
-            qe = np.append(qe, float(fields[3]))
-
-    f.close()
-
-    # Give wavelength a unit
-    wave *= u.nm
-
-    if diag:
-        print('Detector Q.E. loader')
-        print('Band {} has input file {}'.format(band, infile))
+    
+    wave = data[:,0]*u.nm
+    qe = data[:,3] / 100.
 
 
-    return wave, qe / 100.
+#     f = open(infile, 'r')
+#     header = True
+#     qe = {}
+#     set = False
+#     for line in f:
+#         if header:
+#             header = False
+#             continue
+#         fields = line.split(',')
+#         if not set:
+#             wave = float(fields[0])
+#             qe = float(fields[3])
+#             set = True
+#         else:
+#             wave = np.append(wave, float(fields[0]))
+#             qe = np.append(qe, float(fields[3]))
+# 
+#     f.close()
+# 
+#     # Give wavelength a unit
+#     wave *= u.nm
+# 
+#     if diag:
+#         print('Detector Q.E. loader')
+#         print('Band {} has input file {}'.format(band, infile))
+
+
+    return wave, qe 
 
 def load_reflectivity(infile = None, **kwargs):
     """
