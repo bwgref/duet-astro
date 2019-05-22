@@ -243,40 +243,54 @@ def load_redfilter(infile = None, **kwargs):
     band = kwargs.pop('band', 1)
     diag = kwargs.pop('diag', False)
     light = kwargs.pop('light', True)
+    filter_type = kwargs.pop('filter_type', 'B')
+    
+    available = ['A', 'B', 'C']
+    cols = [3, 7, 11]
+    
+    assert filter_type in available, 'load_redfilter: Provide a valid filter type'
+    trans_col = cols[available.index(filter_type)]
 
 
     assert infile is not None, 'load_redfilter: Need an input file'
+    data = np.genfromtxt(infile, skip_header=4, delimiter=',')
+    wave = data[:,0]*u.nm
+    transmission = data[:, trans_col] / 100.
+
+#     qe = data[:,3] / 100.
+# 
+# 
+# 
+# 
+#     f = open(infile, 'r')
+#     header = True
+#     qe = {}
+#     set = False
+#     for line in f:
+#         if header:
+#             if (line.startswith('Wavelength')) or ('%T' in line):
+#                 header = False
+#             continue
+#         fields = line.split(',')
+#         if not set:
+#             wave = float(fields[0])
+#             transmission = float(fields[1])
+#             set = True
+#         else:
+#             wave = np.append(wave, float(fields[0]))
+#             transmission = np.append(transmission, float(fields[1]))
+# 
+#     f.close()
+# 
+#     # Give wavelength a unit
+#     wave *= ur.nm
+# 
+#     if diag:
+#         print('Red filter loader')
+#         print('Band {} has input file {}'.format(band, infile))
 
 
-    f = open(infile, 'r')
-    header = True
-    qe = {}
-    set = False
-    for line in f:
-        if header:
-            if (line.startswith('Wavelength')) or ('%T' in line):
-                header = False
-            continue
-        fields = line.split(',')
-        if not set:
-            wave = float(fields[0])
-            transmission = float(fields[1])
-            set = True
-        else:
-            wave = np.append(wave, float(fields[0]))
-            transmission = np.append(transmission, float(fields[1]))
-
-    f.close()
-
-    # Give wavelength a unit
-    wave *= ur.nm
-
-    if diag:
-        print('Red filter loader')
-        print('Band {} has input file {}'.format(band, infile))
-
-
-    return wave, transmission / 100.
+    return wave, transmission
 
 
 def apply_trans(wav_s, flux_s, wav_t, trans, **kwargs):

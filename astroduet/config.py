@@ -155,6 +155,17 @@ class Telescope():
         
         self.transmission_file = datadir+'glass_transmission_20190518.csv'
 
+        # Bandpass files here
+        self.bandpass_files = {
+            'description' : ['CBE DUET 1 Bandpass', 'CBE DUET 2 Bandpass'],
+            'names' : [datadir+'duet1_bandpass_20190518.csv', datadir+'duet2_bandpass_20190518.csv']
+        }
+
+        self.reflectivity_file = {
+            'description' : 'CBE Reflectivity',
+            'name' : datadir+'mirror_coatings_20190518.csv'
+        }
+
         # Dark current given in e- per pixel per sec
         self.dark_current_downscale = 4.0
         self.dark_current = (0.046 / self.dark_current_downscale) * u.ph / u.s
@@ -219,15 +230,8 @@ class Telescope():
         # Computed by calc_psf_hpd, but hardcoded here.
         self.psf_fwhm = 9.5 * u.arcsec
 
-        self.reflectivity_file = {
-            'description' : 'CBE Reflectivity',
-            'name' : datadir+'mirror_coatings_20190518.csv'
-        }
 
-        self.bandpass_files = {
-            'description' : ['CBE DUET 1 Bandpass', 'CBE DUET 2 Bandpass'],
-            'names' : [datadir+'duet1_filter_light.csv', datadir+'duet2_filter_light.csv']
-        }
+
         
     def set_classic(self):
         '''Baseline configuration. Duplicate this with different values
@@ -254,15 +258,7 @@ class Telescope():
         # Computed by calc_psf_fwhm, but hardcoded here for speed.
         self.psf_fwhm = 9.5 * u.arcsec
 
-        self.reflectivity_file = {
-            'description' : 'CBE Reflectivity',
-            'name' : datadir+'al_mgf2_mirror_coatings.csv'
-        }
 
-        self.bandpass_files = {
-            'description' : ['CBE DUET 1 Bandpass', 'CBE DUET 2 Bandpass'],
-            'names' : [datadir+'duet1_filter_light.csv', datadir+'duet2_filter_light.csv']
-        }
         
     def set_minimum_mass(self):
         '''Minimum mass configuration. 
@@ -287,15 +283,6 @@ class Telescope():
         # Computed by calc_psf_hpd, but hardcoded here.
         self.psf_fwhm = 11.5 * u.arcsec
 
-        self.reflectivity_file = {
-            'description' : 'CBE Reflectivity',
-            'name' : datadir+'al_mgf2_mirror_coatings.csv'
-        }
-
-        self.bandpass_files = {
-            'description' : ['CBE DUET 1 Bandpass', 'CBE DUET 2 Bandpass'],
-            'names' : [datadir+'duet1_filter_light.csv', datadir+'duet2_filter_light.csv']
-        }
 
     def set_fine_plate(self):
         '''Fine plate scale configuration. 
@@ -320,16 +307,6 @@ class Telescope():
         # Computed by calc_psf_hpd, but hardcoded here.
         self.psf_fwhm = 8.0 * u.arcsec
 
-        self.reflectivity_file = {
-            'description' : 'CBE Reflectivity',
-            'name' : datadir+'al_mgf2_mirror_coatings.csv'
-        }
-
-        self.bandpass_files = {
-            'description' : ['CBE DUET 1 Bandpass', 'CBE DUET 2 Bandpass'],
-            'names' : [datadir+'duet1_filter_light.csv', datadir+'duet2_filter_light.csv']
-        }
-
     def set_equal_mass(self):
         '''Largest aperture configuration. 
         
@@ -353,15 +330,6 @@ class Telescope():
         # Computed by calc_psf_hpd, but hardcoded here.
         self.psf_fwhm = 9.0 * u.arcsec
 
-        self.reflectivity_file = {
-            'description' : 'CBE Reflectivity',
-            'name' : datadir+'al_mgf2_mirror_coatings.csv'
-        }
-
-        self.bandpass_files = {
-            'description' : ['CBE DUET 1 Bandpass', 'CBE DUET 2 Bandpass'],
-            'names' : [datadir+'duet1_filter_light.csv', datadir+'duet2_filter_light.csv']
-        }
         
     def set_largest_aperature(self):
         '''Largest aperture configuration. 
@@ -386,15 +354,6 @@ class Telescope():
         # Computed by calc_psf_hpd, but hardcoded here.
         self.psf_fwhm = 12.0 * u.arcsec
 
-        self.reflectivity_file = {
-            'description' : 'CBE Reflectivity',
-            'name' : datadir+'al_mgf2_mirror_coatings.csv'
-        }
-
-        self.bandpass_files = {
-            'description' : ['CBE DUET 1 Bandpass', 'CBE DUET 2 Bandpass'],
-            'names' : [datadir+'duet1_filter_light.csv', datadir+'duet2_filter_light.csv']
-        }
         
     def set_reduced_baseline(self):
         '''Reduced baseline configuration. Duplicate this with different values
@@ -420,22 +379,7 @@ class Telescope():
         # Computed by calc_psf_hpd, but hardcoded here.
         self.psf_fwhm = 9.5 * u.arcsec
         
-        # Set QE files here:
-        
-        self.qe_files = {
-            'description' : ['DUET 1 CBE QE', 'DUET 2 CBE QE'],
-            'names' : [datadir+'detector_180_220nm.csv', datadir+'detector_260_300nm.csv']
-        }
 
-        self.reflectivity_file = {
-            'description' : 'CBE Reflectivity',
-            'name' : datadir+'al_mgf2_mirror_coatings.csv'
-        }
-
-        self.bandpass_files = {
-            'description' : ['CBE DUET 1 Bandpass', 'CBE DUET 2 Bandpass'],
-            'names' : [datadir+'duet1_filter_light.csv', datadir+'duet2_filter_light.csv']
-        }
 
     def info(self):
         info_str = f"""-----
@@ -737,8 +681,6 @@ class Telescope():
         qe_flux = apply_trans(wave, ref_flux, qe_wave, qe)
         trans_flux = apply_trans(wave, qe_flux, trans_wave, transmission)
         band_flux = apply_trans(wave, trans_flux, red_wave, red_trans)
-        
-
         return band_flux
         
     def diq_budget(self):
@@ -752,15 +694,18 @@ class Telescope():
     
         """
         diq = {}
-        diq['polishing_fab']= 0.45 * u.micron
-        diq['optical_alignments'] = 2.65*u.micron
-        diq['detector_fab'] = 1.9 * u.micron
-        
-        
-        diq['pixel_diffusion'] = 2*u.micron
-        diq['pixel_crosstalk'] = 0*u.micron
+#         diq['polishing_fab']= 0.45 * u.micron
+#         diq['optical_alignments'] = 2.65*u.micron
+#         diq['detector_fab'] = 1.9 * u.micron
+#         
+#         
+#         diq['pixel_diffusion'] = 2*u.micron
+#         diq['pixel_crosstalk'] = 0*u.micron
+# 
+#         diq['focus_stability'] = 1.58 * u.micron 
+#     
+        diq['wrap_error'] = 5.0*u.micron
 
-        diq['focus_stability'] = 1.58 * u.micron 
 
         # Add in quadrature.        
         rms_val = (0. * u.micron)**2
