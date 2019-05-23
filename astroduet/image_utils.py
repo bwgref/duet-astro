@@ -87,7 +87,7 @@ def sim_galaxy(patch_size,pixel_size,gal_type=None,gal_params=None,duet=None,ban
         gal_params = Dictionary of parameters for Sersic model: ...
     '''
     from astropy.modeling.models import Sersic2D
-    from astroduet.utils import duet_abmag_to_fluence
+    from astroduet.utils import duet_abmag_to_fluence_old
 
     if duet is None:
         duet = Telescope()
