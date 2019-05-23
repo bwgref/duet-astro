@@ -150,7 +150,7 @@ class Telescope():
         # Set QE files here:
         self.qe_files = {
             'description' : ['DUET 1 CBE QE', 'DUET 2 CBE QE'],
-            'names' : [datadir+'duet1_qe_20190518.csv', datadir+'duet2_qe_20190518.csv']
+            'names' : [datadir+'duet1_qe_20190518_v2.csv', datadir+'duet2_qe_20190518_v2.csv']
         }
         
         self.transmission_file = datadir+'glass_transmission_20190518.csv'
