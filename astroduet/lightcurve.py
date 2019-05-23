@@ -12,7 +12,7 @@ import astropy.units as u
 from .duet_sensitivity import calc_snr
 from .utils import get_neff, suppress_stdout, mkdir_p
 from .utils import tqdm as imported_tqdm
-from .utils import contiguous_regions
+from .utils import contiguous_regions, duet_fluence_to_abmag
 from .bbmag import sigerr
 from .config import Telescope
 from .background import background_pixel_rate
@@ -758,6 +758,8 @@ def lightcurve_through_image(lightcurve, exposure,
             colname = f'fluence_D{duet_no}_fit{suffix}'
             lightcurve[colname] = 0.
             lightcurve[colname].unit = u.ph / (u.cm**2 * u.s)
+            colname = f'ABmag_D{duet_no}_fit{suffix}'
+            lightcurve[colname] = 0.
 
     lightcurve['snr_D1'] = 0.
     lightcurve['snr_D2'] = 0.
@@ -779,11 +781,15 @@ def lightcurve_through_image(lightcurve, exposure,
 
         fl1_fit = result1['flux_fit'][0] * image_rate1.unit
         fl1_fite = result1['flux_unc'][0] * image_rate1.unit
-        if fl1_fit > 0:
-            snr_1 = \
-                duet.calc_snr(exposure, fl1_fit, bgd_band1) \
-                    * u.dimensionless_unscaled
-            lightcurve['snr_D1'][i] = snr_1
+        lightcurve['fluence_D1_fit'][i] = duet.rate_to_fluence(fl1_fit)
+        lightcurve['fluence_D1_fiterr'][i] = duet.rate_to_fluence(fl1_fite)
+        if (fl1_fit > 0) & (fl1_fite > 0):
+            lightcurve['snr_D1'][i] = fl1_fit / fl1_fite
+            lightcurve['ABmag_D1_fit'][i] = \
+                duet_fluence_to_abmag(lightcurve['fluence_D1_fit'][i],
+                                      duet.bandpass1).value
+            ABerr = 2.5 * np.log(1 + 1 / lightcurve['snr_D1'][i])
+            lightcurve['ABmag_D1_fiterr'][i] = ABerr
 
         image_rate2 = lightcurve['imgs_D2'][i]
         image_rate_bkgsub2 = lightcurve['imgs_D2_bkgsub'][i]
@@ -797,15 +803,15 @@ def lightcurve_through_image(lightcurve, exposure,
                                      star_tbl, niters=1, duet=duet)
         fl2_fit = result2['flux_fit'][0] * image_rate2.unit
         fl2_fite = result2['flux_unc'][0] * image_rate2.unit
-        if fl2_fit > 0:
-            snr_2 = \
-                duet.calc_snr(exposure, fl2_fit, bgd_band2) \
-                    * u.dimensionless_unscaled
-            lightcurve['snr_D2'][i] = snr_2
 
-        lightcurve['fluence_D1_fit'][i] = duet.rate_to_fluence(fl1_fit)
-        lightcurve['fluence_D1_fiterr'][i] = duet.rate_to_fluence(fl1_fite)
         lightcurve['fluence_D2_fit'][i] = duet.rate_to_fluence(fl2_fit)
         lightcurve['fluence_D2_fiterr'][i] = duet.rate_to_fluence(fl2_fite)
+        if (fl2_fit > 0) & (fl2_fite > 0):
+            lightcurve['snr_D2'][i] = fl2_fit / fl2_fite
+            lightcurve['ABmag_D2_fit'][i] = \
+                duet_fluence_to_abmag(lightcurve['fluence_D2_fit'][i],
+                                      duet.bandpass2).value
+            ABerr = 2.5 * np.log(1 + 1 / lightcurve['snr_D2'][i])
+            lightcurve['ABmag_D2_fiterr'][i] = ABerr
 
     return lightcurve
