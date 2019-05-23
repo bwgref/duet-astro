@@ -6,7 +6,7 @@ from astroduet.bbmag import bb_abmag_fluence
 from astroduet.image_utils import construct_image, find, ap_phot, run_daophot, estimate_background
 from astroduet.config import Telescope
 from astroduet.background import background_pixel_rate
-from astroduet.utils import duet_abmag_to_fluence
+from astroduet.utils import duet_abmag_to_fluence_old
 from astropy.table import Table
 from astropy.io import fits
 from astroduet.diff_image import py_zogy
