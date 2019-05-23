@@ -786,8 +786,8 @@ def lightcurve_through_image(lightcurve, exposure,
         if (fl1_fit > 0) & (fl1_fite > 0):
             lightcurve['snr_D1'][i] = fl1_fit / fl1_fite
             lightcurve['ABmag_D1_fit'][i] = \
-                duet_fluence_to_abmag(lightcurve['fluence_D1_fit'][i],
-                                      duet.bandpass1).value
+                duet_fluence_to_abmag(lightcurve['fluence_D1_fit'][i], 1,
+                                      duet=duet).value
             ABerr = 2.5 * np.log(1 + 1 / lightcurve['snr_D1'][i])
             lightcurve['ABmag_D1_fiterr'][i] = ABerr
 
@@ -809,8 +809,8 @@ def lightcurve_through_image(lightcurve, exposure,
         if (fl2_fit > 0) & (fl2_fite > 0):
             lightcurve['snr_D2'][i] = fl2_fit / fl2_fite
             lightcurve['ABmag_D2_fit'][i] = \
-                duet_fluence_to_abmag(lightcurve['fluence_D2_fit'][i],
-                                      duet.bandpass2).value
+                duet_fluence_to_abmag(lightcurve['fluence_D2_fit'][i], 2,
+                                      duet=duet).value
             ABerr = 2.5 * np.log(1 + 1 / lightcurve['snr_D2'][i])
             lightcurve['ABmag_D2_fiterr'][i] = ABerr
 
