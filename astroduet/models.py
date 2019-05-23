@@ -3,10 +3,12 @@ import os
 from astropy import log
 import numpy as np
 import astropy.units as u
-from astropy.table import Table, QTable
+import astropy.constants as const
+from astropy.table import Table, QTable, join
+
 from astroduet.config import Telescope
 from astroduet.bbmag import bb_abmag, bb_abmag_fluence
-
+from .utils import tqdm
 
 curdir = os.path.dirname(__file__)
 datadir = os.path.join(curdir, 'data')
@@ -34,8 +36,7 @@ class Simulations():
             'kilonova_0.01.dat',
             'kilonova_0.02.dat',
             'kilonova_0.04.dat']
-
-
+        self.sne_simulations = ['IIb', 'IIP', 'IIP_big', 'stripped']
 
     def info(self):
         print('-----')
@@ -51,16 +52,13 @@ class Simulations():
 
         print()
 
-
-
-
-    def parse_emgw(self, diag=False):
+    def parse_emgw(self, diag=False, list_of_simulations=None):
         '''
         Loop over each EMGW GRB shock model and save the outputs
-    
+
         Optional parameters
         -------------------
-        
+
         diag: boolean
             Just run one test instead of looping over all for unit tests
 
@@ -68,19 +66,112 @@ class Simulations():
         '''
 
         self.emgw_processed = np.array([])
-        for ind, shockf in enumerate(self.emgw_simulations):
+        if list_of_simulations is None:
+            list_of_simulations = self.emgw_simulations
+        for ind, shockf in enumerate(list_of_simulations):
             if diag is True:
                 if ind > 0:
                     break
-            sname = os.path.splitext(shockf)[0]
+            sname, ext = os.path.splitext(shockf)
+            print('Parsing and storing: {}'.format(sname))
+            outfile = datadir + '/' + sname + '_lightcurve_DUET.fits'
+            shock_lc = convert_model(datadir + '/' + shockf, name=sname)
+            shock_lc.write(outfile, format='fits', overwrite=True)
+
+        return
+
+    def parse_sne(self, diag=False, list_of_simulations=None):
+        '''
+        Loop over each EMGW GRB shock model and save the outputs
+
+        Optional parameters
+        -------------------
+
+        diag: boolean
+            Just run one test instead of looping over all for unit tests
+
+
+        '''
+
+        self.emgw_processed = np.array([])
+        if list_of_simulations is None:
+            list_of_simulations = self.sne_simulations
+        for ind, shockf in enumerate(list_of_simulations):
+            if diag is True:
+                if ind > 0:
+                    break
+            sname, ext = os.path.splitext(shockf)
             print('Parsing and storing: {}'.format(sname))
             outfile = datadir+'/'+sname+'_lightcurve_DUET.fits'
-            shock_lc = convert_model(datadir+'/'+shockf, name=sname)
+            shock_lc = convert_sn_model(datadir + '/' + shockf, name=sname)
+
             shock_lc.write(outfile, format='fits', overwrite=True)
+
         return
 
 
+def convert_sn_model(label, name='NoName', duet=None):
+    '''
+    Reads in the SNe models, converts them to DUET fluences, and
+    writes out the resulting models to FITS files.
 
+    Parameters
+    ----------
+
+    filename : string
+        Path to SN shock file.
+
+    Other parameters
+    ----------------
+
+    name : string
+        name to use for the model. Default is 'NoName'
+
+    '''
+    if duet is None:
+        duet = Telescope()
+
+    bandone = duet.bandpass1
+    bandtwo = duet.bandpass2
+    dist0 = 10*u.pc
+
+    temptable = \
+        Table.read(f'{label}_teff.txt', format='ascii', names=['time', 'T'])
+    radiustable = \
+        Table.read(f'{label}_radius.txt', format='ascii', names=['time', 'R'])
+    table = join(temptable, radiustable)
+    N = len(table['time'])
+    time = table['time']
+
+    shock_lc = Table([time,
+            np.zeros(len(time))*u.ABmag,
+            np.zeros(len(time))*u.ABmag,
+            np.zeros(len(time))*u.ph/(u.s*u.cm**2),
+            np.zeros(len(time))*u.ph/(u.s*u.cm**2)],
+               names=('time', 'mag_D1', 'mag_D2', 'fluence_D1', 'fluence_D2'),
+               meta={'name': name + ' at 10 pc',
+                      'dist0_pc' : '{}'.format(dist0.to(u.pc).value)})
+
+    bolflux = (table['T'] * u.K) ** 4 * const.sigma_sb.cgs * (
+                (table['R'] * u.cm) / dist0.to(u.cm)) ** 2
+
+    temps = table['T'] * u.K
+
+    for k, t, bf in tqdm(list(zip(np.arange(N), temps, bolflux))):
+        band1_mag, band2_mag = bb_abmag(bbtemp=t, bolflux = bf,
+                        bandone=bandone, bandtwo=bandtwo, val=True)
+
+        band1_fluence, band2_fluence = bb_abmag_fluence(bbtemp=t,
+            bolflux=bf)
+
+        shock_lc[k]['mag_D1'] = band1_mag
+        shock_lc[k]['mag_D2'] = band2_mag
+        shock_lc[k]['fluence_D1'] = band1_fluence.value
+        shock_lc[k]['fluence_D2'] = band2_fluence.value
+
+    shock_lc['mag_D1'].unit = None
+    shock_lc['mag_D2'].unit = None
+    return shock_lc
 
 
 def convert_model(filename, name='NoName', duet=None):
@@ -125,8 +216,8 @@ def convert_model(filename, name='NoName', duet=None):
                names=('time', 'mag_D1', 'mag_D2', 'fluence_D1', 'fluence_D2'),
                meta={'name': name + ' at 10 pc',
                       'dist0_pc' : '{}'.format(dist0.to(u.pc).value)})
-
-    for k, t, bf in zip(np.arange(len(temps)), temps, bolflux):
+    N = len(temps)
+    for k, t, bf in tqdm(list(zip(np.arange(N), temps, bolflux))):
         t *= u.K
         bf *= (u.erg/u.s) /(4 * np.pi * dist0**2)
 
@@ -297,7 +388,7 @@ def load_bai(**kwargs):
             ctr += 1
             continue
         else:
-        
+
             bai_bytes = bytearray(line, 'utf-8')
 
             if bai_bytes[52:57] == b'     ':
@@ -306,7 +397,7 @@ def load_bai(**kwargs):
                 this_fuv = 10**(float(bai_bytes[52:57]))
             fuv = np.append(fuv, this_fuv)
 
-            
+
             if bai_bytes[59:64] == b'     ':
                 this_nuv = -1
             else:
@@ -320,7 +411,7 @@ def load_bai(**kwargs):
             else:
                 this_rad = float(bai_bytes[74:80])
 
-    
+
             rad = np.append(this_rad, rad)
     #        break
     f.close()
@@ -334,25 +425,25 @@ def load_bai(**kwargs):
     bai_table['DIST'].unit = u.Mpc
     bai_table['LUMNUV'].unit = 'W'
     bai_table['LUMFUV'].unit = 'W'
-    
+
     good = np.where( (bai_table['LUMNUV'] > 0) & (bai_table['DIST'] > 0) &
                      (bai_table['RAD'] > 0) & (bai_table['MORPH'] > -99) &
                      (bai_table['LUMFUV'] > 0) )
     bai_table = bai_table[good]
-    
+
     # Surface brightness calculation is here
     bai_table['AREA']= np.pi * (bai_table['RAD']**2)
-    
+
     # Correct flux estimate?
     flux = (0.5*bai_table['LUMNUV'].to(u.erg / u.s)) / (galex_nuv_bandpass * 4 * np.pi * (bai_table['DIST'].to(u.cm))**2)
-    surf_brightness = flux / bai_table['AREA'] 
+    surf_brightness = flux / bai_table['AREA']
     abmag = galex_nuv_flux_to_abmag(surf_brightness) # Now GALEX ABmags per arcsec
-    bai_table['SURFNUV'] = abmag 
+    bai_table['SURFNUV'] = abmag
 
     flux = (0.5*bai_table['LUMFUV'].to(u.erg / u.s)) / (galex_fuv_bandpass * 4 * np.pi * (bai_table['DIST'].to(u.cm))**2)
-    surf_brightness = flux / bai_table['AREA'] 
+    surf_brightness = flux / bai_table['AREA']
     abmag = galex_fuv_flux_to_abmag(surf_brightness) # Now GALEX ABmags per arcsec
-    bai_table['SURFFUV'] = abmag 
-    
-    
+    bai_table['SURFFUV'] = abmag
+
+
     return bai_table
