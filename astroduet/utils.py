@@ -130,7 +130,7 @@ def load_neff():
     ref_file = os.path.join(datadir, 'neff_data_full.dat')
 
     neff_table = Table.read(ref_file, format='ascii')
-       
+
 #    oversig, oversample, neff_center, neff_corner, neff_avg = genfromtxt(ref_file, unpack=True, skip_header=True)
     return neff_table['pix-fwhm'].data, neff_table['avg'].data
 
@@ -159,7 +159,7 @@ def get_neff(psf_size, pixel_size):
     >>> from astroduet.config import Telescope
     >>> duet = Telescope()
     >>> neff = get_neff(duet.psf_fwhm, duet.pixel)
-    >>> np.isclose(neff, 7.862666177549524)
+    >>> np.isclose(neff, 9.061332801684266)
     True
 
     """
@@ -180,7 +180,7 @@ def galex_to_duet(galmags, duet=None):
     galmags: array
         GALEX AB magnitudes, either as [[FUV1, ..., FUVN],[NUV1, ..., NUVN]] or as [[FUV1, NUV1],...,[FUVN, NUVN]]
         Code assumes the first format if len(galmags) = 2
-        
+
     duet: Telescope instance
 
     Returns
@@ -199,11 +199,11 @@ def galex_to_duet(galmags, duet=None):
     """
 
     from astropy.modeling.blackbody import FNU
-    
+
     if duet is None:
         from astroduet.config import Telescope
         duet = Telescope()
-    
+
     galex_fuv_lef = 151.6 * u.nm
     galex_nuv_lef = 226.7 * u.nm
 
@@ -248,43 +248,43 @@ def galex_to_duet(galmags, duet=None):
 
 def galex_nuv_flux_to_abmag(galflux):
     '''Convert GALEX NUV flux to GALEX NUV ABmag
-    
+
     Conversion based on this page
     https://asd.gsfc.nasa.gov/archive/galex/FAQ/counts_background.html
-    
+
     Parameters
     ----------
     flux : array
         1D array of GALEX NUV fluxes in units of erg / sec / cm2 / Angstom
-    
+
     Returns
     -------
     GALEX NUV AB mag:
-    
+
     '''
     conversion = 2.06e-16
-    
-    
+
+
     mAB = (-2.5 * np.log10(galflux.value /conversion) + 20.08)*u.ABmag
     return mAB
 
 def galex_fuv_flux_to_abmag(galflux):
     '''Convert GALEX FUV flux to GALEX FUV ABmag
-    
+
     Conversion based on this page
     https://asd.gsfc.nasa.gov/archive/galex/FAQ/counts_background.html
-    
+
     Parameters
     ----------
     flux : array
         1D array of GALEX FUV fluxes in units of erg / sec / cm2 / Angstom
 
 
-    
+
     Returns
     -------
     GALEX FUV AB mag:
-    
+
     '''
     conversion = 1.4e-15
     #    mAB = -2.5 x log10(FluxFUV / 1.40 x 10-15 erg sec-1 cm-2 Å-1) + 18.82
