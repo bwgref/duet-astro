@@ -141,7 +141,7 @@ def convert_sn_model(label, name='NoName', duet=None):
         Table.read(f'{label}_radius.txt', format='ascii', names=['time', 'R'])
     table = join(temptable, radiustable)
     N = len(table['time'])
-    time = table['time']
+    time = table['time'] * u.s
 
     shock_lc = Table([time,
             np.zeros(len(time))*u.ABmag,
@@ -206,7 +206,6 @@ def convert_model(filename, name='NoName', duet=None):
     temps = shock_data[:,2]
     bolflux = 10**shock_data[:,1]
 
-
     # Set up outputs
     shock_lc = Table([time,
             np.zeros(len(time))*u.ABmag,
@@ -266,6 +265,7 @@ def load_model_fluence(filename, dist=100*u.Mpc):
     fitsfile = fits_file(filename)
 
     model_lc_table = QTable.read(fitsfile)
+    model_lc_table['time'] -= model_lc_table['time'][0]
 
     dist0 = float(model_lc_table.meta['DIST0_PC']) * u.pc
 
@@ -302,6 +302,7 @@ def load_model_ABmag(filename, dist=100*u.Mpc):
 
     fitsfile = fits_file(filename)
     model_lc_table = QTable.read(fitsfile)
+    model_lc_table['time'] -= model_lc_table['time'][0]
     dist0 = float(model_lc_table.meta['DIST0_PC']) * u.pc
 
     # Distance modulus
