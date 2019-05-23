@@ -33,7 +33,7 @@ def suppress_stdout():
             sys.stdout = old_stdout
 
 
-def duet_abmag_to_fluence(ABmag, band, **kwargs):
+def duet_abmag_to_fluence_old(ABmag, band, **kwargs):
     """
     Convert AB magnitude for a source into the number of source counts.
 
@@ -55,16 +55,17 @@ def duet_abmag_to_fluence(ABmag, band, **kwargs):
     -------
     >>> from astroduet.config import Telescope
     >>> duet = Telescope()
-    >>> fluence = duet_abmag_to_fluence(20*u.ABmag, duet.bandpass1)
+    >>> fluence = duet_abmag_to_fluence_old(20*u.ABmag, duet.bandpass1)
     >>> np.isclose(fluence.value, 0.01118276)
     True
 
     """
-
+    import warnings
+    warnings.warn("duet_abmag_to_fluence_old is deprecated; please use"
+                  "duet_abmag_to_fluence instead", DeprecationWarning)
     from astropy.modeling.blackbody import FLAM
 
     import numpy as np
-
 
     funit = u.ph / u.cm**2/u.s / u.Angstrom # Spectral radiances per Hz or per angstrom
 
@@ -75,7 +76,7 @@ def duet_abmag_to_fluence(ABmag, band, **kwargs):
 
     return fluence
 
-def duet_fluence_to_abmag(fluence, band, **kwargs):
+def duet_fluence_to_abmag_old(fluence, band, **kwargs):
     """
     Convert AB magnitude for a source into the number of source counts.
 
@@ -98,11 +99,14 @@ def duet_fluence_to_abmag(fluence, band, **kwargs):
     >>> from astroduet.config import Telescope
     >>> duet = Telescope()
     >>> funit = u.ph / u.cm**2/u.s
-    >>> abmag = duet_fluence_to_abmag(0.01*funit, duet.bandpass1)
+    >>> abmag = duet_fluence_to_abmag_old(0.01*funit, duet.bandpass1)
     >>> np.isclose(abmag.value,  20.12137283)
     True
 
     """
+    import warnings
+    warnings.warn("duet_fluence_to_abmag_old is deprecated; please use"
+                  "duet_fluence_to_abmag instead", DeprecationWarning)
 
     bandpass = np.abs( (band[1] - band[0])).to(u.AA)
     midband = np.mean( (band).to(u.AA) )
@@ -399,3 +403,94 @@ def time_intervals_from_gtis(gtis, chunk_length, fraction_step=1,
     assert len(spectrum_start_times) > 0, \
         ("No GTIs are equal to or longer than chunk_length.")
     return spectrum_start_times, spectrum_start_times + chunk_length
+
+
+def duet_fluence_to_abmag(fluence, duet_no, duet=None):
+    """
+    Convert AB magnitude for a source into the number of source counts.
+
+
+    Parameters
+    ----------
+    fluence: float
+        fluence in the bandpass that you're using in units (ph / cm2 / sec)
+
+    duet : `astroduet.config.Telescope` object
+        if None, allocate a new Telescope object
+
+    duet_no: int, 1 or 2
+        DUET channel
+
+    Returns
+    -------
+    AB magnitude in the band (ABmag)
+
+
+    Example
+    -------
+    >>> funit = u.ph / u.cm**2/u.s
+    >>> abmag = duet_fluence_to_abmag(0.01*funit, 1)
+    >>> np.isclose(abmag.value,  18.57586466)
+    True
+
+    """
+    from astroduet.config import Telescope
+    if duet is None:
+        duet = Telescope()
+
+    band = getattr(duet, f'band{duet_no}')
+    spec = [1] * u.ph / (u.s * u.cm**2 * u.AA)
+    wave = [band['eff_wave'].to(u.AA).value] * u.AA
+    bandpass = band['eff_width'].to(u.AA)
+    scale = (duet.apply_filters(wave, spec, duet_no)).value[0]
+
+    fluence_corr = fluence / scale
+
+    ABmag = (fluence_corr / bandpass).to(u.ABmag, equivalencies=u.spectral_density(band['eff_wave'].to(u.AA)))
+
+    return ABmag
+
+
+def duet_abmag_to_fluence(ABmag, duet_no, duet=None):
+    """
+    Convert AB magnitude for a source into the number of source counts.
+
+
+    Parameters
+    ----------
+    ABmag: float
+        AB magnitude in the bandpass that you're using
+
+    bandpass: array
+        DUET bandpass you're using
+
+    Returns
+    -------
+    Fluence in the band (ph / cm2 / sec)
+
+
+    Example
+    -------
+    >>> fluence = duet_abmag_to_fluence(20*u.ABmag, 1)
+    >>> np.isclose(fluence.value, 0.00269368)
+    True
+
+    """
+    import numpy as np
+    from astroduet.config import Telescope
+    if duet is None:
+        duet = Telescope()
+
+    band = getattr(duet, f'band{duet_no}')
+    spec = [1] * u.ph / (u.s * u.cm**2 * u.AA)
+    wave = [band['eff_wave'].to(u.AA).value] * u.AA
+    bandpass = band['eff_width'].to(u.AA)
+    scale = (duet.apply_filters(wave, spec, duet_no)).value[0]
+
+    funit = u.ph / u.cm**2/u.s / u.AA # Spectral radiances per Hz or per angstrom
+
+    fluence = bandpass * ABmag.to(funit,
+                                  equivalencies=u.spectral_density(band['eff_wave'].to(u.AA)))
+
+    return fluence * scale
+

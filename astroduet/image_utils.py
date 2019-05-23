@@ -104,7 +104,7 @@ def sim_galaxy(patch_size,pixel_size,gal_type=None,gal_params=None,duet=None,ban
     if gal_type == 'spiral':
         # A typical spiral galaxy at 100 Mpc
         surface_mag = 26.2 * u.ABmag # surface brightness (per arcsec**2)
-        surface_rate = duet.fluence_to_rate(duet_abmag_to_fluence(surface_mag,band)) # surface count rate at r_eff
+        surface_rate = duet.fluence_to_rate(duet_abmag_to_fluence_old(surface_mag,band)) # surface count rate at r_eff
         amplitude = surface_rate * pixel_size.value**2 # surface brightness (per pixel)
         r_eff = 16.5 / pixel_size.value
         n = 1
@@ -114,7 +114,7 @@ def sim_galaxy(patch_size,pixel_size,gal_type=None,gal_params=None,duet=None,ban
     elif gal_type == 'elliptical':
         # A typical elliptical galaxy at 100 Mpc
         surface_mag = 25.0 * u.ABmag
-        surface_rate = duet.fluence_to_rate(duet_abmag_to_fluence(surface_mag,band)) # surface count rate at r_eff
+        surface_rate = duet.fluence_to_rate(duet_abmag_to_fluence_old(surface_mag,band)) # surface count rate at r_eff
         amplitude = surface_rate * pixel_size.value**2 # surface brightness (per pixel)
         r_eff = 12.5 / pixel_size.value
         n = 4
@@ -124,7 +124,7 @@ def sim_galaxy(patch_size,pixel_size,gal_type=None,gal_params=None,duet=None,ban
     elif gal_type == 'dwarf':
         # A typical dwarf galaxy at 10 Mpc
         surface_mag = 25.8 * u.ABmag
-        surface_rate = duet.fluence_to_rate(duet_abmag_to_fluence(surface_mag,band)) # surface count rate at r_eff
+        surface_rate = duet.fluence_to_rate(duet_abmag_to_fluence_old(surface_mag,band)) # surface count rate at r_eff
         amplitude = surface_rate * pixel_size.value**2 # surface brightness (per pixel)
         r_eff = 70 / pixel_size
         r_eff = r_eff.value
@@ -135,7 +135,7 @@ def sim_galaxy(patch_size,pixel_size,gal_type=None,gal_params=None,duet=None,ban
     elif (gal_type == 'custom') | (gal_type == None):
         # Get args from gal_params, default to spiral values
         surface_mag = gal_params.get('magnitude', 26) * u.ABmag
-        surface_rate = duet.fluence_to_rate(duet_abmag_to_fluence(surface_mag,band)) # surface count rate at r_eff
+        surface_rate = duet.fluence_to_rate(duet_abmag_to_fluence_old(surface_mag,band)) # surface count rate at r_eff
         amplitude = surface_rate * pixel_size.value**2 # surface brightness (per pixel)
         r_eff = gal_params.get('r_eff', 16.5 / pixel_size.value)
         n = gal_params.get('n', 1)
@@ -187,11 +187,11 @@ def construct_image(frame,exposure,
 
     source : ``astropy.units.Quantity``
         Source photon rate in ph / s; can be array for multiple sources
-        
+
     source_loc : ``numpy.array``
         Coordinates of source(s) relative to frame (values between 0 and 1). If source is an array, source_loc must be the same length.
         format: np.array([[X1,X2,X3,...,Xn],[Y1,Y2,Y3,...,Yn]])
-        
+
     sky_rate : ``astropy.units.Quantity``
         Background photon rate in ph / s / pixel
 
@@ -244,11 +244,11 @@ def construct_image(frame,exposure,
             source_inv = np.array([source_loc[1],source_loc[0]]) # Invert axes because python is weird that way
             source_pix = (source_inv.transpose() * np.array(im_array.shape)).transpose().astype(int)
             im_array[tuple(source_pix)] += source
-            
+
     # Result should now be (floats) expected number of photons per pixel per second
     # in the oversampled imae
 
-    # 4. Convolve with the PSF 
+    # 4. Convolve with the PSF
     im_psf = convolve_fft(im_array.value, psf_kernel) * im_array.unit
 
     # Convolve again, now with the pointing jitter (need to re-apply units here as it's lost in convolution)
@@ -294,14 +294,14 @@ def estimate_background(image, method='1D', sigma=3, diag=False):
     ----------
     image: array
         2D array containing the image values, no units
-        
+
     method: string
         '2D' or '1D'. 2D is suitable for large images. 1D is more appropriate for small images, especially those with uniform background levels.
 
     sigma: float
         Sigma clip level for background estimation. Default is 3. For 1D background estimation in small frames, sigma should be 2.
         For 2D background estimation, sigma should usually be 3 or 4.
-        
+
     Returns
     -------
     bkg_image: array
@@ -321,43 +321,43 @@ def estimate_background(image, method='1D', sigma=3, diag=False):
     ...             [1.45771779, 0.288040735])
     True
     >>> bkg_im_1d, bkg_med_1d = estimate_background(im, method='1D', sigma=4)
-    >>> np.allclose([bkg_im_1d[0,0].value, bkg_med_1d.value], 
+    >>> np.allclose([bkg_im_1d[0,0].value, bkg_med_1d.value],
     ...             [1.4686512016477016, 0.28804073501451516])
     True
     '''
-    
+
     if method == '2D':
         from photutils import Background2D, SExtractorBackground
         from astropy.stats import SigmaClip
-    
-    
+
+
         # Define estimator (we're using the default SExtractorBackground estimator from photutils)
         bkg_estimator = SExtractorBackground()
-    
+
         # Want the box size to be ~10 pixels or thereabouts
         boxes0 = np.int(1 if image.shape[0] <= 5 else np.round(image.shape[0] / 10))
         boxes1 = np.int(1 if image.shape[1] <= 5 else np.round(image.shape[1] / 10))
-    
+
         bkg = Background2D(image.value,
                            (image.shape[0] // boxes0, image.shape[1] // boxes1),
                            bkg_estimator=bkg_estimator, sigma_clip=SigmaClip(sigma=sigma))
-    
+
         bkg_image = bkg.background * image.unit
         bkg_rms_median = bkg.background_rms_median * image.unit
         if diag:
             print("Image shape:", image.shape)
             print("Boxes per axis: {}, {}".format(boxes0,boxes1))
             print("Box size: {}, {}".format(image.shape[0] // boxes0, image.shape[1] // boxes1))
-    
+
     elif method == '1D':
         from astropy.stats import sigma_clipped_stats
-        
+
         bkg_image = np.zeros(np.shape(image))*image.unit
         # Get mean, median and std using a sigmaclip of 1:
         bkg_mean, bkg_median, bkg_rms_median = sigma_clipped_stats(image, sigma=sigma, maxiters=10)
-        
+
         bkg_image[:] = bkg_median
-            
+
     return bkg_image, bkg_rms_median
 
 
@@ -373,7 +373,7 @@ def find(image,fwhm,method='daophot',background='1D',frame='diff',diag=False):
         method = Either 'daophot' or 'peaks' to select different finding algorithms
         background = '2D' or '1D' to select 2- or 1-D background estimators
         frame = 'diff' or 'single' to set background behaviour for difference or single frames
-    
+
     Example
     -------
     >>> np.random.seed(0)
@@ -386,16 +386,16 @@ def find(image,fwhm,method='daophot',background='1D',frame='diff',diag=False):
     '''
     from photutils.detection import DAOStarFinder, find_peaks
     from astropy.stats import sigma_clipped_stats
-    
+
     if frame == 'diff':
-        # Determine background RMS: 
+        # Determine background RMS:
         bkg_image, sky = estimate_background(image, method=background, sigma=5, diag=diag)
-        find_image = image 
+        find_image = image
     elif frame == 'single':
         # Create and subtract a background image and determine background RMS:
         bkg_image, sky = estimate_background(image, method=background, sigma=2, diag=diag)
         find_image = image - bkg_image
-    
+
     # Look for five-sigma detections
     threshold = 5 * sky
 
@@ -482,7 +482,7 @@ def run_daophot(image,threshold,star_tbl,niters=1,duet=None,diag=False):
     # Simple Gaussian model to fit
     #psf_model = IntegratedGaussianPRF(sigma=sigma)
     #flux_norm = 1
-    
+
     # Use DUET-like PSF
     #oversample = 2 # Needs to be oversampled but only minimally
     #duet_psf_os = duet.psf_model(pixel_size=duet.pixel/oversample, x_size=12, y_size=12) # Even numbers work better
@@ -505,7 +505,7 @@ def run_daophot(image,threshold,star_tbl,niters=1,duet=None,diag=False):
     # Problem with _recursive_lookup while fitting (needs latest version of astropy fix to modeling/utils.py)
     result = photometry(image=image.value, init_guesses=star_tbl)
     residual_image = photometry.get_residual_image()
-    
+
     if diag:
         print("PSF-fitting complete")
 
