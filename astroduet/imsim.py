@@ -41,9 +41,12 @@ def imsim(**kwargs):
         
     nsrc: int, default is 100
         Number of sources to simulate at each source mag
+        
+    stack: int, default is 1
+        Depth of science image (number of stacked 300s exposures)
     
-    nref: list, default is [1,3,5,8]
-    List of reference image depths
+    nref: list, default is [1,3,7,11]
+        List of reference image depths
     
     Returns
     -------
@@ -58,6 +61,7 @@ def imsim(**kwargs):
     nmags = kwargs.pop('nmags', 71)
     nsrc = kwargs.pop('nsrc', 100)
     run = kwargs.pop('run') 
+    stack = kwargs.pop('stack', 1)
     ref_arr = kwargs.pop('nref',[1,3,5,8])
 
     # set some telescope, instrument parameters
@@ -124,12 +128,12 @@ def imsim(**kwargs):
         # Make source images:                        
         for srcmag in srcmag_arr:
             src_hdu = run_sim(duet=duet, bkg=bgd_band1, band=duet.bandpass1, 
-                                srcmag=srcmag, nsrc=nsrc, gal=False, exposure=exposure, frame=frame)
+                                stack=stack, srcmag=srcmag, nsrc=nsrc, gal=False, exposure=exposure, frame=frame)
             # Update header            
             src_hdu = update_header(src_hdu, im_type='source', zodi=zodi, gal=gal, 
                                 band='DUET1', srcmag=srcmag, nframes=nsrc, exptime=exposure.value)
             # Write file
-            filename = run+'_duet1_zodi-'+zodi+'_src-'+"{:5.2f}".format(srcmag)+'.fits'
+            filename = run+'_duet1_zodi-'+zodi+'_stack-'+str(stack)+'_src-'+"{:5.2f}".format(srcmag)+'.fits'
             src_hdu.writeto(path1+'/'+filename, overwrite=True)        
             
         # Now DUET2
@@ -148,12 +152,12 @@ def imsim(**kwargs):
         # Make source images:                        
         for srcmag in srcmag_arr:
             src_hdu = run_sim(duet=duet, bkg=bgd_band2, band=duet.bandpass2, 
-                                srcmag=srcmag, nsrc=nsrc, gal=False, exposure=exposure, frame=frame)
+                                stack=stack, srcmag=srcmag, nsrc=nsrc, gal=False, exposure=exposure, frame=frame)
             # Update header            
             src_hdu = update_header(src_hdu, im_type='source', zodi=zodi, gal=gal, 
                                 band='DUET2', srcmag=srcmag, nframes=nsrc, exptime=exposure.value)
             # Write file
-            filename = run+'_duet2_zodi-'+zodi+'_src-'+"{:5.2f}".format(srcmag)+'.fits'
+            filename = run+'_duet2_zodi-'+zodi+'_stack-'+str(stack)+'_src-'+"{:5.2f}".format(srcmag)+'.fits'
             src_hdu.writeto(path2+'/'+filename, overwrite=True)        
 
     # Yes background galaxy:
@@ -177,12 +181,12 @@ def imsim(**kwargs):
             # Make source images:                        
             for srcmag in srcmag_arr:
                 src_hdu = run_sim(duet=duet, bkg=bgd_band1, band=duet.bandpass1, 
-                                    srcmag=srcmag, nsrc=nsrc, gal=True, gal_params=gal_params, exposure=exposure, frame=frame)
+                                    stack=stack, srcmag=srcmag, nsrc=nsrc, gal=True, gal_params=gal_params, exposure=exposure, frame=frame)
                 # Update header            
                 src_hdu = update_header(src_hdu, im_type='source', zodi=zodi, gal=gal, 
                                     band='DUET1', srcmag=srcmag, nframes=nsrc, exptime=exposure.value)
                 # Write file
-                filename = run+'_duet1_'+gal+'_'+str(sfb)+'_zodi-'+zodi+'_src-'+"{:5.2f}".format(srcmag)+'.fits'
+                filename = run+'_duet1_'+gal+'_'+str(sfb)+'_zodi-'+zodi+'_stack-'+str(stack)+'_src-'+"{:5.2f}".format(srcmag)+'.fits'
                 src_hdu.writeto(path1+'/'+filename, overwrite=True)        
     
         #Same for DUET2
@@ -204,12 +208,12 @@ def imsim(**kwargs):
             # Make source images:                        
             for srcmag in srcmag_arr:
                 src_hdu = run_sim(duet=duet, bkg=bgd_band2, band=duet.bandpass2, 
-                                    srcmag=srcmag, nsrc=nsrc, gal=True, gal_params=gal_params, exposure=exposure, frame=frame)
+                                    stack=stack, srcmag=srcmag, nsrc=nsrc, gal=True, gal_params=gal_params, exposure=exposure, frame=frame)
                 # Update header            
                 src_hdu = update_header(src_hdu, im_type='source', zodi=zodi, gal=gal, 
                                     band='DUET2', srcmag=srcmag, nframes=nsrc, exptime=exposure.value)
                 # Write file
-                filename = run+'_duet2_'+gal+'_'+str(sfb)+'_zodi-'+zodi+'_src-'+"{:5.2f}".format(srcmag)+'.fits'
+                filename = run+'_duet2_'+gal+'_'+str(sfb)+'_zodi-'+zodi+'_stack-'+str(stack)+'_src-'+"{:5.2f}".format(srcmag)+'.fits'
                 src_hdu.writeto(path2+'/'+filename, overwrite=True)    
                 
 def sim_path(**kwargs):
@@ -313,6 +317,8 @@ def run_sim(**kwargs):
     bkg: background sky rate in band
     
     band: DUET bandpass
+    
+    stack: number of stacked exposures
         
     srcmag: source magnitude
         
@@ -334,6 +340,7 @@ def run_sim(**kwargs):
     duet = kwargs.pop('duet')
     bkg = kwargs.pop('bkg')
     band = kwargs.pop('band')
+    stack = kwargs.pop('stack')
     srcmag = kwargs.pop('srcmag')
     nsrc = kwargs.pop('nsrc')
     gal = kwargs.pop('gal')
@@ -350,7 +357,7 @@ def run_sim(**kwargs):
         source_loc = np.array([np.random.random(), np.random.random()])
         if gal:
             image = construct_image(frame, exposure, gal_type='custom', gal_params=gal_params, source=src_fluence,
-                    source_loc=source_loc, sky_rate=bkg, n_exp=1, duet=duet)
+                    source_loc=source_loc, sky_rate=bkg, n_exp=stack, duet=duet)
         else:
             image = construct_image(frame, exposure, gal_type=None, source=src_fluence,
                     source_loc=source_loc, sky_rate=bkg, n_exp=1, duet=duet)
@@ -358,7 +365,7 @@ def run_sim(**kwargs):
         imhdu.header['SRC_POSX'] = (source_loc[0]*frame[0], 'X-position of source in image (pixels)')
         imhdu.header['SRC_POSY'] = (source_loc[1]*frame[1], 'Y-position of source in image (pixels)')
         imhdu.header['BUNIT'] = image.unit.to_string()
-        imhdu.header['EXPTIME'] = (exposure.value, 'Exposure time (s)')
+        imhdu.header['EXPTIME'] = (exposure.value*stack, 'Exposure time (s)')
         src_hdu.append(imhdu)
 
     return src_hdu
@@ -430,7 +437,7 @@ def update_header(hdu, **kwargs):
     
     return hdu
     
-def imsim_srcdetect(run='050719',gal='spiral',zodi='low',band='duet1', nmags=71, sfb=[20,30]):
+def imsim_srcdetect(run='050719',gal='spiral',zodi='low',band='duet1', nmags=71, sfb=[20,30], stack=1):
     """
     Run background estimation, image differencing and source detection on simulated images
     
@@ -452,6 +459,9 @@ def imsim_srcdetect(run='050719',gal='spiral',zodi='low',band='duet1', nmags=71,
     
     nmags: float, default is 71
         Number of source magnitudes used in image simulations
+        
+    stack: int, default is 1
+        Number of stacked exposures
             
     Returns
     -------
@@ -494,7 +504,7 @@ def imsim_srcdetect(run='050719',gal='spiral',zodi='low',band='duet1', nmags=71,
         hdu_ref = fits.open(path+reffile)
             
         for srcmag in src_arr:
-            imfile = run+'_'+band+'_zodi-'+zodi+'_src-'+"{:5.2f}".format(srcmag)+'.fits'
+            imfile = run+'_'+band+'_zodi-'+zodi+'_stack-'+str(stack)+'_src-'+"{:5.2f}".format(srcmag)+'.fits'
             hdu_im = fits.open(path+imfile)
             # Get input countrate
             src_ctrate = duet.fluence_to_rate(duet_abmag_to_fluence(srcmag*u.ABmag, bandpass))
@@ -510,7 +520,7 @@ def imsim_srcdetect(run='050719',gal='spiral',zodi='low',band='duet1', nmags=71,
             hdu_ref = fits.open(path+reffile)
                 
             for srcmag in src_arr:
-                imfile = run+'_'+band+'_'+gal+'_'+sfb+'_zodi-'+zodi+'_src-'+"{:5.2f}".format(srcmag)+'.fits'
+                imfile = run+'_'+band+'_'+gal+'_'+sfb+'_zodi-'+zodi+'_stack-'+str(stack)+'_src-'+"{:5.2f}".format(srcmag)+'.fits'
                 hdu_im = fits.open(path+imfile)
                 # Get input countrate
                 src_ctrate = duet.fluence_to_rate(duet_abmag_to_fluence(srcmag*u.ABmag, bandpass))
@@ -521,7 +531,7 @@ def imsim_srcdetect(run='050719',gal='spiral',zodi='low',band='duet1', nmags=71,
     # Save output table
     print('Writing file')
     tab.remove_row(0)
-    tab.write('run'+run+'_gal-'+gal+'_zodi-'+zodi+'-'+band+'.fits', format='fits', overwrite=True)
+    tab.write('run'+run+'_gal-'+gal+'_zodi-'+zodi+'_stack-'+str(stack)+'-'+band+'.fits', format='fits', overwrite=True)
     print('Done')
         
 def run_srcdetect(**kwargs):
