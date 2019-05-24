@@ -90,7 +90,7 @@ def sim_galaxy(patch_size,pixel_size,gal_type=None,gal_params=None,duet=None,ban
         duet_no = integer (1 or 2) for DUET bandpass
     '''
     from astropy.modeling.models import Sersic2D
-    from astroduet.utils import duet_abmag_to_fluence_old
+    from astroduet.utils import duet_abmag_to_fluence, duet_no_from_band
 
     if duet is None:
         duet = Telescope()
@@ -217,7 +217,7 @@ def construct_image(frame,exposure,
         NxM image array with integer number of counts observed per pixel.
 
     """
-
+    from astroduet.utils import duet_no_from_band
     assert type(frame) is np.ndarray, 'construct_image: Please enter frame as a numpy array'
 
     # Load telescope parameters:
