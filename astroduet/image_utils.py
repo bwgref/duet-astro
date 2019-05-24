@@ -74,7 +74,7 @@ from astropy.convolution import convolve, convolve_fft, Gaussian2DKernel
 #
 #     return psf
 
-def sim_galaxy(patch_size,pixel_size,gal_type=None,gal_params=None,duet=None,band=None):
+def sim_galaxy(patch_size,pixel_size,gal_type=None,gal_params=None,duet=None,band=None,duet_no=None):
     '''
         Return 2D array of a Sersic profile to simulate a galaxy
 
@@ -85,6 +85,9 @@ def sim_galaxy(patch_size,pixel_size,gal_type=None,gal_params=None,duet=None,ban
         Optional inputs:
         gal_type = String that loads a pre-built 'average' galaxy or allows custom definition
         gal_params = Dictionary of parameters for Sersic model: ...
+        duet = Telescope instance
+        band = duet.bandpass (defaults to DUET1; deprecated)
+        duet_no = integer (1 or 2) for DUET bandpass
     '''
     from astropy.modeling.models import Sersic2D
     from astroduet.utils import duet_abmag_to_fluence_old
@@ -93,6 +96,9 @@ def sim_galaxy(patch_size,pixel_size,gal_type=None,gal_params=None,duet=None,ban
         duet = Telescope()
     if band is None:
         band = duet.bandpass1
+    if duet_no is None:
+        duet_no = duet_no_from_band(band)
+        
 
     x = np.linspace(-(patch_size[0] // 2), patch_size[0] // 2, patch_size[0])
     y = np.linspace(-(patch_size[1] // 2), patch_size[1] // 2, patch_size[1])
@@ -104,7 +110,7 @@ def sim_galaxy(patch_size,pixel_size,gal_type=None,gal_params=None,duet=None,ban
     if gal_type == 'spiral':
         # A typical spiral galaxy at 100 Mpc
         surface_mag = 26.2 * u.ABmag # surface brightness (per arcsec**2)
-        surface_rate = duet.fluence_to_rate(duet_abmag_to_fluence_old(surface_mag,band)) # surface count rate at r_eff
+        surface_rate = duet.fluence_to_rate(duet_abmag_to_fluence(surface_mag,duet_no,duet=duet)) # surface count rate at r_eff
         amplitude = surface_rate * pixel_size.value**2 # surface brightness (per pixel)
         r_eff = 16.5 / pixel_size.value
         n = 1
@@ -114,7 +120,7 @@ def sim_galaxy(patch_size,pixel_size,gal_type=None,gal_params=None,duet=None,ban
     elif gal_type == 'elliptical':
         # A typical elliptical galaxy at 100 Mpc
         surface_mag = 25.0 * u.ABmag
-        surface_rate = duet.fluence_to_rate(duet_abmag_to_fluence_old(surface_mag,band)) # surface count rate at r_eff
+        surface_rate = duet.fluence_to_rate(duet_abmag_to_fluence(surface_mag,duet_no,duet=duet)) # surface count rate at r_eff
         amplitude = surface_rate * pixel_size.value**2 # surface brightness (per pixel)
         r_eff = 12.5 / pixel_size.value
         n = 4
@@ -124,7 +130,7 @@ def sim_galaxy(patch_size,pixel_size,gal_type=None,gal_params=None,duet=None,ban
     elif gal_type == 'dwarf':
         # A typical dwarf galaxy at 10 Mpc
         surface_mag = 25.8 * u.ABmag
-        surface_rate = duet.fluence_to_rate(duet_abmag_to_fluence_old(surface_mag,band)) # surface count rate at r_eff
+        surface_rate = duet.fluence_to_rate(duet_abmag_to_fluence(surface_mag,duet_no,duet=duet)) # surface count rate at r_eff
         amplitude = surface_rate * pixel_size.value**2 # surface brightness (per pixel)
         r_eff = 70 / pixel_size
         r_eff = r_eff.value
@@ -135,7 +141,7 @@ def sim_galaxy(patch_size,pixel_size,gal_type=None,gal_params=None,duet=None,ban
     elif (gal_type == 'custom') | (gal_type == None):
         # Get args from gal_params, default to spiral values
         surface_mag = gal_params.get('magnitude', 26) * u.ABmag
-        surface_rate = duet.fluence_to_rate(duet_abmag_to_fluence_old(surface_mag,band)) # surface count rate at r_eff
+        surface_rate = duet.fluence_to_rate(duet_abmag_to_fluence(surface_mag,duet_no,duet=duet)) # surface count rate at r_eff
         amplitude = surface_rate * pixel_size.value**2 # surface brightness (per pixel)
         r_eff = gal_params.get('r_eff', 16.5 / pixel_size.value)
         n = gal_params.get('n', 1)
@@ -151,7 +157,7 @@ def sim_galaxy(patch_size,pixel_size,gal_type=None,gal_params=None,duet=None,ban
 
 def construct_image(frame,exposure,
                     duet=None,band=None,
-                    gal_type=None,gal_params=None,source=None,source_loc=None,sky_rate=None,n_exp=1):
+                    gal_type=None,gal_params=None,source=None,source_loc=None,sky_rate=None,n_exp=1, duet_no=None):
 
     """Construct a simualted image with an optional background galaxy and source.
 
@@ -177,6 +183,8 @@ def construct_image(frame,exposure,
 
     duet : ``astroduet.config.Telescope``
         If None, a default one is created
+        
+    band : DUET bandpass (deprecated in favor of duet_no; defaults to DUET1)
 
     gal_type : string
         Default galaxy string ("spiral"/"elliptical") or "custom" w/ Sersic parameters
@@ -198,6 +206,9 @@ def construct_image(frame,exposure,
     n_exp : int
         Number of simualted frames to co-add.
         NB: I don't like this here!
+    
+    duet_no : int (1 or 2)
+        DUET band number (defaults to DUET1)
 
     Returns
     -------
@@ -209,11 +220,13 @@ def construct_image(frame,exposure,
 
     assert type(frame) is np.ndarray, 'construct_image: Please enter frame as a numpy array'
 
-
-
     # Load telescope parameters:
     if duet is None:
         duet = Telescope()
+    if band is None:
+        band = duet.bandpass1
+    if duet_no is None:
+        duet_no = duet_no_from_band(band)
 
     read_noise = duet.read_noise
 
@@ -231,7 +244,7 @@ def construct_image(frame,exposure,
     # 2. Add a galaxy?
     if gal_type is not None:
         # Get a patch with a simulated galaxy on it
-        gal = sim_galaxy(frame * oversample,pixel_size_init,gal_type=gal_type,gal_params=gal_params,band=band)
+        gal = sim_galaxy(frame * oversample,pixel_size_init,gal_type=gal_type,gal_params=gal_params,duet=duet,duet_no=duet_no)
         im_array += gal
 
     # 3. Add a source?
