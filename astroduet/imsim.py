@@ -620,8 +620,8 @@ def run_srcdetect(**kwargs):
                 if sep[src] < 1.5:
                     detected = True
                     # Run aperture photometry
-                    result, resid = run(daophotc)(diff_image, threshold, star_tbl[src], duet=duet)
-                    ctrate, ctrate_err = result['flux_fit'].value, result['flux_unc'].value
+                    result, resid = run_daophot(diff_image, threshold, star_tbl, duet=duet)
+                    ctrate, ctrate_err = result[src]['flux_fit'], result[src]['flux_unc']
                     fp = len(star_tbl) - 1
                 else:
                     detected = False
