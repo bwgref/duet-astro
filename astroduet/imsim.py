@@ -360,7 +360,7 @@ def run_sim(**kwargs):
                     source_loc=source_loc, sky_rate=bkg, n_exp=stack, duet=duet, duet_no=duet_no)
         else:
             image = construct_image(frame, exposure, gal_type=None, source=src_fluence,
-                    source_loc=source_loc, sky_rate=bkg, n_exp=1, duet=duet, duet_no=duet_no)
+                    source_loc=source_loc, sky_rate=bkg, n_exp=stack, duet=duet, duet_no=duet_no)
         imhdu = fits.ImageHDU(image.value)
         imhdu.header['SRC_POSX'] = (source_loc[0]*frame[0], 'X-position of source in image (pixels)')
         imhdu.header['SRC_POSY'] = (source_loc[1]*frame[1], 'Y-position of source in image (pixels)')
