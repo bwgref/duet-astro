@@ -509,3 +509,32 @@ def duet_abmag_to_fluence(ABmag, duet_no, duet=None, bandpass=None):
 
     return fluence * scale
 
+def duet_no_from_band(band):
+    """
+    Convenience function that determines the DUET band (1 or 2) from the bandpass
+    
+    Parameters
+    ----------
+    band: DUET bandpass
+    
+    Returns
+    -------
+    duet_no: integer (1 or 2) DUET band number
+    
+    Example
+    -------
+    >>> duet_no = duet_no_from_band([180,220]*u.nm)
+    >>> np.isclose(duet_no, 1)
+    True
+    
+    """
+    import astropy.units as u
+    import numpy as np
+    
+    bandcenters = [200, 280]*u.nm
+    bandmean = np.mean(band).to(u.nm)
+    
+    duet_no = np.argmin(np.abs(bandcenters-bandmean))+1
+    
+    return duet_no
+    
