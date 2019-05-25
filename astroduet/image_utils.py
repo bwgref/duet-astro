@@ -409,8 +409,8 @@ def find(image,fwhm,method='daophot',background='1D',frame='diff',diag=False):
         bkg_image, sky = estimate_background(image, method=background, sigma=2, diag=diag)
         find_image = image - bkg_image
 
-    # Look for five-sigma detections
-    threshold = 5 * sky
+    # Look for sources at twice the background RMS level
+    threshold = 2 * sky
 
     # Make sure the image and threshold units are the same
     threshold = threshold.to(image.unit)
@@ -475,7 +475,7 @@ def ap_phot(image,star_tbl,read_noise,exposure,r=1.5,r_in=1.5,r_out=3.):
 
     return result, apertures, annulus_apertures
 
-def run_daophot(image,threshold,star_tbl,niters=1,duet=None,diag=False):
+def run_daophot(image,threshold,star_tbl,niters=1,snr_lim=5, duet=None,diag=False):
     '''
         Given an image and a PSF, go run DAOPhot PSF-fitting algorithm
     '''
@@ -512,20 +512,23 @@ def run_daophot(image,threshold,star_tbl,niters=1,duet=None,diag=False):
     # Initialise a Photometry object
     # This object loops find, fit and subtract
     threshold = threshold.to(image.unit)
-    photometry = DAOPhotPSFPhotometry(3.*fwhm,threshold.value,fwhm,psf_model,(5,5),
-        niters=niters,sigma_radius=5, aperture_radius=2.)
+    photometry = DAOPhotPSFPhotometry(fwhm,threshold.value,fwhm,psf_model,(5,5),
+        niters=niters,sigma_radius=5, aperture_radius=fwhm)
 
     # Problem with _recursive_lookup while fitting (needs latest version of astropy fix to modeling/utils.py)
     result = photometry(image=image.value, init_guesses=star_tbl)
     residual_image = photometry.get_residual_image()
-
+    
+    # Filter results to only keep those with S/N greater than snr_lim (default is 5)
+    result_sig = result[np.abs(result['flux_fit']/result['flux_unc']) >= snr_lim]
+    
     if diag:
         print("PSF-fitting complete")
 
     # Turn warnings back on again
     warnings.simplefilter('default')
     ## FROM HERE ON YES UNITS ###########
-    result['flux_fit'] = result['flux_fit'] * image.unit
-    result['flux_unc'] = result['flux_unc'] * image.unit
+    result_sig['flux_fit'] = result_sig['flux_fit'] * image.unit
+    result_sig['flux_unc'] = result_sig['flux_unc'] * image.unit
 
-    return result, residual_image * image.unit
+    return result_sig, residual_image * image.unit

@@ -777,7 +777,7 @@ def lightcurve_through_image(lightcurve, exposure,
 
         with suppress_stdout():
             result1, _ = run_daophot(diff_image1, threshold,
-                                     star_tbl, niters=1, duet=duet)
+                                     star_tbl, niters=1, snr_lim=0., duet=duet)
 
         fl1_fit = result1['flux_fit'][0] * image_rate1.unit
         fl1_fite = result1['flux_unc'][0] * image_rate1.unit
@@ -800,7 +800,7 @@ def lightcurve_through_image(lightcurve, exposure,
 
         with suppress_stdout():
             result2, _ = run_daophot(diff_image2, threshold,
-                                     star_tbl, niters=1, duet=duet)
+                                     star_tbl, niters=1, snr_lim=0., duet=duet)
         fl2_fit = result2['flux_fit'][0] * image_rate2.unit
         fl2_fite = result2['flux_unc'][0] * image_rate2.unit
 
