@@ -520,7 +520,7 @@ def run_daophot(image,threshold,star_tbl,niters=1,snr_lim=5, duet=None,diag=Fals
     residual_image = photometry.get_residual_image()
     
     # Filter results to only keep those with S/N greater than snr_lim (default is 5)
-    result_sig = result[result['flux_fit']/result['flux_unc'] >= snr_lim]
+    result_sig = result[np.abs(result['flux_fit']/result['flux_unc']) >= snr_lim]
     
     if diag:
         print("PSF-fitting complete")
@@ -528,7 +528,7 @@ def run_daophot(image,threshold,star_tbl,niters=1,snr_lim=5, duet=None,diag=Fals
     # Turn warnings back on again
     warnings.simplefilter('default')
     ## FROM HERE ON YES UNITS ###########
-    result['flux_fit'] = result['flux_fit'] * image.unit
-    result['flux_unc'] = result['flux_unc'] * image.unit
+    result_sig['flux_fit'] = result_sig['flux_fit'] * image.unit
+    result_sig['flux_unc'] = result_sig['flux_unc'] * image.unit
 
     return result_sig, residual_image * image.unit
