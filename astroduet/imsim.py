@@ -62,7 +62,7 @@ def imsim(**kwargs):
     nsrc = kwargs.pop('nsrc', 100)
     run = kwargs.pop('run')
     stack = kwargs.pop('stack', 1)
-    ref_arr = kwargs.pop('nref',[1,3,5,8])
+    ref_arr = kwargs.pop('nref',[1,3,7,11])
 
     # set some telescope, instrument parameters
     duet = Telescope(config=tel)
