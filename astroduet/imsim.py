@@ -611,27 +611,32 @@ def run_srcdetect(**kwargs):
 
             diff_image *= image_rate_bkgsub.unit
             # Find sources:
-            star_tbl, bkg_image, threshold = find(diff_image,psf_fwhm_pix.value,method='peaks')
-
-            # Define separation from input source and find nearest peak:
+            star_tbl, bkg_image, threshold = find(diff_image,psf_fwhm_pix.value,method='daophot')
+            # Run photometry
             if len(star_tbl) > 0:
-                sep = np.sqrt((star_tbl['x'] - hdu_im[j+1].header['SRC_POSX'])**2 + (star_tbl['y'] - hdu_im[j+1].header['SRC_POSY'])**2)
-                src = np.argmin(sep)
-                if sep[src] < 1.5:
-                    detected = True
-                    # Run aperture photometry
-                    result, resid = run_daophot(diff_image, threshold, star_tbl, duet=duet)
-                    ctrate, ctrate_err = result[src]['flux_fit'], result[src]['flux_unc']
-                    fp = len(star_tbl) - 1
-                else:
-                    detected = False
-                    ctrate, ctrate_err = np.nan, np.nan
-                    fp = len(star_tbl)
+                result, resid = run_daophot(diff_image, threshold, star_tbl, duet=duet)
             else:
                 detected = False
                 ctrate, ctrate_err = np.nan, np.nan
-                fp = len(star_tbl)
-
+                fp = len(result)
+            
+            # Define separation from input source and find nearest source:
+            if len(result) > 0:
+                sep = np.sqrt((result['x'] - hdu_im[j+1].header['SRC_POSX'])**2 + (result['y'] - hdu_im[j+1].header['SRC_POSY'])**2)
+                src = np.argmin(sep)
+                if sep[src] < 1.5:
+                    detected = True                  
+                    ctrate, ctrate_err = result[src]['flux_fit'], result[src]['flux_unc']
+                    fp = len(result) - 1
+                else:
+                    detected = False
+                    ctrate, ctrate_err = np.nan, np.nan
+                    fp = len(result)
+            else:
+                detected = False
+                ctrate, ctrate_err = np.nan, np.nan
+                fp = len(result)
+            
             tab.add_row([sfb, srcmag, src_ctrate, dist, ref_depth, detected,
                                                        ctrate, ctrate_err, fp])
 

@@ -409,7 +409,7 @@ def find(image,fwhm,method='daophot',background='1D',frame='diff',diag=False):
         bkg_image, sky = estimate_background(image, method=background, sigma=2, diag=diag)
         find_image = image - bkg_image
 
-    # Look for five-sigma detections
+    # Look for sources at twice the background RMS level
     threshold = 2 * sky
 
     # Make sure the image and threshold units are the same
