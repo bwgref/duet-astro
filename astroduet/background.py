@@ -147,7 +147,7 @@ def airglow_lines(wave, airglow_level='Average'):
     """
     from astropy import units as u
 
-    levels = ['High', 'Average', 'Low']
+    levels = ['High', 'Average', 'Low', 'COS']
     assert airglow_level in levels
     flux_ind = levels.index(airglow_level) + 1 # +1 to offset from wavelength column
     
