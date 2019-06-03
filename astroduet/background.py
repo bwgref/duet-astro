@@ -53,7 +53,7 @@ def background_pixel_rate(duet, **kwargs):
     >>> from astroduet.config import Telescope
     >>> duet = Telescope()
     >>> [bgd1, bgd2] = background_pixel_rate(duet, high_zodi=True)
-    >>> allclose(bgd1.value, 0.05221417, atol=0.001)
+    >>> allclose(bgd1.value, 0.05050616, atol=0.001)
     True
 
 

@@ -55,8 +55,6 @@ class Telescope():
     update_psf_vals
 
     update_bandpass
-
-    diq_budget
     
     construct_epsf
 
@@ -167,11 +165,13 @@ class Telescope():
         }
 
         # Dark current given in e- per pixel per sec
-        self.dark_current_downscale = 4.0
-        self.dark_current = (0.046 / self.dark_current_downscale) * u.ph / u.s
+#        self.dark_current_downscale = 4.0
+#        self.dark_current = (0.046 / self.dark_current_downscale) * u.ph / u.s
 
+        # Updated on 2019/06/03 end-of-life numbers at 0.5 krad from Rick
+        self.dark_current = 1.4e-3 * u.ph / u.s # electrons / pixel / sec @ 190K
         # RMS value
-        self.read_noise = 7
+        self.read_noise = 4 # e- RMS per read.
 
         # Pointing jitter:
         self.psf_jitter = 5*u.arcsec
@@ -180,7 +180,7 @@ class Telescope():
         self.pointing_rms = 2.5*u.arcsec
 
         # Implement DIQ budget here
-        self.diq_budget()
+#        self.diq_budget()
 
         # Compute the effective area
         self.update_effarea()
@@ -229,10 +229,7 @@ class Telescope():
         }
         # Computed by calc_psf_hpd, but hardcoded here.
         self.psf_fwhm = 10.5 * u.arcsec
-
-
-
-        
+    
     def set_classic(self):
         '''Baseline configuration. Duplicate this with different values
         and/or 
@@ -257,9 +254,7 @@ class Telescope():
 
         # Computed by calc_psf_fwhm, but hardcoded here for speed.
         self.psf_fwhm = 10.0 * u.arcsec
-
-
-        
+    
     def set_minimum_mass(self):
         '''Minimum mass configuration. 
         
@@ -269,20 +264,23 @@ class Telescope():
         self.eff_epd = 24.5*u.cm
         psf_fwhm_um = 6.7*u.micron
         pixel = 10*u.micron
-        self.plate_scale = 6.67*u.arcsec / pixel  # arcsec per micron
+        self.plate_scale = 6.56*u.arcsec / pixel  # arcsec per micron
         self.pixel = self.plate_scale * pixel
         self.jitter_rms = 11.8 * u.micron * self.plate_scale
 
         # Transmission through the Schmidt plates
 #        self.trans_eff = (0.975)**8 # from Jim.
 
+        # From Jason, DUET1, field- and band-average CBE PSF 1-sigma:
         self.psf_params = {
-        'sig':[5.3*u.micron*self.plate_scale],
+        'sig':[4.25*u.arcsec],
         'amp':[1.0]
         }
-        # Computed by calc_psf_hpd, but hardcoded here.
-        self.psf_fwhm = 12.5 * u.arcsec
-
+        
+        # Includes pointing jitter, computed by hand adding
+        # above FWHM (13-arcsec) in quadrature with a 2.5-arcsec rms
+        # pointing jitter
+        self.psf_fwhm = 11.5 * u.arcsec
 
     def set_fine_plate(self):
         '''Fine plate scale configuration. 
@@ -390,7 +388,6 @@ class Telescope():
         
         Pixel size: {self.pixel}
         Pointing RMS: {self.pointing_rms}
-        DIQ RMS: {self.diq_rms*self.plate_scale}
         Effective PSF FWHM: {self.psf_fwhm}
         N_eff: {self.neff}
 
@@ -446,7 +443,7 @@ class Telescope():
         '''
         import numpy as np
 
-        pix_size = 0.25 * u.arcsec
+        pix_size = 0.1 * u.arcsec
         # Cover +/- 25 arcsec
         cover = 25 * u.arcsec
         nbins = np.floor(( 2 * (cover / pix_size).value)) + 1
@@ -542,15 +539,16 @@ class Telescope():
             psf_model.normalize()
 
         # Step 2: Add DIQ jitter and pointing jitter:
-        diq_rms = self.diq_rms * self.plate_scale
+        # 2019/06/03 turned off DIQ model (BG)
+#        diq_rms = self.diq_rms * self.plate_scale
         pointing_rms = self.pointing_rms
         
-        diq_model = Gaussian2DKernel( (diq_rms / pixel_size).to('').value, **kwargs)
+#        diq_model = Gaussian2DKernel( (diq_rms / pixel_size).to('').value, **kwargs)
         pointing_model = Gaussian2DKernel( (pointing_rms / pixel_size).to('').value, **kwargs)
         
         with warnings.catch_warnings():
             warnings.simplefilter('ignore')  # Ignore warning for doctest
-            model = convolve(psf_model, convolve(pointing_model, diq_model))
+            model = convolve(psf_model, pointing_model)
         model.normalize()
 
         return model
@@ -683,8 +681,8 @@ class Telescope():
         band_flux = apply_trans(wave, trans_flux, red_wave, red_trans)
         return band_flux
         
-    def diq_budget(self):
-        """Place holder for the DIQ values.
+    def __diq_budget(self):
+        """Depricated place holder for the DIQ values.
         
         Values taken as wraps from Roger's DIQ budget. Note that we track the PSF
         values separately, so the "as designed" PSF contribution is not captured
