@@ -37,6 +37,19 @@ class Simulations():
             'kilonova_0.02.dat',
             'kilonova_0.04.dat']
         self.sne_simulations = ['IIb', 'IIP', 'IIP_big', 'stripped']
+        self.sne_rsg_simulations = ['rsg400.dat',
+            'rsg450.dat',
+            'rsg500.dat',
+            'rsg550.dat',
+            'rsg600.dat',
+            'rsg650.dat',
+            'rsg700.dat',
+            'rsg750.dat',
+            'rsg800.dat',
+            'rsg850.dat',
+            'rsg900.dat',
+            'rsg950.dat',
+            'rsg1000.dat']
 
     def info(self):
         print('-----')
@@ -82,7 +95,7 @@ class Simulations():
 
     def parse_sne(self, diag=False, list_of_simulations=None):
         '''
-        Loop over each EMGW GRB shock model and save the outputs
+        Loop over each SN model and save the outputs
 
         Optional parameters
         -------------------
@@ -104,6 +117,35 @@ class Simulations():
             print('Parsing and storing: {}'.format(sname))
             outfile = datadir+'/'+sname+'_lightcurve_DUET.fits'
             shock_lc = convert_sn_model(datadir + '/' + shockf, name=sname)
+
+            shock_lc.write(outfile, format='fits', overwrite=True)
+
+        return
+
+    def parse_sne_rsg(self, diag=False, list_of_simulations=None):
+        '''
+        Loop over each RSG SN model and save the outputs
+
+        Optional parameters
+        -------------------
+
+        diag: boolean
+            Just run one test instead of looping over all for unit tests
+
+
+        '''
+
+        self.emgw_processed = np.array([])
+        if list_of_simulations is None:
+            list_of_simulations = self.sne_rsg_simulations
+        for ind, shockf in enumerate(list_of_simulations):
+            if diag is True:
+                if ind > 0:
+                    break
+            sname, ext = os.path.splitext(shockf)
+            print('Parsing and storing: {}'.format(sname))
+            outfile = datadir+'/'+sname+'_lightcurve_DUET.fits'
+            shock_lc = convert_sn_rsg_model(datadir + '/' + shockf, name=sname)
 
             shock_lc.write(outfile, format='fits', overwrite=True)
 
@@ -173,6 +215,67 @@ def convert_sn_model(label, name='NoName', duet=None):
     shock_lc['mag_D2'].unit = None
     return shock_lc
 
+def convert_sn_rsg_model(filename, name='NoName', duet=None):
+    '''
+    Reads in the RSG SN models, converts them to DUET fluences, and
+    writes out the resulting models to FITS files.
+
+    Parameters
+    ----------
+
+    filename : string
+        Path to SN file.
+
+    Other parameters
+    ----------------
+
+    name : string
+        name to use for the model. Default is 'NoName'
+
+    '''
+
+    if duet is None:
+        duet = Telescope()
+
+    bandone = duet.bandpass1
+    bandtwo = duet.bandpass2
+    dist0 = 10*u.pc
+
+    sn_data = np.loadtxt(filename)
+
+    time = (sn_data[:,0]*u.d).to(u.s)
+    temps = sn_data[:,2]
+    bolflux = 10**sn_data[:,1]
+
+    # Set up outputs
+    sn_lc = Table([time,
+            np.zeros(len(time))*u.ABmag,
+            np.zeros(len(time))*u.ABmag,
+            np.zeros(len(time))*u.ph/(u.s*u.cm**2),
+            np.zeros(len(time))*u.ph/(u.s*u.cm**2)],
+               names=('time', 'mag_D1', 'mag_D2', 'fluence_D1', 'fluence_D2'),
+               meta={'name': name + ' at 10 pc',
+                      'dist0_pc' : '{}'.format(dist0.to(u.pc).value)})
+    N = len(temps)
+    for k, t, bf in tqdm(list(zip(np.arange(N), temps, bolflux))):
+        t *= u.K
+        bf *= (u.erg/u.s) /(4 * np.pi * dist0**2)
+
+        band1_mag, band2_mag = bb_abmag(bbtemp=t, bolflux = bf,
+                        bandone=bandone, bandtwo=bandtwo, val=True)
+
+        band1_fluence, band2_fluence = bb_abmag_fluence(bbtemp=t,
+            bolflux=bf)
+
+        sn_lc[k]['mag_D1'] = band1_mag
+        sn_lc[k]['mag_D2'] = band2_mag
+        sn_lc[k]['fluence_D1'] = band1_fluence.value
+        sn_lc[k]['fluence_D2'] = band2_fluence.value
+
+    sn_lc['mag_D1'].unit = None
+    sn_lc['mag_D2'].unit = None
+
+    return sn_lc
 
 def convert_model(filename, name='NoName', duet=None):
     '''
