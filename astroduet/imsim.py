@@ -728,24 +728,26 @@ def run_srcdetect(**kwargs):
             else:
                 detected = False
                 ctrate, ctrate_err = np.nan, np.nan
-                fp = len(result)
+                fp = 0
+                result = None
             
             # Define separation from input source and find nearest source:
-            if len(result) > 0:
-                sep = np.sqrt((result['x'] - hdu_im[j+1].header['SRC_POSX'])**2 + (result['y'] - hdu_im[j+1].header['SRC_POSY'])**2)
-                src = np.argmin(sep)
-                if sep[src] < 1.5:
-                    detected = True                  
-                    ctrate, ctrate_err = result[src]['flux_fit'], result[src]['flux_unc']
-                    fp = len(result) - 1
+            if result is not None:
+                if len(result) > 0:
+                    sep = np.sqrt((result['x'] - hdu_im[j+1].header['SRC_POSX'])**2 + (result['y'] - hdu_im[j+1].header['SRC_POSY'])**2)
+                    src = np.argmin(sep)
+                    if sep[src] < 1.5:
+                        detected = True                  
+                        ctrate, ctrate_err = result[src]['flux_fit'], result[src]['flux_unc']
+                        fp = len(result) - 1
+                    else:
+                        detected = False
+                        ctrate, ctrate_err = np.nan, np.nan
+                        fp = len(result)
                 else:
                     detected = False
                     ctrate, ctrate_err = np.nan, np.nan
                     fp = len(result)
-            else:
-                detected = False
-                ctrate, ctrate_err = np.nan, np.nan
-                fp = len(result)
             
             tab.add_row([sfb, srcmag, src_ctrate, dist, ref_depth, detected,
                                                        ctrate, ctrate_err, fp])
