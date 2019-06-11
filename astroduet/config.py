@@ -224,6 +224,7 @@ class Telescope():
         """
 
         self.filter_shift = filter_shift
+        self.update_bandpass()
 
     def set_baseline(self):
         '''Baseline configuration. Duplicate this with different values
