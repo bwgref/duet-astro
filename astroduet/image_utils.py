@@ -426,9 +426,10 @@ def find(image,fwhm,method='daophot',background='1D',frame='diff',diag=False):
             star_tbl['x'], star_tbl['y'] = \
                 star_tbl['x_peak'], star_tbl['y_peak']
     
-    # Remove entries outside the image frame (mainly an issue with daophot):
+    # Remove entries outside the image frame (mainly an issue with daophot), then reset the ID column:
     index = ((star_tbl['x'] < 0) | (star_tbl['y'] < 0) | (star_tbl['x'] > image.shape[0]) | (star_tbl['y'] > image.shape[1]))
     star_tbl.remove_rows(index)
+    star_tbl['id'] = np.arange(len(star_tbl))+1
     
     if diag:
         print("Sky background rms: {}".format(sky))
