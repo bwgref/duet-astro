@@ -538,3 +538,129 @@ def duet_no_from_band(band):
     
     return duet_no
     
+def panstarrs_to_duet(panmags, duet=None):
+    """
+    Converts GALEX FUV and NUV ABmags into DUET 1 and DUET 2 ABmags, assuming flat Fnu
+
+
+    Parameters
+    ----------
+    panmags: array
+        PanSTARRS AB magnitudes and errors, input as [[g, g_err, r, r_err, i, i_err, z, z_err, y, y_err],[]] without units
+
+    duet: Telescope instance
+
+    Returns
+    -------
+    duetfluences: Array with same shape as galmags, with panstarrs g, panstarrs r, DUET 1 and DUET 2 fluences.
+    badstars: number of stars that were not fitted because they had only two or less good magnitudes
+    badfits: number of stars where the fit failed due to a runtime error or value error after trying all initial guesses
+    
+    Example
+    -------
+    >>> from astroduet.config import Telescope
+    >>> duet = Telescope()
+    >>> star = np.array([[11.,0.1,10.3,0.1,10,0.1,10,0.1,10,0.1]])
+    >>> duetfluences, badstars, badfits = panstarrs_to_duet(star,duet=duet)
+    >>> np.isclose(duetfluences['d1_fluence'][0],0.041547)
+    True
+
+    """
+
+    from astropy.modeling.blackbody import FLAM
+    from scipy.optimize import curve_fit
+    from astroduet.bbmag import bbfunc, bb_abmag_fluence
+    from astropy.table import Table
+
+    if duet is None:
+        from astroduet.config import Telescope
+        duet = Telescope()
+    
+    fluxunit = u.erg/u.s/u.cm**2
+    # Central wavelengths of PanSTARRS bands:
+    pswav = np.array([486.6,621.5,754.5,867.9,963.3])*u.nm
+    
+    duetfluences = Table(np.zeros(4), names=('ps_g', 'ps_r', 'd1_fluence', 'd2_fluence'))
+    badstars = 0
+    badfits = 0
+    
+    # Loop over stars:
+    for i, star in enumerate(panmags):
+        # Replace bad values with nan:
+        star[star==-999.] = np.nan
+        # Order and convert to magnitudes
+        mags = star[::2]*u.ABmag
+        magerrs = star[1::2]
+        # Find valid values:
+        valid = ~(np.isnan(mags))
+        
+        # Convert to flux densities
+        fden = mags[valid].to(FLAM,equivalencies=u.spectral_density(pswav[valid]))
+        snrs = 1./(10.**(magerrs[valid]/2.5) - 1.)
+        # Set snr to 10 for nan errors:
+        snrs[np.isnan(snrs)] = 10
+        fden_err = fden / snrs
+        
+        # Filter for stars with only one good data point:
+        if len(fden) > 2:
+            
+            # Fit blackbody:
+            try:
+                # Starting value for blackbody fit:
+                p0 = [5000,1.E-8]
+                coeff, var_matrix = curve_fit(bbfunc, pswav[valid].value, fden.value, p0=p0, sigma=fden_err.value, absolute_sigma=True)
+            except RuntimeError:
+                badfits += 1
+                continue
+            except ValueError:
+                try:
+                    p0 = [10000,1.E-8]    
+                    coeff, var_matrix = curve_fit(bbfunc, pswav[valid].value, fden.value, p0=p0, sigma=fden_err.value, absolute_sigma=True)
+                except RuntimeError:
+                    badfits += 1
+                    continue
+                except ValueError:
+                    try:
+                        p0 = [5000,1.E-9]    
+                        coeff, var_matrix = curve_fit(bbfunc, pswav[valid].value, fden.value, p0=p0, sigma=fden_err.value, absolute_sigma=True)
+                    except RuntimeError:
+                        badfits += 1
+                        continue
+                    except ValueError:
+                        try:
+                            p0 = [10000,1.E-9]    
+                            coeff, var_matrix = curve_fit(bbfunc, pswav[valid].value, fden.value, p0=p0, sigma=fden_err.value, absolute_sigma=True)
+                        except RuntimeError:
+                            badfits += 1
+                            continue
+                        except ValueError:
+                            try:
+                                p0 = [5000,1.E-10]    
+                                coeff, var_matrix = curve_fit(bbfunc, pswav[valid].value, fden.value, p0=p0, sigma=fden_err.value, absolute_sigma=True)
+                            except RuntimeError:
+                                badfits += 1
+                                continue
+                            except ValueError:
+                                try:
+                                    p0 = [10000,1.E-10]    
+                                    coeff, var_matrix = curve_fit(bbfunc, pswav[valid].value, fden.value, p0=p0, sigma=fden_err.value, absolute_sigma=True)
+                                except RuntimeError:
+                                    badfits += 1
+                                    continue
+                                except ValueError:
+                                    badfits += 1
+                                    
+            # Get DUET fluences:        
+            duetfluence = bb_abmag_fluence(duet=duet, bbtemp=coeff[0]*u.K, bolflux=coeff[1]*fluxunit)
+            duetfluences.add_row([mags[0], mags[1], duetfluence[0], duetfluence[1]])
+        
+        else:
+            badstars += 1
+            
+    duetfluences.remove_row(0)
+    duetfluences['d1_fluence'].unit = u.ph/u.s/u.cm**2
+    duetfluences['d2_fluence'].unit = u.ph/u.s/u.cm**2
+        
+    return duetfluences, badstars, badfits
+
+    
