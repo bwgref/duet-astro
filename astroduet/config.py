@@ -37,11 +37,11 @@ class Telescope():
     apply_filters
 
     fluence_to_rate
-    
+
     rate_to_fluence
-    
+
     calc_snr
-    
+
     psf_model
 
     calc_psf_hpd
@@ -55,7 +55,7 @@ class Telescope():
     update_psf_vals
 
     update_bandpass
-    
+
     construct_epsf
 
     Attributes
@@ -95,6 +95,9 @@ class Telescope():
     eff_area : float
         Effective area computed using the eff_epd size.
 
+    filter_shift : [shift_1, shift_2], both quantities indicating length
+        Shift the redfilter windows by this amount. E.g. [0 * u.nm, 10 * u.nm]
+
     read_noise : float
         RMS noise in the detetors per frame read
 
@@ -103,11 +106,11 @@ class Telescope():
 
     diq_rms : float
         Astropy units value for microns of blur due to focus/mounting errors
-    
+
     pointing_rms : float
         Astropy units for PSF blur associated with the pointing instability.
         Given in arcseconds.
-        
+
     epsf_model : class 'photutils.psf.models.EPSFModel'
         2D fittable model for use by photutils.psf.DAOPhotPSFPhotometry
 
@@ -122,11 +125,13 @@ class Telescope():
 
     def __init__(self, config='minimum_mass'):
 
-        self.config_list = ['baseline', 'classic', 'minimum_mass', 
+        self.config_list = ['baseline', 'classic', 'minimum_mass',
             'fine_plate','equal_mass','largest_aperture', 'reduced_baseline']
 
         assert config in self.config_list, 'Bad config option "'+config+'"'
-            
+
+        self.filter_shift = [0 * u.nm, 0 * u.nm]
+
         if config == 'baseline':
             self.set_baseline()
         elif config == 'reduced_baseline':
@@ -141,22 +146,24 @@ class Telescope():
             self.set_equal_mass()
         elif config == 'largest_aperture':
             self.set_largest_aperature()
-        
+
         self.config=config
-            
+
         # Detector-specific values
         # Set QE files here:
         self.qe_files = {
             'description' : ['DUET 1 CBE QE', 'DUET 2 CBE QE'],
-            'names' : [datadir+'duet1_qe_20190518_v2.csv', datadir+'duet2_qe_20190518_v2.csv']
+            'names' : [datadir+'duet1_qe_20190518_v2.csv',
+                       datadir+'duet2_qe_20190518_v2.csv']
         }
-        
+
         self.transmission_file = datadir+'glass_transmission_20190518.csv'
 
         # Bandpass files here
         self.bandpass_files = {
             'description' : ['CBE DUET 1 Bandpass', 'CBE DUET 2 Bandpass'],
-            'names' : [datadir+'duet1_bandpass_20190518.csv', datadir+'duet2_bandpass_20190518.csv']
+            'names' : [datadir+'duet1_bandpass_20190518.csv',
+                       datadir+'duet2_bandpass_20190518.csv']
         }
 
         self.reflectivity_file = {
@@ -202,15 +209,28 @@ class Telescope():
         center_D2 = self.band2['eff_wave'].to(u.nm).value
         width_D2 = self.band2['eff_width'].to(u.nm).value
         self.bandpass2 =[center_D2 - 0.5*width_D2, center_D2+0.5*width_D2] * u.nm
-        
+
         # Construct fittable ePSF model
         self.construct_epsf()
 
+    def shift_filters(self, filter_shift):
+        """Shift the redfilter by this amount.
+
+        Parameters
+        ----------
+        filter_shift : [shift_1, shift_2], both quantities indicating length
+            Shift the redfilter windows by this amount. E.g. [0 * u.nm, 10 * u.nm]
+
+        """
+
+        self.filter_shift = filter_shift
+        self.update_bandpass()
+
     def set_baseline(self):
         '''Baseline configuration. Duplicate this with different values
-        and/or 
+        and/or
         '''
-    
+
         self.EPD = 26*u.cm
         self.eff_epd = 24.2*u.cm
         psf_fwhm_um = 6.7*u.micron
@@ -222,19 +242,19 @@ class Telescope():
 #        self.trans_eff = (0.975)**8 # from Jim.
         self.jitter_rms = 11.8 * u.micron * self.plate_scale
 
-        # Below are in 
+        # Below are in
         self.psf_params = {
         'sig':[2.08, 4.26]*u.arcsec,
         'amp':[1, 0.1]
         }
         # Computed by calc_psf_hpd, but hardcoded here.
         self.psf_fwhm = 10.5 * u.arcsec
-    
+
     def set_classic(self):
         '''Baseline configuration. Duplicate this with different values
-        and/or 
+        and/or
         '''
-    
+
         self.EPD = 26*u.cm
         self.eff_epd = 24.5*u.cm
         psf_fwhm_um = 6.7*u.micron
@@ -246,7 +266,7 @@ class Telescope():
 #        self.trans_eff = (0.975)**8 # from Jim.
         self.jitter_rms = 11.8 * u.micron * self.plate_scale
 
-        # Below are in 
+        # Below are in
         self.psf_params = {
         'sig':[3.2*u.micron*self.plate_scale],
         'amp':[1.0]
@@ -254,12 +274,12 @@ class Telescope():
 
         # Computed by calc_psf_fwhm, but hardcoded here for speed.
         self.psf_fwhm = 10.0 * u.arcsec
-    
+
     def set_minimum_mass(self):
-        '''Minimum mass configuration. 
-        
+        '''Minimum mass configuration.
+
         '''
-    
+
         self.EPD = 26*u.cm
         self.eff_epd = 24.5*u.cm
         psf_fwhm_um = 6.7*u.micron
@@ -276,17 +296,17 @@ class Telescope():
         'sig':[4.25*u.arcsec],
         'amp':[1.0]
         }
-        
+
         # Includes pointing jitter, computed by hand adding
         # above FWHM (13-arcsec) in quadrature with a 2.5-arcsec rms
         # pointing jitter
         self.psf_fwhm = 11.5 * u.arcsec
 
     def set_fine_plate(self):
-        '''Fine plate scale configuration. 
-        
+        '''Fine plate scale configuration.
+
         '''
-    
+
         self.EPD = 26*u.cm
         self.eff_epd = 23.9*u.cm
         psf_fwhm_um = 6.7*u.micron
@@ -306,10 +326,10 @@ class Telescope():
         self.psf_fwhm = 8.5 * u.arcsec
 
     def set_equal_mass(self):
-        '''Largest aperture configuration. 
-        
+        '''Largest aperture configuration.
+
         '''
-    
+
         self.EPD = 31.9*u.cm
         self.eff_epd = 30.0*u.cm
         psf_fwhm_um = 6.7*u.micron
@@ -328,12 +348,12 @@ class Telescope():
         # Computed by calc_psf_hpd, but hardcoded here.
         self.psf_fwhm = 9.5 * u.arcsec
 
-        
+
     def set_largest_aperature(self):
-        '''Largest aperture configuration. 
-        
+        '''Largest aperture configuration.
+
         '''
-    
+
         self.EPD = 33.8*u.cm
         self.eff_epd = 32.0*u.cm
         psf_fwhm_um = 6.7*u.micron
@@ -352,12 +372,12 @@ class Telescope():
         # Computed by calc_psf_hpd, but hardcoded here.
         self.psf_fwhm = 10.5 * u.arcsec
 
-        
+
     def set_reduced_baseline(self):
         '''Reduced baseline configuration. Duplicate this with different values
-        and/or 
+        and/or
         '''
-        
+
         reduction = 0.8
         self.EPD = 26*u.cm
         self.eff_epd = reduction*24.2*u.cm
@@ -376,7 +396,7 @@ class Telescope():
         }
         # Computed by calc_psf_hpd, but hardcoded here.
         self.psf_fwhm = 10.5 * u.arcsec
-        
+
 
 
     def info(self):
@@ -438,7 +458,7 @@ class Telescope():
         The python way, from Stack Overflow
         https://stackoverflow.com/questions/21242011/most-efficient-way-to-calculate-radial-profile
 
-        Returns the radial profile and the pixel size used to computer. 
+        Returns the radial profile and the pixel size used to computer.
 
         '''
         import numpy as np
@@ -518,10 +538,10 @@ class Telescope():
         ----------------
         Pixel size: float
             Pixel size for the PSF kernel. Default is self.pixel
-            
-        Accepts options keywords for astropy.convlution.Gaussian2DKernel 
+
+        Accepts options keywords for astropy.convlution.Gaussian2DKernel
         '''
-        
+
         if pixel_size is None:
             pixel_size = self.pixel
             force_renorm=False
@@ -534,7 +554,7 @@ class Telescope():
             else:
                 psf_model +=  n * Gaussian2DKernel( (s / pixel_size).to('').value, **kwargs)
                 force_renorm = True
-                
+
         if force_renorm is True:
             psf_model.normalize()
 
@@ -542,10 +562,10 @@ class Telescope():
         # 2019/06/03 turned off DIQ model (BG)
 #        diq_rms = self.diq_rms * self.plate_scale
         pointing_rms = self.pointing_rms
-        
+
 #        diq_model = Gaussian2DKernel( (diq_rms / pixel_size).to('').value, **kwargs)
         pointing_model = Gaussian2DKernel( (pointing_rms / pixel_size).to('').value, **kwargs)
-        
+
         with warnings.catch_warnings():
             warnings.simplefilter('ignore')  # Ignore warning for doctest
             model = convolve(psf_model, pointing_model)
@@ -653,7 +673,6 @@ class Telescope():
         >>> test = [0.27842462, 0.29616992]
         >>> allclose(band_flux, test)
         True
-
         """
 
         from astroduet.filters import load_reflectivity, load_qe, \
@@ -669,10 +688,11 @@ class Telescope():
         # Load filters
         ref_wave, reflectivity = load_reflectivity(infile = reflectivity_file, **kwargs)
         qe_wave, qe = load_qe(infile = qe_file, **kwargs)
-        red_wave, red_trans = load_redfilter(infile = bandpass_file, **kwargs)
+        red_wave, red_trans = \
+            load_redfilter(infile = bandpass_file,
+                           shift_by=self.filter_shift[band_ind], **kwargs)
         trans_wave, transmission = \
             load_transmission(infile=self.transmission_file, **kwargs)
-
 
         # Apply filters
         ref_flux = apply_trans(wave, spec, ref_wave, reflectivity)
@@ -680,40 +700,40 @@ class Telescope():
         trans_flux = apply_trans(wave, qe_flux, trans_wave, transmission)
         band_flux = apply_trans(wave, trans_flux, red_wave, red_trans)
         return band_flux
-        
+
     def __diq_budget(self):
         """Depricated place holder for the DIQ values.
-        
+
         Values taken as wraps from Roger's DIQ budget. Note that we track the PSF
         values separately, so the "as designed" PSF contribution is not captured
         here on purpose.
-        
+
         https://caltech-my.sharepoint.com/personal/romsmith_caltech_edu/Documents/DUET/DUET%20Optics/DUET%20DIQ%20budget%20straw-man.xlsx?web=1
-    
+
         """
         diq = {}
 #         diq['polishing_fab']= 0.45 * u.micron
 #         diq['optical_alignments'] = 2.65*u.micron
 #         diq['detector_fab'] = 1.9 * u.micron
-#         
-#         
+#
+#
 #         diq['pixel_diffusion'] = 2*u.micron
 #         diq['pixel_crosstalk'] = 0*u.micron
-# 
-#         diq['focus_stability'] = 1.58 * u.micron 
-#     
+#
+#         diq['focus_stability'] = 1.58 * u.micron
+#
         diq['wrap_error'] = 5.0*u.micron
 
 
-        # Add in quadrature.        
+        # Add in quadrature.
         rms_val = (0. * u.micron)**2
         for item in diq:
             rms_val += diq[item]**2
         rms_val = (rms_val)**0.5
-        
+
         self.diq_rms = rms_val
-        
-        
+
+
     def calc_snr(self, texp, src_rate, bgd_rate, nint = 1.0):
         """
 
@@ -755,20 +775,20 @@ class Telescope():
         nom = nint*src_rate * texp
         snr = nom / denom
         return snr
-    
+
     def construct_epsf(self):
         """
-        
-        Build the integrated PSF fittable model used by DAOPhot 
+
+        Build the integrated PSF fittable model used by DAOPhot
         and store it in self.epsf_model.
-        
+
         """
         # For best operation, kernel needs to be oversampled but only minimally
-        oversample = 2 
-        
+        oversample = 2
+
         # Get kernel - array size must be odd for convolution purposes
-        psf_os = self.psf_model(pixel_size=self.pixel/oversample, 
-                                x_size=15, y_size=15) 
+        psf_os = self.psf_model(pixel_size=self.pixel/oversample,
+                                x_size=15, y_size=15)
         self.epsf_model = EPSFModel(psf_os.array, oversampling=oversample,
                                     normalization_correction=1/oversample**2)
 
