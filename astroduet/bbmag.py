@@ -115,7 +115,10 @@ def sigerr(snr):
     import numpy as np
     import astropy.units as ur
 
-    sigma = 2.5*np.log10(1.+1./snr.value)*ur.ABmag
+    snrvals = snr.value
+    snrvals[snrvals <= 0] = 1e-16
+
+    sigma = 2.5*np.log10(1.+1./snrvals)*ur.ABmag
 
     return sigma
 

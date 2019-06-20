@@ -662,7 +662,7 @@ def lightcurve_through_image(lightcurve, exposure,
 
     good = (lightcurve['fluence_D1'] > 0) & (lightcurve['fluence_D2'] > 0)
     if not np.any(good):
-        log.warn("Light curve has no points with fluence > 0")
+        log.warning("Light curve has no points with fluence > 0")
         return
     lightcurve = lightcurve[good]
 
@@ -690,7 +690,11 @@ def lightcurve_through_image(lightcurve, exposure,
 
     log.info('Constructing reference images')
     # Make reference images (5 exposures)
-    nexp = 5
+    if final_resolution is not None:
+        nexp = int(np.rint(5 * final_resolution / exposure))
+    else:
+        nexp = 5
+
     ref_image1 = construct_image(frame, exposure, duet=duet,
                                  band=duet.bandpass1, gal_type=gal_type,
                                  gal_params=gal_params, sky_rate=bgd_band1,
@@ -725,7 +729,7 @@ def lightcurve_through_image(lightcurve, exposure,
                                               psf_fwhm_pix.value,
                                               method='daophot', background='1D', frame='diff')
     if len(star_tbl) < 1:
-        log.warn("No good detections in this field")
+        log.warning("No good detections in this field")
         return
 
     if debug:
