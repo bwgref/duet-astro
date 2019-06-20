@@ -7,8 +7,6 @@ def test_run_through_Telescope_methods():
     duet_offax = Telescope(config='reduced_baseline')
     duet.info()
     duet.update_bandpass()
-    duet.update_psf()
-    # duet.update_psf_vals()
     duet.calc_radial_profile()
     duet.calc_psf_fwhm()
     duet.update_effarea()
