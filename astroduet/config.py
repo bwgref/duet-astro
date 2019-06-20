@@ -67,16 +67,6 @@ class Telescope():
         The effective size of the entrance pupil (i.e. once corrected
         for vignetting, with Astropy units.
 
-    psf_fwhm : float
-        The FWHM of the PSF, with Astropy units.
-
-    psf_jitter : float
-        The contribution of the PSF to be added in quadrature with the psf_fwhm
-        due to spacecraft pointing jitter.
-
-    psf_size : float
-        psf_fwhm and psf_jitter added in quadrature with Astropy units.
-
     pixel : float
         Angular pixel size with Astropy units
 
@@ -104,12 +94,12 @@ class Telescope():
     plate_scale : float
         Astropy units value for arcsec / micron
 
-    diq_rms : float
-        Astropy units value for microns of blur due to focus/mounting errors
-
     pointing_rms : float
         Astropy units for PSF blur associated with the pointing instability.
         Given in arcseconds.
+
+    psf_fwhm : float
+        The FWHM of the PSF, with Astropy units. Pre-computed by calc_psf_fwhm().
 
     epsf_model : class 'photutils.psf.models.EPSFModel'
         2D fittable model for use by photutils.psf.DAOPhotPSFPhotometry
@@ -154,7 +144,7 @@ class Telescope():
         self.qe_files = {
             'description' : ['DUET 1 CBE QE', 'DUET 2 CBE QE'],
             'names' : [datadir+'duet1_qe_20190518_v2.csv',
-                       datadir+'duet2_qe_20190518_v2.csv']
+                       datadir+'duet2_qe_20190518_v3.csv']
         }
 
         self.transmission_file = datadir+'glass_transmission_20190518.csv'
@@ -172,29 +162,17 @@ class Telescope():
         }
 
         # Dark current given in e- per pixel per sec
-#        self.dark_current_downscale = 4.0
-#        self.dark_current = (0.046 / self.dark_current_downscale) * u.ph / u.s
-
         # Updated on 2019/06/03 end-of-life numbers at 0.5 krad from Rick
         self.dark_current = 1.4e-3 * u.ph / u.s # electrons / pixel / sec @ 190K
         # RMS value
         self.read_noise = 4 # e- RMS per read.
 
-        # Pointing jitter:
-        self.psf_jitter = 5*u.arcsec
 
         # Pointing jitter:
         self.pointing_rms = 2.5*u.arcsec
 
-        # Implement DIQ budget here
-#        self.diq_budget()
-
         # Compute the effective area
         self.update_effarea()
-
-        # Below just adds the pointing jitter in quadrature to the PSF FWHM.
-        # Not really used for anything...
-#        self.update_psf()
 
         # Compute the effective number of background pixels (this isn't used in as
         # many places and should be depricated moving forward.
@@ -238,10 +216,6 @@ class Telescope():
         self.plate_scale = 6.4*u.arcsec / pixel  # arcsec per micron
         self.pixel = self.plate_scale * pixel
 
-        # Transmission through the Schmidt plates
-#        self.trans_eff = (0.975)**8 # from Jim.
-        self.jitter_rms = 11.8 * u.micron * self.plate_scale
-
         # Below are in
         self.psf_params = {
         'sig':[2.08, 4.26]*u.arcsec,
@@ -262,9 +236,6 @@ class Telescope():
         self.plate_scale = 6.25*u.arcsec / pixel  # arcsec per micron
         self.pixel = self.plate_scale * pixel
 
-        # Transmission through the Schmidt plates
-#        self.trans_eff = (0.975)**8 # from Jim.
-        self.jitter_rms = 11.8 * u.micron * self.plate_scale
 
         # Below are in
         self.psf_params = {
@@ -286,10 +257,6 @@ class Telescope():
         pixel = 10*u.micron
         self.plate_scale = 6.56*u.arcsec / pixel  # arcsec per micron
         self.pixel = self.plate_scale * pixel
-        self.jitter_rms = 11.8 * u.micron * self.plate_scale
-
-        # Transmission through the Schmidt plates
-#        self.trans_eff = (0.975)**8 # from Jim.
 
         # From Jason, DUET1, field- and band-average CBE PSF 1-sigma:
         self.psf_params = {
@@ -314,10 +281,6 @@ class Telescope():
         self.plate_scale = 5.03*u.arcsec / pixel  # arcsec per micron
         self.pixel = self.plate_scale * pixel
 
-        # Transmission through the Schmidt plates
-#        self.trans_eff = (0.975)**8 # from Jim.
-        self.jitter_rms = 11.8 * u.micron * self.plate_scale
-
         self.psf_params = {
         'sig':[2.8*u.micron*self.plate_scale],
         'amp':[1]
@@ -337,9 +300,6 @@ class Telescope():
         self.plate_scale = 5.03*u.arcsec / pixel  # arcsec per micron
         self.pixel = self.plate_scale * pixel
 
-        # Transmission through the Schmidt plates
-#        self.trans_eff = (0.975)**8 # from Jim.
-        self.jitter_rms = 11.8 * u.micron * self.plate_scale
 
         self.psf_params = {
         'sig':[4.8*u.micron*self.plate_scale],
@@ -360,11 +320,7 @@ class Telescope():
         pixel = 10*u.micron
         self.plate_scale = 5.03*u.arcsec / pixel  # arcsec per micron
         self.pixel = self.plate_scale * pixel
-        self.jitter_rms = 10.0 * u.micron * self.plate_scale
-
-        # Transmission through the Schmidt plates
-#        self.trans_eff = (0.975)**8 # from Jim.
-
+        
         self.psf_params = {
         'sig':[6.0*u.micron*self.plate_scale],
         'amp':[1.0]
@@ -385,10 +341,6 @@ class Telescope():
         pixel = 10*u.micron
         self.plate_scale = 6.4*u.arcsec / pixel  # arcsec per micron
         self.pixel = self.plate_scale * pixel
-        self.jitter_rms = 11.8 * u.micron * self.plate_scale
-
-        # Transmission through the Schmidt plates
-#        self.trans_eff = (0.975)**8 # from Jim.
 
         self.psf_params = {
         'sig':[2.08, 4.26]*u.arcsec,
@@ -423,14 +375,14 @@ class Telescope():
         print(info_str)
         return info_str
 
-    def update_bandpass(self):
+    def update_bandpass(self, **kwargs):
         '''
         Update bandpass values based on whatever set of files are stores in
 
 
         '''
 
-        [self.band1, self.band2] = filter_parameters(duet=self)
+        [self.band1, self.band2] = filter_parameters(duet=self, **kwargs)
 
         center_D1 = self.band1['eff_wave'].to(u.nm).value
         width_D1 = self.band1['eff_width'].to(u.nm).value
@@ -439,19 +391,6 @@ class Telescope():
         center_D2 = self.band2['eff_wave'].to(u.nm).value
         width_D2 = self.band2['eff_width'].to(u.nm).value
         self.bandpass2 =[center_D2 - 0.5*width_D2, center_D2+0.5*width_D2] * u.nm
-
-    def update_psf_vals(self):
-        '''
-        Update paramters that are derived from other values.
-
-        This needs to still re-compute the PSF normalizations at some point, but
-        that's not implemented here.
-
-        '''
-        self.psf_params['norm'] = self.compute_psf_norms()
-        self.psf_fwhm = self.calc_psf_fwhm()
-        self.update_psf()
-        self.neff = get_neff(self.psf_fwhm, self.pixel)
 
     def calc_radial_profile(self):
         '''
@@ -504,9 +443,6 @@ class Telescope():
         fwhm = 2.0*(count_nonzero(above)*pix_size)
         return fwhm
 
-    def update_psf(self):
-        self.psf_size = sqrt(self.psf_fwhm**2 + self.psf_jitter**2)
-
     def update_effarea(self):
         self.eff_area = pi * (self.eff_epd*0.5)**2
 
@@ -558,12 +494,9 @@ class Telescope():
         if force_renorm is True:
             psf_model.normalize()
 
-        # Step 2: Add DIQ jitter and pointing jitter:
-        # 2019/06/03 turned off DIQ model (BG)
-#        diq_rms = self.diq_rms * self.plate_scale
+        # Step 2: Add pointing jitter:
         pointing_rms = self.pointing_rms
 
-#        diq_model = Gaussian2DKernel( (diq_rms / pixel_size).to('').value, **kwargs)
         pointing_model = Gaussian2DKernel( (pointing_rms / pixel_size).to('').value, **kwargs)
 
         with warnings.catch_warnings():
@@ -700,39 +633,6 @@ class Telescope():
         trans_flux = apply_trans(wave, qe_flux, trans_wave, transmission)
         band_flux = apply_trans(wave, trans_flux, red_wave, red_trans)
         return band_flux
-
-    def __diq_budget(self):
-        """Depricated place holder for the DIQ values.
-
-        Values taken as wraps from Roger's DIQ budget. Note that we track the PSF
-        values separately, so the "as designed" PSF contribution is not captured
-        here on purpose.
-
-        https://caltech-my.sharepoint.com/personal/romsmith_caltech_edu/Documents/DUET/DUET%20Optics/DUET%20DIQ%20budget%20straw-man.xlsx?web=1
-
-        """
-        diq = {}
-#         diq['polishing_fab']= 0.45 * u.micron
-#         diq['optical_alignments'] = 2.65*u.micron
-#         diq['detector_fab'] = 1.9 * u.micron
-#
-#
-#         diq['pixel_diffusion'] = 2*u.micron
-#         diq['pixel_crosstalk'] = 0*u.micron
-#
-#         diq['focus_stability'] = 1.58 * u.micron
-#
-        diq['wrap_error'] = 5.0*u.micron
-
-
-        # Add in quadrature.
-        rms_val = (0. * u.micron)**2
-        for item in diq:
-            rms_val += diq[item]**2
-        rms_val = (rms_val)**0.5
-
-        self.diq_rms = rms_val
-
 
     def calc_snr(self, texp, src_rate, bgd_rate, nint = 1.0):
         """

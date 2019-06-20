@@ -81,9 +81,8 @@ def load_qe(infile = None, **kwargs):
     >>> duet = Telescope()
     >>> band = 1
     >>> wave, qe = load_qe(infile=duet.qe_files['names'][band])
-    >>> allclose(qe[120], 0.7225539999999999)
+    >>> allclose(qe[120], 0.841579)
     True
-
 
     """
     import numpy as np
@@ -93,15 +92,6 @@ def load_qe(infile = None, **kwargs):
 
     assert infile is not None, 'load_qe: Provide an input QE file'
 
-#
-#     if band == 1:
-#         infile = os.path.join(datadir, 'detector_180_220nm.csv')
-#     elif band == 2:
-#         infile = os.path.join(datadir, 'detector_260_300nm.csv')
-#     elif band == 3:
-#         infile = os.path.join(datadir, 'detector_340_380nm.csv')
-#     else:
-#         raise ValueError('band number not recognized')
     data = np.genfromtxt(infile, skip_header=2, delimiter=',')
 
 
@@ -109,31 +99,6 @@ def load_qe(infile = None, **kwargs):
     qe = data[:,3] / 100.
 
 
-#     f = open(infile, 'r')
-#     header = True
-#     qe = {}
-#     set = False
-#     for line in f:
-#         if header:
-#             header = False
-#             continue
-#         fields = line.split(',')
-#         if not set:
-#             wave = float(fields[0])
-#             qe = float(fields[3])
-#             set = True
-#         else:
-#             wave = np.append(wave, float(fields[0]))
-#             qe = np.append(qe, float(fields[3]))
-#
-#     f.close()
-#
-#     # Give wavelength a unit
-#     wave *= u.nm
-#
-#     if diag:
-#         print('Detector Q.E. loader')
-#         print('Band {} has input file {}'.format(band, infile))
 
 
     return wave, qe
@@ -324,84 +289,6 @@ def apply_trans(wav_s, flux_s, wav_t, trans, **kwargs):
 
     return flux_corr
 
-# def apply_filters(wave, spec, qe_file=None,
-#         reflectivity_file=None, bandpass_file = None,
-#         **kwargs):
-#     """
-#
-#     Applies the reflectivity, QE, and red-filter based on the input files
-#     in the data subdirectory. See the individual scripts or set diag=True
-#     to see what filters are beign used.
-#
-#     Parameters
-#     ----------
-#     wave : float array
-#         The array containing the wavelengths of the spcetrum
-#
-#     spec : float array
-#         The spectrum that you want to filter.
-#
-#     qe_file : string
-#         Pathname to the QE file that you qant to use.
-#
-#     reflectivity_file : string
-#         Pathname to the QE file that you qant to use.
-#
-#
-#
-#     Optional Parameters
-#     ----------
-#     band : int
-#         Which band to use. Default is band=1, but this is set (poorly) in
-#         the lower-level scripts, so it's al little opaque here.
-#         Can be 1 or 2.
-#
-#
-#
-#     Returns
-#     -------
-#     band_flux : float array
-#         The spectrum after the filtering has been applied. Will have the
-#         same length as "spec".
-#
-#
-#     Examples
-#     --------
-#     >>> from astroduet.config import Telescope
-#     >>> duet = Telescope()
-#     >>> wave = [190, 200]*u.nm
-#     >>> spec = [1, 1]
-#     >>> band_flux = apply_filters(wave, spec, \
-#         qe_file = duet.qe_files['names'][0], \
-#         reflectivity_file = duet.reflectivity_file['name'], \
-#         bandpass_file = duet.bandpass_files['names'][0])
-#     >>> test = [0.20659143, 0.37176641]
-#     >>> allclose(band_flux, test)
-#     True
-#
-#     """
-#
-#
-#
-#
-#     assert qe_file is not None, 'apply_filters: Need an input QE file'
-#     assert reflectivity_file is not None, 'apply_filters: Need an input reflectivity file'
-#     assert bandpass_file is not None, 'apply_filters: Need an input bandpass file'
-#
-#
-#     # Load filters
-#     ref_wave, reflectivity = load_reflectivity(infile = reflectivity_file, **kwargs)
-#     qe_wave, qe = load_qe(infile = qe_file, **kwargs)
-#     red_wave, red_trans = load_redfilter(infile = bandpass_file, **kwargs)
-#
-#     # Apply filters
-#     ref_flux = apply_trans(wave, spec, ref_wave, reflectivity)
-#     qe_flux = apply_trans(wave, ref_flux, qe_wave, qe)
-#     band_flux = apply_trans(wave, qe_flux, red_wave, red_trans)
-#
-#     return band_flux
-
-
 def filter_parameters(duet=None, *args, **kwargs):
     """
     Construct the effective central wavelength and the effective bandpass
@@ -453,8 +340,8 @@ def filter_parameters(duet=None, *args, **kwargs):
 
 
 
-    band1 = duet.apply_filters(wave, flux, band=1)
-    band2 = duet.apply_filters(wave, flux, band=2)
+    band1 = duet.apply_filters(wave, flux, band=1, **kwargs)
+    band2 = duet.apply_filters(wave, flux, band=2, **kwargs)
 
 
     λ_eff1 = ((band1*wave).sum() / (band1.sum())).to(u.nm)
