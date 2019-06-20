@@ -445,7 +445,7 @@ def fits_file(file):
 
     outfile = datadir+'/'+sname+'_lightcurve_DUET.fits'
     if not os.path.exists(outfile):
-        log.warn(f"{outfile} does not exist. Creating it now.")
+        log.warning(f"{outfile} does not exist. Creating it now.")
         sims = Simulations()
         sims.parse_emgw()
 
@@ -537,7 +537,7 @@ def load_bai(**kwargs):
 
             rad = np.append(this_rad, rad)
     #        break
-    f.close()
+    f2.close()
 
     bai_table = Table(
         [pgc, dist, fuv, nuv, rad, morph],
