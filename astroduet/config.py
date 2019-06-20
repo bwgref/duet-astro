@@ -392,17 +392,16 @@ class Telescope():
         width_D2 = self.band2['eff_width'].to(u.nm).value
         self.bandpass2 =[center_D2 - 0.5*width_D2, center_D2+0.5*width_D2] * u.nm
 
-    def calc_radial_profile(self):
+    def calc_radial_profile(self, pix_size = 0.1*u.arcsec):
         '''
         The python way, from Stack Overflow
         https://stackoverflow.com/questions/21242011/most-efficient-way-to-calculate-radial-profile
 
-        Returns the radial profile and the pixel size used to computer.
+        Returns the radial profile and the pixel size used to compute the PSF FWHM.
 
         '''
         import numpy as np
 
-        pix_size = 0.1 * u.arcsec
         # Cover +/- 25 arcsec
         cover = 25 * u.arcsec
         nbins = np.floor(( 2 * (cover / pix_size).value)) + 1
