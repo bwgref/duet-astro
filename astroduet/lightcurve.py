@@ -502,7 +502,7 @@ def construct_images_from_lightcurve(lightcurve, exposure, duet=None,
                                      frame=np.array([30, 30]),
                                      debug=False,
                                      debugfilename='lightcurve.hdf5',
-                                     low_zodi=True,
+                                     zodi='low',
                                      silent=False):
     """
     Examples
@@ -530,8 +530,18 @@ def construct_images_from_lightcurve(lightcurve, exposure, duet=None,
         tqdm = imported_tqdm
 
     with suppress_stdout():
-        [bgd_band1, bgd_band2] = background_pixel_rate(duet, low_zodi=low_zodi,
-                                                       diag=True)
+        if zodi == 'low':
+            [bgd_band1, bgd_band2] = background_pixel_rate(duet, 
+                                                           low_zodi=True,
+                                                           diag=True)
+        elif zodi == 'med':
+            [bgd_band1, bgd_band2] = background_pixel_rate(duet, 
+                                                           med_zodi=True,
+                                                           diag=True)
+        elif zodi == 'high':
+            [bgd_band1, bgd_band2] = background_pixel_rate(duet, 
+                                                           high_zodi=True,
+                                                           diag=True)
 
     lightcurve['imgs_D1'] = \
         np.zeros((len(lightcurve), frame[0], frame[1])) * u.ph / u.s
@@ -590,7 +600,7 @@ def lightcurve_through_image(lightcurve, exposure,
                              duet=None,
                              gal_type=None, gal_params=None,
                              debug=False, debugfilename='lightcurve',
-                             silent=False):
+                             silent=False,zodi='low'):
     """Transform a theoretical light curve into a flux measurement.
 
     1. Take the values of a light curve, optionally rebin it to a new time
@@ -627,6 +637,8 @@ def lightcurve_through_image(lightcurve, exposure,
         File to save the light curves to
     silent : bool
         Suppress progress bars
+    zodi : string
+        Either 'low', 'med', or 'high'
 
     Returns
     -------
@@ -648,8 +660,19 @@ def lightcurve_through_image(lightcurve, exposure,
             duet = Telescope()
 
     with suppress_stdout():
-        [bgd_band1, bgd_band2] = background_pixel_rate(duet, low_zodi=True,
-                                                       diag=True)
+        if zodi == 'low':
+            [bgd_band1, bgd_band2] = background_pixel_rate(duet, 
+                                                           low_zodi=True,
+                                                           diag=True)
+        elif zodi == 'med':
+            [bgd_band1, bgd_band2] = background_pixel_rate(duet, 
+                                                           med_zodi=True,
+                                                           diag=True)
+        elif zodi == 'high':
+            [bgd_band1, bgd_band2] = background_pixel_rate(duet, 
+                                                           high_zodi=True,
+                                                           diag=True)
+            
     # Directory for debugging purposes
     if debugfilename != 'lightcurve':
         debugdir = os.path.join('debug_imgs',debugfilename)
@@ -671,7 +694,7 @@ def lightcurve_through_image(lightcurve, exposure,
             lightcurve, exposure, duet=duet, gal_type=gal_type,
             gal_params=gal_params, frame=frame, debug=debug,
             debugfilename=os.path.join(debugdir, debugfilename+'.hdf5'),
-            low_zodi=True, silent=silent)
+            zodi=zodi, silent=silent)
 
     total_image_rate1 = np.sum(lightcurve['imgs_D1'], axis=0)
     total_image_rate2 = np.sum(lightcurve['imgs_D2'], axis=0)
