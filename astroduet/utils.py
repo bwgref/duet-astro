@@ -586,13 +586,13 @@ def panstarrs_to_duet(panmags, duet=None):
     
     # Loop over stars:
     for i, star in enumerate(panmags):
-        # Replace bad values with nan:
-        star[star==-999.] = np.nan
-        # Order and convert to magnitudes
-        mags = star[::2]*u.ABmag
+        # Extract magnitudes values
+        mags = star[::2]
+        # Find valid values
+        valid = ~(mags==-999)
+        # Convert to magnitudes
+        mags = mags*u.ABmag
         magerrs = star[1::2]
-        # Find valid values:
-        valid = ~(np.isnan(mags))
         
         # Convert to flux densities
         fden = mags[valid].to(FLAM,equivalencies=u.spectral_density(pswav[valid]))
