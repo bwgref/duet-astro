@@ -18,3 +18,4 @@ notebooks/debug_imgs*
 notebooks/*hdf5
 htmlcov/
 notebooks/*.csv
+notebooks/*.png
