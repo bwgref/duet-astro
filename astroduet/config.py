@@ -287,7 +287,7 @@ class Telescope():
         '''
 
         self.EPD = 26*u.cm
-        self.eff_epd = 20.49*u.cm
+        self.eff_epd = 20.498*u.cm
         psf_fwhm_um = 6.7*u.micron
         pixel = 10*u.micron
         self.plate_scale = 6.56*u.arcsec / pixel  # arcsec per micron
