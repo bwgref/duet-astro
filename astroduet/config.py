@@ -117,7 +117,8 @@ class Telescope():
 
         self.config_list = ['baseline', 'classic', 'minimum_mass',
             'fine_plate','equal_mass','largest_aperture', 'reduced_baseline',
-            'minimum_mass_50', 'minimum_mass_75']
+            'minimum_mass_50', 'minimum_mass_75', 'minimum_mass_requirement',
+            'minimum_mass_threshold']
 
         assert config in self.config_list, 'Bad config option "'+config+'"'
 
@@ -145,6 +146,10 @@ class Telescope():
             self.set_minimum_mass_50()
         elif config == 'minimum_mass_75':
             self.set_minimum_mass_75()
+        elif config == 'minimum_mass_requirement':
+            self.set_minimum_mass_requirement()
+        elif config == 'minimum_mass_threshold':
+            self.set_minimum_mass_threshold()
 
         self.config=config
 
@@ -260,6 +265,52 @@ class Telescope():
 
         self.EPD = 26*u.cm
         self.eff_epd = 24.5*u.cm
+        psf_fwhm_um = 6.7*u.micron
+        pixel = 10*u.micron
+        self.plate_scale = 6.56*u.arcsec / pixel  # arcsec per micron
+        self.pixel = self.plate_scale * pixel
+
+        # From Jason, DUET1, field- and band-average CBE PSF 1-sigma:
+        self.psf_params = {
+        'sig':[4.25*u.arcsec],
+        'amp':[1.0]
+        }
+
+        # Includes pointing jitter, computed by hand adding
+        # above FWHM (13-arcsec) in quadrature with a 2.5-arcsec rms
+        # pointing jitter
+        self.psf_fwhm = 11.5 * u.arcsec
+        
+    def set_minimum_mass_requirement(self):
+        '''Minimum mass configuration.
+
+        '''
+
+        self.EPD = 26*u.cm
+        self.eff_epd = 20.49*u.cm
+        psf_fwhm_um = 6.7*u.micron
+        pixel = 10*u.micron
+        self.plate_scale = 6.56*u.arcsec / pixel  # arcsec per micron
+        self.pixel = self.plate_scale * pixel
+
+        # From Jason, DUET1, field- and band-average CBE PSF 1-sigma:
+        self.psf_params = {
+        'sig':[4.25*u.arcsec],
+        'amp':[1.0]
+        }
+
+        # Includes pointing jitter, computed by hand adding
+        # above FWHM (13-arcsec) in quadrature with a 2.5-arcsec rms
+        # pointing jitter
+        self.psf_fwhm = 11.5 * u.arcsec
+
+    def set_minimum_mass_threshold(self):
+        '''Minimum mass configuration.
+
+        '''
+
+        self.EPD = 26*u.cm
+        self.eff_epd = 15.495*u.cm
         psf_fwhm_um = 6.7*u.micron
         pixel = 10*u.micron
         self.plate_scale = 6.56*u.arcsec / pixel  # arcsec per micron
