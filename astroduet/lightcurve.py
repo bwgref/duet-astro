@@ -531,15 +531,15 @@ def construct_images_from_lightcurve(lightcurve, exposure, duet=None,
 
     with suppress_stdout():
         if zodi == 'low':
-            [bgd_band1, bgd_band2] = background_pixel_rate(duet, 
+            [bgd_band1, bgd_band2] = background_pixel_rate(duet,
                                                            low_zodi=True,
                                                            diag=True)
         elif zodi == 'med':
-            [bgd_band1, bgd_band2] = background_pixel_rate(duet, 
+            [bgd_band1, bgd_band2] = background_pixel_rate(duet,
                                                            med_zodi=True,
                                                            diag=True)
         elif zodi == 'high':
-            [bgd_band1, bgd_band2] = background_pixel_rate(duet, 
+            [bgd_band1, bgd_band2] = background_pixel_rate(duet,
                                                            high_zodi=True,
                                                            diag=True)
 
@@ -553,7 +553,8 @@ def construct_images_from_lightcurve(lightcurve, exposure, duet=None,
     lightcurve['imgs_D2_bkgsub'] = \
         np.zeros((len(lightcurve), frame[0], frame[1])) * u.ph / u.s
 
-    log.info('Creating images')
+    if not silent:
+        log.info('Creating images')
     for i, row in enumerate(tqdm(lightcurve)):
         fl1 = duet.fluence_to_rate(row['fluence_D1'])
         fl2 = duet.fluence_to_rate(row['fluence_D2'])
@@ -600,7 +601,8 @@ def lightcurve_through_image(lightcurve, exposure,
                              duet=None,
                              gal_type=None, gal_params=None,
                              debug=False, debugfilename='lightcurve',
-                             silent=False,zodi='low'):
+                             silent=False,zodi='low',
+                             ignore_low_check=False):
     """Transform a theoretical light curve into a flux measurement.
 
     1. Take the values of a light curve, optionally rebin it to a new time
@@ -661,18 +663,18 @@ def lightcurve_through_image(lightcurve, exposure,
 
     with suppress_stdout():
         if zodi == 'low':
-            [bgd_band1, bgd_band2] = background_pixel_rate(duet, 
+            [bgd_band1, bgd_band2] = background_pixel_rate(duet,
                                                            low_zodi=True,
                                                            diag=True)
         elif zodi == 'med':
-            [bgd_band1, bgd_band2] = background_pixel_rate(duet, 
+            [bgd_band1, bgd_band2] = background_pixel_rate(duet,
                                                            med_zodi=True,
                                                            diag=True)
         elif zodi == 'high':
-            [bgd_band1, bgd_band2] = background_pixel_rate(duet, 
+            [bgd_band1, bgd_band2] = background_pixel_rate(duet,
                                                            high_zodi=True,
                                                            diag=True)
-            
+
     # Directory for debugging purposes
     if debugfilename != 'lightcurve':
         debugdir = os.path.join('debug_imgs',debugfilename)
@@ -684,10 +686,11 @@ def lightcurve_through_image(lightcurve, exposure,
         mkdir_p(debugdir)
 
     good = (lightcurve['fluence_D1'] > 0) & (lightcurve['fluence_D2'] > 0)
-    if not np.any(good):
-        log.warning("Light curve has no points with fluence > 0")
-        return
-    lightcurve = lightcurve[good]
+    if not ignore_low_check:
+        if not np.any(good):
+            log.warning("Light curve has no points with fluence > 0")
+            return
+        lightcurve = lightcurve[good]
 
     lightcurve = \
         construct_images_from_lightcurve(
@@ -750,7 +753,8 @@ def lightcurve_through_image(lightcurve, exposure,
     with suppress_stdout():
         star_tbl, bkg_image, threshold = find(diff_total_image,
                                               psf_fwhm_pix.value,
-                                              method='daophot', background='1D', frame='diff')
+                                              method='daophot',
+                                              background='1D', frame='diff')
     if len(star_tbl) < 1:
         log.warning("No good detections in this field")
         return
