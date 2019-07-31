@@ -37,7 +37,8 @@ class Simulations():
             'kilonova_0.02.dat',
             'kilonova_0.04.dat']
         self.sne_simulations = ['IIb', 'IIP', 'IIP_big', 'stripped']
-        self.sne_rsg_simulations = ['rsg400.dat',
+        self.sne_rsg_simulations = ['rsg700_long.dat',
+            'rsg400.dat',
             'rsg450.dat',
             'rsg500.dat',
             'rsg550.dat',

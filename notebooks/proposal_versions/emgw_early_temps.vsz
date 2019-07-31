@@ -1,5 +1,5 @@
 # Veusz saved document (version 3.0)
-# Saved at 2019-07-03T23:23:58.783282
+# Saved at 2019-07-20T16:52:01.201740
 
 AddImportPath(u'/Users/bwgref/science/local/git/duet-astro/notebooks')
 ImportFile(u'emgw_early_temps.txt', u'wave f1 f2', linked=True, prefix=u'emgw_early_temps.txt')
@@ -11,6 +11,7 @@ Set('StyleSheet/Line/color', u'black')
 Set('StyleSheet/Font/font', u'Times New Roman')
 Set('StyleSheet/Font/size', u'10pt')
 Set('StyleSheet/Font/color', u'black')
+Set('StyleSheet/axis-function/autoRange', u'next-tick')
 Set('StyleSheet/bar/BarFill/fills', [('solid', 'grey', False)])
 Set('StyleSheet/boxplot/Fill/color', u'white')
 Set('StyleSheet/boxplot/Fill/backcolor', u'white')
@@ -87,7 +88,7 @@ Set('MajorTicks/number', 10)
 To('..')
 Add('axis', name=u'y', autoadd=False)
 To(u'y')
-Set('label', u'Flux Density (x1e-15 ergs cm^{-2} A^{-1} s^{-1})')
+Set('label', u'Flux Density (10^{-15} ergs cm^{-2} A^{-1} s^{-1})')
 Set('datascale', 1000000000000000.0)
 Set('direction', u'vertical')
 Set('Label/font', u'Helvetica')
