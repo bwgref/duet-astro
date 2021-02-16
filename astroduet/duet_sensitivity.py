@@ -82,7 +82,7 @@ def bgd_electronics(exposure, **kwargs):
     Optional inputs:
 
     dark_current = Dark current in electrons per pixel per second (0.065)
-    read noise = read noise in eelcetrons per frame (33)
+    read noise = read noise in elcetrons per frame (33)
 
     Returns: Number of background electrons
 

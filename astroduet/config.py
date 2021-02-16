@@ -118,7 +118,7 @@ class Telescope():
         self.config_list = ['baseline', 'classic', 'minimum_mass',
             'fine_plate','equal_mass','largest_aperture', 'reduced_baseline',
             'minimum_mass_50', 'minimum_mass_75', 'minimum_mass_requirement',
-            'minimum_mass_threshold']
+            'minimum_mass_threshold', 'midex']
 
         assert config in self.config_list, 'Bad config option "'+config+'"'
 
@@ -150,6 +150,10 @@ class Telescope():
             self.set_minimum_mass_requirement()
         elif config == 'minimum_mass_threshold':
             self.set_minimum_mass_threshold()
+        elif config == 'midex':
+            self.set_midex()
+
+
 
         self.config=config
 
@@ -465,6 +469,29 @@ class Telescope():
         }
         # Computed by calc_psf_hpd, but hardcoded here.
         self.psf_fwhm = 10.5 * u.arcsec
+
+
+    def set_midex(self):
+        '''Reduced baseline configuration. Duplicate this with different values
+        and/or
+        '''
+
+#        reduction = 0.8
+        self.EPD = 50*u.cm
+        self.eff_epd = reduction*self.EPD
+        psf_fwhm_um = 20.*u.micron
+        pixel = 10*u.micron
+        self.plate_scale = 1*u.arcsec / pixel  # arcsec per micron
+        self.pixel = self.plate_scale * pixel
+
+        self.psf_params = {
+        'sig':[2.08, 4.26]*u.arcsec,
+        'amp':[1, 0.1]
+        }
+        # Computed by calc_psf_hpd, but hardcoded here.
+        self.psf_fwhm = 2. * u.arcsec
+
+        self.read_noise = 2 # e- RMS per read.
 
 
 
